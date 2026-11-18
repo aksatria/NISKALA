@@ -1,36 +1,35 @@
 # NISKALA
 
-Network Intrusion & Security Kit for Analysis, Learning & Assessment
+### Network Intrusion & Security Kit for Analysis, Learning & Assessment
 
-## 📁 Struktur Project
+![Version](https://img.shields.io/badge/version-3.1-brightgreen)  
+![Platform](https://img.shields.io/badge/platform-ESP32-blue)  
+![License](https://img.shields.io/badge/license-Educational-red)
+
+## Project Structure
 
 ```text
 TTGO-T-Display-ESP32/
-├── .pio/
-├── .vscode/
-├── lib/
-├── src/
-│   ├── attack_engine.h
-│   ├── bt_spam.h
-│   ├── disclaimer.h
-│   ├── karma.h
-│   ├── main.cpp
-│   ├── templates.h
-│   └── wifi_bypass.c
-├── .gitignore
-├── LICENSE
-├── platformio.ini
-└── README.md
+|-- .pio/
+|-- .vscode/
+|-- lib/
+|-- src/
+|   |-- attack_engine.h
+|   |-- bt_spam.h
+|   |-- disclaimer.h
+|   |-- karma.h
+|   |-- main.cpp
+|   |-- templates.h
+|   `-- wifi_bypass.c
+|-- .gitignore
+|-- LICENSE
+|-- platformio.ini
+`-- README.md
 ```
 
-> Folder `.pio/` dan `.vscode/` adalah folder lokal dan diabaikan oleh Git.
+> Folder `.pio/` dan `.vscode/` digunakan secara lokal dan diabaikan oleh Git.
 
-
-https://img.shields.io/badge/version-3.1-brightgreen
-https://img.shields.io/badge/platform-ESP32-blue
-https://img.shields.io/badge/license-Educational-red
-
-⚠️ PERINGATAN HUKUM — BACA DULU
+## PERINGATAN HUKUM — BACA DULU
 NISKALA adalah alat audit keamanan WiFi untuk tujuan EDUKASI dan PENGUJIAN.
 
 Alat ini HANYA BOLEH digunakan pada:
@@ -51,7 +50,7 @@ Di Indonesia, tindakan tersebut dapat dikenakan UU ITE Pasal 30 & 46 serta UU Te
 
 Penulis tidak bertanggung jawab atas penyalahgunaan alat ini. Semua risiko ditanggung pengguna.
 
-📖 Tentang NISKALA
+## 📖 Tentang NISKALA
 NISKALA (dibaca: nis-ka-la) adalah firmware penetration testing WiFi berbasis ESP32 dengan layar TFT dan navigasi 2 tombol. Nama ini diambil dari kata Sanskerta niścala (निश्चल) yang berarti "tenang, tak tergoyahkan" — melambangkan alat yang diam-diam mengumpulkan informasi tanpa terdeteksi.
 
 Alat ini menggabungkan sembilan modul serangan WiFi dan Bluetooth ke dalam satu antarmuka ringkas dengan animasi real-time, cocok untuk:
@@ -64,7 +63,7 @@ Riset keamanan wireless (WPA2/WPA3, PMF, captive portal)
 
 CTF dan lab cybersecurity
 
-✨ Fitur Lengkap
+## ✨ Fitur Lengkap
 #	Modul	Deskripsi
 1	Deauth Manual	Kirim paket deauthentication ke target AP dengan tracking MAC korban otomatis
 2	Evil Twin	Clone SSID target + captive portal palsu untuk menangkap password WiFi
@@ -75,7 +74,8 @@ CTF dan lab cybersecurity
 7	Bluetooth Spam	Rotasi 3 payload Apple BLE (Sour Apple, Nearby Setup, Nearby WiFi)
 8	Password Vault	Lihat & kelola password yang berhasil tertangkap (tersimpan di NVS)
 9	Karma Attack	Respond ke probe request klien dengan SSID yang mereka cari
-Fitur Pendukung
+### Fitur Pendukung
+
 ✅ Deteksi PMF/WPA3 — modul deauth otomatis menolak target yang dilindungi PMF
 
 ✅ Verifikasi password — Evil Twin mencoba login ke AP asli untuk memvalidasi hasil tangkapan (maks. 5 percobaan)
@@ -88,19 +88,20 @@ Fitur Pendukung
 
 ✅ Disclaimer berlapis — 2 layar konfirmasi sebelum masuk menu
 
-🛠️ Kebutuhan Hardware
+## 🛠️ Kebutuhan Hardware
 Komponen	Spesifikasi	Keterangan
 MCU	ESP32 (ESP32-WROOM / DevKit)	Wajib mendukung WiFi + BLE
 Display	TFT 1.8" ST7735 128×160 atau 2.8" ILI9341 240×320	Konfigurasi di TFT_eSPI/User_Setup.h
 Tombol	2× tactile button	BTN_TOP = GPIO 0 (boot button), BTN_BOTTOM = GPIO 35
 Catu daya	USB 5V atau Li-Po 3.7V + boost	Konsumsi ~200–350 mA saat aktif
 Opsional	Antena eksternal 2.4 GHz	Untuk jangkauan lebih luas
-Wiring Tombol
-text
+### Wiring Tombol
+
+```
 BTN_TOP    ──── GPIO 0   ──── GND   (internal pull-up)
 BTN_BOTTOM ──── GPIO 35  ──── GND   (internal pull-up)
 TFT        ──── SPI (lihat User_Setup.h TFT_eSPI)
-🚀 Instalasi & Build
+## 🚀 Instalasi & Build
 1. Prasyarat
 Arduino IDE 2.x atau PlatformIO
 
@@ -108,14 +109,14 @@ Board package ESP32 versi 2.0.11 atau lebih baru (untuk esp_wifi_80211_tx)
 
 Library berikut (install via Library Manager):
 
-text
+```
 TFT_eSPI       by Bodmer
 ESP32 BLE      (bundled dengan board package)
 DNSServer, WebServer, Preferences, WiFi, ESPmDNS  (bundled)
 2. Konfigurasi TFT_eSPI
 Edit libraries/TFT_eSPI/User_Setup.h sesuai layar Anda. Contoh untuk ST7735 1.8":
 
-cpp
+```cpp
 #define ST7735_DRIVER
 #define TFT_WIDTH  128
 #define TFT_HEIGHT 160
@@ -131,7 +132,7 @@ Ubah tft.setRotation(1) di setup() jika orientasi layar berbeda. Firmware diranc
 3. Build firmware
 Firmware terdiri dari file berikut (semua harus di folder sketch yang sama):
 
-text
+```
 NISKALA/
 ├── NISKALA.ino       (rename dari main.cpp)
 ├── attack_engine.h   (mesin serangan + frame builder)
@@ -143,13 +144,13 @@ NISKALA/
 Penting: File wifi_bypass.c berisi stub ieee80211_raw_frame_sanity_check yang di-override untuk melewati pemeriksaan internal IDF. Tanpa file ini, esp_wifi_80211_tx akan menolak frame deauth di IDF versi baru. Pastikan file .c ini ikut di-compile.
 
 4. Flash
-bash
+```bash
 # Arduino IDE: pilih board "ESP32 Dev Module", upload.
 # PlatformIO:
 pio run -t upload
-📱 Cara Pemakaian
-Boot Sequence
-text
+## 📱 Cara Pemakaian
+### Boot Sequence
+```
 1. Splash screen "NISKALA v3.1" — loading bar
 2. Disclaimer hukum (layar merah)
    → Tekan tombol apa saja untuk lanjut
@@ -157,13 +158,13 @@ text
    → ATAS = Batal (ulang disclaimer)
    → BAWAH = Setuju (masuk menu utama)
 4. Menu Utama muncul
-Navigasi Dasar
+### Navigasi Dasar
 Tombol	Fungsi
 ATAS (GPIO 0)	Scroll pilihan ke atas / pilih item sebelumnya
 BAWAH (GPIO 35)	Konfirmasi / pilih item / start-stop
-Modul per Modul
+### Modul per Modul
 🎯 1. Deauth Manual
-text
+```
 Menu → DEAUTH MANUAL → (scan AP) → pilih AP target → tekan BAWAH untuk start
 Setelah start, NISKALA akan:
 
@@ -178,7 +179,7 @@ Tekan BAWAH = Stop / Start ulang · ATAS = Keluar
 ⚠️ Jika target WPA3/PMF terdeteksi, menu akan menolak sebelum start.
 
 🎭 2. Evil Twin (Captive Portal)
-text
+```
 Menu → EVIL TWIN → pilih AP target → pilih template → auto-start
 Alur lengkap:
 
@@ -217,7 +218,7 @@ Setelah klien masuk → Menunggu password...
 Template HTML ada di templates.h. Anda bisa tambahkan template baru (misalnya halaman login kantor, hotel, kafe) dengan mengikuti pola html_generic.
 
 📡 3. Beacon Spam
-text
+```
 Menu → BEACON SPAM → auto-start
 Broadcast 16 SSID palsu bergiliran tiap BEACON_HOP_MS (100 ms):
 
@@ -228,7 +229,7 @@ Channel hop otomatis 1→13
 Bisa membuat HP sekitar menampilkan puluhan jaringan palsu (troll / distraction)
 
 🔍 4. Probe Sniff
-text
+```
 Menu → PROBE SNIFF → auto-start
 Capture probe request dari HP/device sekitar
 
@@ -239,7 +240,7 @@ Cocok untuk wardriving pasif — mengintip nama WiFi yang dicari orang
 Daftar SSID target juga bisa jadi bahan untuk Karma attack (lihat modul 9)
 
 🌐 5. Global Deauth
-text
+```
 Menu → GLOBAL DEAUTH → auto-start
 Broadcast deauth ke alamat broadcast (FF:FF:FF:FF:FF:FF)
 
@@ -250,7 +251,7 @@ Tidak menargetkan AP tertentu (wide-area denial)
 Dampak luas, gunakan hanya di lab (mudah ketahuan & melanggar hukum)
 
 💥 6. Auth Flood
-text
+```
 Menu → AUTH FLOOD → pilih AP target → auto-start
 Kirim 20 auth frame per 10 ms dengan MAC sumber acak
 
@@ -259,7 +260,7 @@ Membanjiri client table AP target → AP bisa freeze / deny service ke klien asl
 Menampilkan hitungan paket real-time
 
 📶 7. Bluetooth Spam
-text
+```
 Menu → BLUETOOTH SPAM → auto-start
 Mematikan WiFi, mengaktifkan BLE
 
@@ -273,7 +274,7 @@ Interval rotasi 80 ms
 Efek: HP di sekitar menampilkan popup pairing palsu / notification spam
 
 🔐 8. Password Vault
-text
+```
 Menu → PASSWORD
 Menampilkan daftar email | password | status
 
@@ -288,7 +289,7 @@ Data tersimpan di NVS dengan key pwd_0, pwd_1, dst.
 Format data di NVS: email|password|1 (1 = terverifikasi, 0 = salah)
 
 🕸️ 9. Karma Attack
-text
+```
 Menu → KARMA ATTACK → auto-scan 20 detik → pilih SSID target → auto-start Evil Twin
 Cara kerja:
 
@@ -314,8 +315,8 @@ Broadcast probe (SSID kosong) direspons dengan 5 SSID curated: Free WiFi, Starbu
 
 Channel hopping 1→6→11 tiap 300 ms (channel umum)
 
-🏗️ Arsitektur Kode
-text
+## 🏗️ Arsitektur Kode
+```
 ┌─────────────────────────────────────────────────┐
 │                    main.cpp                     │
 │  State machine + UI rendering + button handler  │
@@ -336,7 +337,7 @@ text
 │   - Baca g_attackMode → dispatch     │
 │   - Kirim frame via esp_wifi_80211_tx│
 └──────────────────────────────────────┘
-Task split:
+### Task split:
 
 Core 0 — attackTask() mengirim frame berkecepatan tinggi
 
@@ -346,7 +347,7 @@ Komunikasi — via volatile global (g_attackMode, g_packetsSent, dst.)
 
 Sniffer callback (packetSniffer_cb) dipanggil dari task WiFi IDF. Callback wajib singkat — hanya parse header + delegasi ke karmaLog* / tracking korban.
 
-🧩 Tuning & Kustomisasi
+## 🧩 Tuning & Kustomisasi
 Konstanta	File	Default	Efek
 DEAUTH_BURST	attack_engine.h	5	Paket deauth per burst
 AUTH_BURST	attack_engine.h	20	Auth frame per 10 ms
@@ -359,7 +360,7 @@ KARMA_MAX_SSIDS	karma.h	16	Slot karma SSID
 KARMA_SCAN_DURATION_MS	karma.h	20000	Durasi karma scan
 MAX_VERIFY_ATTEMPTS	main.cpp	5	Batas percobaan verifikasi password
 VERIFY_TIMEOUT_MS	main.cpp	6000	Timeout tiap percobaan koneksi
-⚠️ Batasan & Catatan Teknis
+## ⚠️ Batasan & Catatan Teknis
 PMF (Protected Management Frames) memblokir deauth — NISKALA mendeteksi WPA3/WPA2-WPA3 dan menolak target (untuk mencegah kegagalan).
 
 esp_wifi_80211_tx butuh AP aktif — semua modul TX memanggil WiFi.softAP() dulu, walau dengan SSID tersembunyi.
@@ -372,7 +373,7 @@ Heap usage — dengan semua modul aktif, sisa heap ~100 KB. Web server + DNS + T
 
 wifi_bypass.c wajib ada jika ESP-IDF ≥ 4.4 — tanpa itu, frame akan ditolak dengan ESP_ERR_INVALID_ARG.
 
-📋 Roadmap Ide (untuk pengembangan lanjutan)
+## 📋 Roadmap Ide (untuk pengembangan lanjutan)
 □ Handshake capture (WPA2 4-way handshake) untuk crack offline
 □ PMKID attack
 □ Portal template dengan JavaScript yang lebih meyakinkan (bank, kampus)
@@ -380,7 +381,7 @@ wifi_bypass.c wajib ada jika ESP-IDF ≥ 4.4 — tanpa itu, frame akan ditolak d
 □ Notifikasi Telegram saat password tertangkap
 □ Opsi export password ke CSV via SD card
 □ Mode "silent" — matikan animasi untuk stealth
-🧑‍💻 Kredit & Referensi
+## 🧑‍💻 Kredit & Referensi
 Nama: NISKALA (निश्चल — "tak tergoyahkan")
 
 Konsep Karma & Evil Twin — inspirasi dari Spacehuhn, Flipper Zero, dan ESP32 Marauder
@@ -389,10 +390,10 @@ Frame 802.11 — referensi dari IEEE 802.11-2020 spec
 
 Library — TFT_eSPI by Bodmer, ESP32 Arduino Core
 
-📜 Lisensi
+## 📜 Lisensi
 Educational Use Only. Kode disediakan "as-is", tanpa jaminan apa pun. Anda bertanggung jawab penuh atas segala konsekuensi hukum dari penggunaan.
 
-text
+```
 Copyright (c) 2024 NISKALA
 Permission granted for educational, research, and authorized 
 security testing purposes only. Any commercial or malicious 
@@ -403,3 +404,4 @@ NISKALA v3.1 — "Tenang, tak tergoyahkan, tak terdeteksi."
 ⚡ Dibuat untuk yang belajar, bukan untuk yang menyakiti ⚡
 
 </div>
+```
