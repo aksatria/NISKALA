@@ -103,8 +103,9 @@ CTF dan lab cybersecurity
 BTN_TOP    ──── GPIO 0   ──── GND   (internal pull-up)
 BTN_BOTTOM ──── GPIO 35  ──── GND   (internal pull-up)
 TFT        ──── SPI (lihat User_Setup.h TFT_eSPI)
+```
 ## 🚀 Instalasi & Build
-1. Prasyarat
+### 1. Prasyarat
 Arduino IDE 2.x atau PlatformIO
 
 Board package ESP32 versi 2.0.11 atau lebih baru (untuk esp_wifi_80211_tx)
@@ -115,7 +116,9 @@ Library berikut (install via Library Manager):
 TFT_eSPI       by Bodmer
 ESP32 BLE      (bundled dengan board package)
 DNSServer, WebServer, Preferences, WiFi, ESPmDNS  (bundled)
-2. Konfigurasi TFT_eSPI
+```
+
+### 2. Konfigurasi TFT_eSPI
 Edit libraries/TFT_eSPI/User_Setup.h sesuai layar Anda. Contoh untuk ST7735 1.8":
 
 ```cpp
@@ -129,9 +132,11 @@ Edit libraries/TFT_eSPI/User_Setup.h sesuai layar Anda. Contoh untuk ST7735 1.8"
 #define TFT_DC    2
 #define TFT_RST   4
 #define TFT_BL   32
+```
+
 Ubah tft.setRotation(1) di setup() jika orientasi layar berbeda. Firmware dirancang untuk landscape 240×135.
 
-3. Build firmware
+### 3. Build firmware
 Firmware terdiri dari file berikut (semua harus di folder sketch yang sama):
 
 ```
@@ -143,13 +148,15 @@ NISKALA/
 ├── disclaimer.h      (layar disclaimer & konfirmasi)
 ├── templates.h       (HTML captive portal)
 └── wifi_bypass.c     (bypass sanity check esp_wifi)
+```
 Penting: File wifi_bypass.c berisi stub ieee80211_raw_frame_sanity_check yang di-override untuk melewati pemeriksaan internal IDF. Tanpa file ini, esp_wifi_80211_tx akan menolak frame deauth di IDF versi baru. Pastikan file .c ini ikut di-compile.
 
-4. Flash
+### 4. Flash
 ```bash
 # Arduino IDE: pilih board "ESP32 Dev Module", upload.
 # PlatformIO:
 pio run -t upload
+```
 ## 📱 Cara Pemakaian
 ### Boot Sequence
 ```
@@ -160,6 +167,8 @@ pio run -t upload
    → ATAS = Batal (ulang disclaimer)
    → BAWAH = Setuju (masuk menu utama)
 4. Menu Utama muncul
+```
+
 ### Navigasi Dasar
 | Tombol | Fungsi |
 | --- | --- |
@@ -318,6 +327,7 @@ Broadcast probe (SSID kosong) direspons dengan 5 SSID curated: Free WiFi, Starbu
 
 Channel hopping 1→6→11 tiap 300 ms (channel umum)
 
+```
 ## 🏗️ Arsitektur Kode
 ```
 ┌─────────────────────────────────────────────────┐
@@ -340,6 +350,7 @@ Channel hopping 1→6→11 tiap 300 ms (channel umum)
 │   - Baca g_attackMode → dispatch     │
 │   - Kirim frame via esp_wifi_80211_tx│
 └──────────────────────────────────────┘
+```
 ### Task split:
 
 Core 0 — attackTask() mengirim frame berkecepatan tinggi
@@ -402,10 +413,11 @@ Copyright (c) 2024 NISKALA
 Permission granted for educational, research, and authorized 
 security testing purposes only. Any commercial or malicious 
 use is strictly prohibited.
+```
+
 <div align="center">
 NISKALA v3.1 — "Tenang, tak tergoyahkan, tak terdeteksi."
 
 ⚡ Dibuat untuk yang belajar, bukan untuk yang menyakiti ⚡
 
 </div>
-```
