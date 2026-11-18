@@ -238,7 +238,7 @@ use is strictly prohibited.
 
 <div align="center">
 
-**NISKALA v3.1** — *Tenang, tak tergoyahkan.*
+**NISKALA v3.1** — *Being invisible doesn't mean being absent.*
 
 ⚡ Dibuat untuk yang belajar, bukan untuk yang menyakiti ⚡
 
