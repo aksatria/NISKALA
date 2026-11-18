@@ -64,16 +64,17 @@ Riset keamanan wireless (WPA2/WPA3, PMF, captive portal)
 CTF dan lab cybersecurity
 
 ## ✨ Fitur Lengkap
-#	Modul	Deskripsi
-1	Deauth Manual	Kirim paket deauthentication ke target AP dengan tracking MAC korban otomatis
-2	Evil Twin	Clone SSID target + captive portal palsu untuk menangkap password WiFi
-3	Beacon Spam	Banjiri udara dengan 16 SSID palsu (FBI Surveillance, Free WiFi, dll)
-4	Probe Sniff	Tangkap probe request dari HP sekitar (MAC, RSSI, SSID yang dicari)
-5	Global Deauth	Broadcast deauth dengan channel hopping 1–13
-6	Auth Flood	Banjiri AP target dengan authentication request palsu (MAC acak)
-7	Bluetooth Spam	Rotasi 3 payload Apple BLE (Sour Apple, Nearby Setup, Nearby WiFi)
-8	Password Vault	Lihat & kelola password yang berhasil tertangkap (tersimpan di NVS)
-9	Karma Attack	Respond ke probe request klien dengan SSID yang mereka cari
+| # | Modul | Deskripsi |
+| --- | --- | --- |
+| 1 | Deauth Manual | Kirim paket deauthentication ke target AP dengan tracking MAC korban otomatis |
+| 2 | Evil Twin | Clone SSID target + captive portal palsu untuk menangkap password WiFi |
+| 3 | Beacon Spam | Banjiri udara dengan 16 SSID palsu (FBI Surveillance, Free WiFi, dll) |
+| 4 | Probe Sniff | Tangkap probe request dari HP sekitar (MAC, RSSI, SSID yang dicari) |
+| 5 | Global Deauth | Broadcast deauth dengan channel hopping 1–13 |
+| 6 | Auth Flood | Banjiri AP target dengan authentication request palsu (MAC acak) |
+| 7 | Bluetooth Spam | Rotasi 3 payload Apple BLE (Sour Apple, Nearby Setup, Nearby WiFi) |
+| 8 | Password Vault | Lihat & kelola password yang berhasil tertangkap (tersimpan di NVS) |
+| 9 | Karma Attack | Respond ke probe request klien dengan SSID yang mereka cari |
 ### Fitur Pendukung
 
 ✅ Deteksi PMF/WPA3 — modul deauth otomatis menolak target yang dilindungi PMF
@@ -89,12 +90,13 @@ CTF dan lab cybersecurity
 ✅ Disclaimer berlapis — 2 layar konfirmasi sebelum masuk menu
 
 ## 🛠️ Kebutuhan Hardware
-Komponen	Spesifikasi	Keterangan
-MCU	ESP32 (ESP32-WROOM / DevKit)	Wajib mendukung WiFi + BLE
-Display	TFT 1.8" ST7735 128×160 atau 2.8" ILI9341 240×320	Konfigurasi di TFT_eSPI/User_Setup.h
-Tombol	2× tactile button	BTN_TOP = GPIO 0 (boot button), BTN_BOTTOM = GPIO 35
-Catu daya	USB 5V atau Li-Po 3.7V + boost	Konsumsi ~200–350 mA saat aktif
-Opsional	Antena eksternal 2.4 GHz	Untuk jangkauan lebih luas
+| Komponen | Spesifikasi | Keterangan |
+| --- | --- | --- |
+| MCU | ESP32 (ESP32-WROOM / DevKit) | Wajib mendukung WiFi + BLE |
+| Display | TFT 1.8" ST7735 128×160 atau 2.8" ILI9341 240×320 | Konfigurasi di TFT_eSPI/User_Setup.h |
+| Tombol | 2× tactile button | BTN_TOP = GPIO 0 (boot button), BTN_BOTTOM = GPIO 35 |
+| Catu daya | USB 5V atau Li-Po 3.7V + boost | Konsumsi ~200–350 mA saat aktif |
+| Opsional | Antena eksternal 2.4 GHz | Untuk jangkauan lebih luas |
 ### Wiring Tombol
 
 ```
@@ -159,9 +161,10 @@ pio run -t upload
    → BAWAH = Setuju (masuk menu utama)
 4. Menu Utama muncul
 ### Navigasi Dasar
-Tombol	Fungsi
-ATAS (GPIO 0)	Scroll pilihan ke atas / pilih item sebelumnya
-BAWAH (GPIO 35)	Konfirmasi / pilih item / start-stop
+| Tombol | Fungsi |
+| --- | --- |
+| ATAS (GPIO 0) | Scroll pilihan ke atas / pilih item sebelumnya |
+| BAWAH (GPIO 35) | Konfirmasi / pilih item / start-stop |
 ### Modul per Modul
 🎯 1. Deauth Manual
 ```
@@ -348,18 +351,19 @@ Komunikasi — via volatile global (g_attackMode, g_packetsSent, dst.)
 Sniffer callback (packetSniffer_cb) dipanggil dari task WiFi IDF. Callback wajib singkat — hanya parse header + delegasi ke karmaLog* / tracking korban.
 
 ## 🧩 Tuning & Kustomisasi
-Konstanta	File	Default	Efek
-DEAUTH_BURST	attack_engine.h	5	Paket deauth per burst
-AUTH_BURST	attack_engine.h	20	Auth frame per 10 ms
-HOP_INTERVAL_MS	attack_engine.h	120	Interval channel hop global deauth
-BEACON_HOP_MS	attack_engine.h	100	Interval channel hop beacon
-PROBE_LOG_SIZE	attack_engine.h	8	Buffer probe log
-SPAM_SSIDS	attack_engine.h	16 SSID	Pool SSID beacon spam
-CURATED_SSIDS	karma.h	5 SSID	Balasan broadcast probe
-KARMA_MAX_SSIDS	karma.h	16	Slot karma SSID
-KARMA_SCAN_DURATION_MS	karma.h	20000	Durasi karma scan
-MAX_VERIFY_ATTEMPTS	main.cpp	5	Batas percobaan verifikasi password
-VERIFY_TIMEOUT_MS	main.cpp	6000	Timeout tiap percobaan koneksi
+| Konstanta | File | Default | Efek |
+| --- | --- | --- | --- |
+| DEAUTH_BURST | attack_engine.h | 5 | Paket deauth per burst |
+| AUTH_BURST | attack_engine.h | 20 | Auth frame per 10 ms |
+| HOP_INTERVAL_MS | attack_engine.h | 120 | Interval channel hop global deauth |
+| BEACON_HOP_MS | attack_engine.h | 100 | Interval channel hop beacon |
+| PROBE_LOG_SIZE | attack_engine.h | 8 | Buffer probe log |
+| SPAM_SSIDS | attack_engine.h | 16 SSID | Pool SSID beacon spam |
+| CURATED_SSIDS | karma.h | 5 SSID | Balasan broadcast probe |
+| KARMA_MAX_SSIDS | karma.h | 16 | Slot karma SSID |
+| KARMA_SCAN_DURATION_MS | karma.h | 20000 | Durasi karma scan |
+| MAX_VERIFY_ATTEMPTS | main.cpp | 5 | Batas percobaan verifikasi password |
+| VERIFY_TIMEOUT_MS | main.cpp | 6000 | Timeout tiap percobaan koneksi |
 ## ⚠️ Batasan & Catatan Teknis
 PMF (Protected Management Frames) memblokir deauth — NISKALA mendeteksi WPA3/WPA2-WPA3 dan menolak target (untuk mencegah kegagalan).
 
