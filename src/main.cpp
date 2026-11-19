@@ -480,6 +480,9 @@ void drawMainMenu() {
   int idx = menuSelection;
   drawCornerBrackets(20, 42, 200, 66, TFT_GREEN);
 
+  // Ikon modul di dalam kotak
+  drawMenuIcon(idx, 112, 48, TFT_GREEN);
+
   tft.setTextDatum(MC_DATUM);
   String label = String(menuItems[idx]);
   tft.setTextFont(4);
@@ -488,7 +491,7 @@ void drawMainMenu() {
     tft.setTextFont(2);
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
   }
-  tft.drawString(label, 120, 76);
+  tft.drawString(label, 120, 86);
 
   tft.setTextFont(2);
   tft.setTextColor(TFT_YELLOW, TFT_BLACK);
