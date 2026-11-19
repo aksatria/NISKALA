@@ -66,7 +66,9 @@ enum State {
   WEB_REMOTE,
   OTA_MODE,
   BLE_SCAN,
-  CLOUD_SYNC
+  CLOUD_SYNC,
+  MACRO_MENU,
+  MACRO_RUNNING
 };
 State currentState = MAIN_MENU;
 
@@ -74,7 +76,7 @@ State currentState = MAIN_MENU;
 
 int menuSelection = 0;
 int menuScrollPos = 0;
-const int MENU_COUNT = 14;
+const int MENU_COUNT = 15;
 const char* menuItems[] = {
   "DEAUTH MANUAL",
   "EVIL TWIN",
@@ -89,7 +91,8 @@ const char* menuItems[] = {
   "WEB REMOTE",
   "OTA UPDATE",
   "BLE SCAN",
-  "CLOUD SYNC"
+  "CLOUD SYNC",
+  "MACRO"
 };
 
 volatile AttackMode g_attackMode = ATK_IDLE;
@@ -147,6 +150,12 @@ bool isBTSpamRunning = false;
 bool isCSARunning = false;             // [CSA]
 bool isWebRemoteRunning = false;
 bool isOtaRunning = false;
+bool isMacroRunning = false;
+int macroIndex = 0;
+int macroPhase = 0;
+int macroSelection = 0;
+unsigned long macroPhaseStart = 0;
+String cliBuf = "";
 bool g_bleScanning = false;
 unsigned long g_bleScanStart = 0;
 
@@ -337,6 +346,11 @@ void drawMenuIcon(int idx, int x, int y, uint16_t color) {
       tft.drawCircle(x+7, y+4, 6, color);
       tft.drawFastHLine(x+2, y+12, 10, color);
       tft.drawLine(x+7, y+12, x+7, y+9, color);
+      break;
+    case 14:
+      tft.drawRect(x+2, y+4, 10, 7, color);
+      tft.drawRect(x+4, y+2, 6, 7, color);
+      tft.drawLine(x+7, y+9, x+7, y+13, color);
       break;
   }
 }
@@ -2192,6 +2206,401 @@ void showDisclaimerFlow() {
 // ═══════════════════════════════════════════════
 // Setup
 // ═══════════════════════════════════════════════
+// ------------------------------------------------------------------
+// Macro / Attack Sequence
+// ------------------------------------------------------------------
+enum MacroAction {
+  MACT_NONE = 0,
+  MACT_BEACON,
+  MACT_GLOBAL_DEAUTH,
+  MACT_PROBE,
+  MACT_KARMA,
+  MACT_BT_SPAM
+};
+
+struct MacroStep {
+  uint8_t action;
+  uint32_t durationMs;
+};
+
+static const MacroStep MACRO_RECON[] = {
+  {MACT_PROBE, 8000},
+  {MACT_KARMA, 8000},
+};
+static const int MACRO_RECON_STEPS = 2;
+
+static const MacroStep MACRO_ASSAULT[] = {
+  {MACT_BEACON, 6000},
+  {MACT_GLOBAL_DEAUTH, 6000},
+};
+static const int MACRO_ASSAULT_STEPS = 2;
+
+static const int MACRO_COUNT = 2;
+static const char* MACRO_NAMES[] = { "RECON", "ASSAULT" };
+static const char* MACRO_DESC[] = { "Probe + Karma (pasif)", "Beacon + Deauth (aktif)" };
+
+void drawMacroMenu() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("MACRO", TFT_PURPLE);
+  tft.setTextFont(2);
+  for (int i = 0; i < MACRO_COUNT; i++) {
+    int y = 36 + i * 40;
+    if (i == macroSelection) {
+      tft.fillRoundRect(8, y - 6, 224, 34, 6, TFT_DARKGREEN);
+    }
+    tft.setTextColor(i == macroSelection ? TFT_WHITE : TFT_DARKGREY, i == macroSelection ? TFT_DARKGREEN : TFT_BLACK);
+    tft.setCursor(16, y);
+    tft.print(MACRO_NAMES[i]);
+    tft.setCursor(16, y + 18);
+    tft.setTextFont(1);
+    tft.setTextColor(i == macroSelection ? TFT_CYAN : TFT_DARKGREY, i == macroSelection ? TFT_DARKGREEN : TFT_BLACK);
+    tft.print(MACRO_DESC[i]);
+    tft.setTextFont(2);
+  }
+  drawFooter("ATAS: Pilih | BAWAH: Jalankan");
+}
+
+const char* macroStepName(uint8_t a) {
+  switch (a) {
+    case MACT_BEACON: return "Beacon Spam";
+    case MACT_GLOBAL_DEAUTH: return "Global Deauth";
+    case MACT_PROBE: return "Probe Sniff";
+    case MACT_KARMA: return "Karma Attack";
+    case MACT_BT_SPAM: return "BLE Spam";
+    default: return "?";
+  }
+}
+
+void drawMacroRunning(int frame) {
+  (void)frame;
+  const MacroStep* steps = (macroIndex == 0) ? MACRO_RECON : MACRO_ASSAULT;
+  int stepCount = (macroIndex == 0) ? MACRO_RECON_STEPS : MACRO_ASSAULT_STEPS;
+  MacroStep s = steps[macroPhase];
+
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("MACRO: " + String(MACRO_NAMES[macroIndex]), TFT_PURPLE);
+  tft.setTextFont(2);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 34);
+  tft.print("Phase "); tft.print(macroPhase + 1); tft.print("/"); tft.print(stepCount);
+  tft.setCursor(10, 56);
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+  tft.print(macroStepName(s.action));
+
+  unsigned long elapsed = millis() - macroPhaseStart;
+  unsigned long dur = s.durationMs;
+  int pct = (dur > 0) ? (int)(elapsed * 100 / dur) : 0;
+  if (pct > 100) pct = 100;
+  tft.drawRect(10, 80, 220, 14, TFT_WHITE);
+  tft.fillRect(12, 82, (int)(216 * pct / 100), 10, TFT_GREEN);
+
+  tft.setCursor(10, 102);
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.print("PKT: "); tft.print(g_packetsSent);
+  tft.print("  H:"); tft.print(ESP.getFreeHeap());
+  drawFooter("TOMBOL = HENTIKAN MACRO");
+}
+
+void macroStartStep(uint8_t a) {
+  switch (a) {
+    case MACT_BEACON: startBeaconSpam(); break;
+    case MACT_GLOBAL_DEAUTH: startGlobalDeauth(); break;
+    case MACT_PROBE: startProbeSniffer(); break;
+    case MACT_KARMA: startKarmaScan(); break;
+    case MACT_BT_SPAM: startBTSpam(); break;
+  }
+}
+
+void macroStopStep(uint8_t a) {
+  switch (a) {
+    case MACT_BEACON: if (isBeaconRunning) stopBeaconSpam(); break;
+    case MACT_GLOBAL_DEAUTH: if (isGlobalDeauthRunning) stopGlobalDeauth(); break;
+    case MACT_PROBE: if (isProbeRunning) stopProbeSniffer(); break;
+    case MACT_KARMA: if (isKarmaRunning) stopKarmaScan(); break;
+    case MACT_BT_SPAM: if (isBTSpamRunning) stopBTSpam(); break;
+  }
+}
+
+void startMacro(int idx) {
+  stopAllAttacks();
+  macroIndex = idx;
+  macroPhase = 0;
+  macroPhaseStart = millis();
+  isMacroRunning = true;
+  currentState = MACRO_RUNNING;
+  const MacroStep* steps = (idx == 0) ? MACRO_RECON : MACRO_ASSAULT;
+  macroStartStep(steps[0].action);
+  drawMacroRunning(0);
+  Serial.printf("[MACRO] Mulai %s\n", MACRO_NAMES[idx]);
+}
+
+void macroTick() {
+  const MacroStep* steps = (macroIndex == 0) ? MACRO_RECON : MACRO_ASSAULT;
+  int stepCount = (macroIndex == 0) ? MACRO_RECON_STEPS : MACRO_ASSAULT_STEPS;
+  MacroStep s = steps[macroPhase];
+
+  if (millis() - macroPhaseStart >= s.durationMs) {
+    macroStopStep(s.action);
+    macroPhase++;
+    if (macroPhase >= stepCount) {
+      isMacroRunning = false;
+      currentState = MAIN_MENU;
+      drawMainMenu();
+      Serial.println("[MACRO] Selesai");
+      return;
+    }
+    macroPhaseStart = millis();
+    macroStartStep(steps[macroPhase].action);
+  }
+
+  static unsigned long mLast = 0;
+  static int mFrame = 0;
+  if (millis() - mLast > 250) { drawMacroRunning(mFrame++); mLast = millis(); }
+}
+
+// ------------------------------------------------------------------
+// Serial CLI
+// ------------------------------------------------------------------
+int hexNibble(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+int hexToBytes(const char* hex, uint8_t* out, int maxLen) {
+  int len = strlen(hex);
+  if (len <= 0 || (len % 2) != 0) return -1;
+  int n = len / 2;
+  if (n > maxLen) n = maxLen;
+  for (int i = 0; i < n; i++) {
+    int hi = hexNibble(hex[i * 2]);
+    int lo = hexNibble(hex[i * 2 + 1]);
+    if (hi < 0 || lo < 0) return -1;
+    out[i] = (uint8_t)((hi << 4) | lo);
+  }
+  return n;
+}
+
+bool macFromString(const char* s, uint8_t mac[6]) {
+  char tmp[13];
+  int j = 0;
+  for (int i = 0; s[i] && j < 12; i++) {
+    if (s[i] == ':' || s[i] == '-' || s[i] == ' ') continue;
+    tmp[j++] = s[i];
+  }
+  if (j != 12) return false;
+  tmp[12] = 0;
+  for (int i = 0; i < 6; i++) {
+    int hi = hexNibble(tmp[i * 2]);
+    int lo = hexNibble(tmp[i * 2 + 1]);
+    if (hi < 0 || lo < 0) return false;
+    mac[i] = (uint8_t)((hi << 4) | lo);
+  }
+  return true;
+}
+
+void cliPrintHelp() {
+  Serial.println("NISKALA CLI");
+  Serial.println("  help");
+  Serial.println("  status");
+  Serial.println("  scan");
+  Serial.println("  stop");
+  Serial.println("  beacon | probe | karma | global | blespam | blescan");
+  Serial.println("  deauth <AA:BB:CC:DD:EE:FF>");
+  Serial.println("  ble-raw <hex>");
+  Serial.println("  ble-ibeacon [major minor]");
+  Serial.println("  ble-eddy");
+  Serial.println("  config get | config set <ssid|pass|url|tpl> <nilai>");
+  Serial.println("  reboot");
+}
+
+void processCliCommand(String line) {
+  line.trim();
+  if (line.length() == 0) return;
+
+  int sp = line.indexOf(' ');
+  String cmd = (sp > 0) ? line.substring(0, sp) : line;
+  String arg = (sp > 0) ? line.substring(sp + 1) : "";
+  cmd.toLowerCase();
+
+  if (cmd == "help") { cliPrintHelp(); }
+  else if (cmd == "status") {
+    Serial.printf("State=%d Mode=%d PKT=%u ERR=%u Heap=%u Uptime=%lu\n",
+      (int)currentState, (int)g_attackMode, (unsigned)g_packetsSent, (unsigned)g_txErrors,
+      (unsigned)ESP.getFreeHeap(), (unsigned long)(millis() / 1000));
+  }
+  else if (cmd == "scan") {
+    WiFi.mode(WIFI_STA);
+    int n = WiFi.scanNetworks(false, true);
+    Serial.printf("[SCAN] %d AP\n", n);
+    for (int i = 0; i < n && i < 20; i++) {
+      Serial.printf("  %2d  ch=%2d  rssi=%4d  %s  %s\n", i,
+        WiFi.channel(i), WiFi.RSSI(i), WiFi.BSSIDstr(i).c_str(), WiFi.SSID(i).c_str());
+    }
+    WiFi.scanDelete();
+  }
+  else if (cmd == "stop") {
+    stopAllAttacks();
+    currentState = MAIN_MENU;
+    drawMainMenu();
+    Serial.println("[CLI] Semua berhenti");
+  }
+  else if (cmd == "beacon") {
+    stopAllAttacks();
+    currentState = BEACON_SPAM; startBeaconSpam(); drawBeaconSpam(0);
+    Serial.println("[CLI] Beacon spam ON");
+  }
+  else if (cmd == "probe") {
+    stopAllAttacks();
+    currentState = PROBE_SNIFF; startProbeSniffer(); drawProbeSniff(0);
+    Serial.println("[CLI] Probe sniff ON");
+  }
+  else if (cmd == "karma") {
+    stopAllAttacks();
+    currentState = KARMA_SCAN; startKarmaScan(); drawKarmaScan(0);
+    Serial.println("[CLI] Karma ON");
+  }
+  else if (cmd == "global") {
+    stopAllAttacks();
+    currentState = GLOBAL_DEAUTH; startGlobalDeauth(); drawGlobalDeauth(0);
+    Serial.println("[CLI] Global deauth ON");
+  }
+  else if (cmd == "blespam") {
+    stopAllAttacks();
+    btStopFixed();
+    currentState = BT_SPAM; startBTSpam(); drawBTSpam(0);
+    Serial.println("[CLI] BLE spam ON");
+  }
+  else if (cmd == "blescan") {
+    stopAllAttacks();
+    currentState = BLE_SCAN; startBLEScan();
+    Serial.println("[CLI] BLE scan ON");
+  }
+  else if (cmd == "deauth") {
+    uint8_t mac[6];
+    if (!macFromString(arg.c_str(), mac)) {
+      Serial.println("[CLI] MAC tidak valid. Contoh: deauth AA:BB:CC:DD:EE:FF");
+      return;
+    }
+    memcpy(g_targetBSSID, mac, 6);
+    g_targetChannel = 1;
+    targetSSID = "CLI_Target";
+    WiFi.mode(WIFI_STA);
+    int n = WiFi.scanNetworks(false, true);
+    for (int i = 0; i < n; i++) {
+      if (memcmp(WiFi.BSSID(i), mac, 6) == 0) {
+        g_targetChannel = WiFi.channel(i);
+        targetSSID = WiFi.SSID(i);
+        break;
+      }
+    }
+    WiFi.scanDelete();
+    stopAllAttacks();
+    currentState = DEAUTH_MENU;
+    startDeauthEngine();
+    drawDeauthMenu();
+    Serial.printf("[CLI] Deauth target %02X:%02X:%02X:%02X:%02X:%02X ch=%d\n",
+      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], g_targetChannel);
+  }
+  else if (cmd == "ble-raw") {
+    uint8_t buf[31];
+    int n = hexToBytes(arg.c_str(), buf, 31);
+    if (n <= 0) { Serial.println("[CLI] hex tidak valid / kosong"); return; }
+    stopAllAttacks();
+    WiFi.mode(WIFI_OFF);
+    if (btStartFixed(buf, n)) {
+      isBTSpamRunning = true;
+      currentState = BT_SPAM;
+      drawBTSpam(0);
+      Serial.printf("[CLI] BLE raw advertise %d bytes\n", n);
+    } else {
+      Serial.println("[CLI] Gagal mulai BLE raw");
+    }
+  }
+  else if (cmd == "ble-ibeacon") {
+    int sp2 = arg.indexOf(' ');
+    int major = 1;
+    int minor = 2;
+    if (sp2 > 0) {
+      major = arg.substring(0, sp2).toInt();
+      minor = arg.substring(sp2 + 1).toInt();
+    } else if (arg.length() > 0) {
+      major = arg.toInt();
+    }
+    stopAllAttacks();
+    WiFi.mode(WIFI_OFF);
+    if (btStartIBeacon(IBEACON_DEFAULT_UUID, (uint16_t)major, (uint16_t)minor, -59)) {
+      isBTSpamRunning = true;
+      currentState = BT_SPAM;
+      drawBTSpam(0);
+      Serial.printf("[CLI] iBeacon major=%d minor=%d\n", major, minor);
+    } else {
+      Serial.println("[CLI] Gagal mulai iBeacon");
+    }
+  }
+  else if (cmd == "ble-eddy") {
+    stopAllAttacks();
+    WiFi.mode(WIFI_OFF);
+    if (btStartEddystone(EDDYSTONE_NS, EDDYSTONE_INST, -59)) {
+      isBTSpamRunning = true;
+      currentState = BT_SPAM;
+      drawBTSpam(0);
+      Serial.println("[CLI] Eddystone-UID ON");
+    } else {
+      Serial.println("[CLI] Gagal mulai Eddystone");
+    }
+  }
+  else if (cmd == "config") {
+    if (arg.length() == 0 || arg == "get") {
+      Serial.printf("SSID : %s\n", cfg_wifi_ssid.c_str());
+      Serial.printf("PASS : %s\n", cfg_wifi_pass.c_str());
+      Serial.printf("URL  : %s\n", cfg_server_url.c_str());
+      Serial.printf("TPL  : %s\n", cfg_template_url.c_str());
+      Serial.printf("burst deauth=%d auth=%d hop=%d beacon=%d reason=%d\n",
+        cfg_deauth_burst, cfg_auth_burst, cfg_hop_interval_ms, cfg_beacon_hop_ms, cfg_deauth_reason);
+    } else {
+      int s1 = arg.indexOf(' ');
+      if (s1 > 0) {
+        String k = arg.substring(0, s1);
+        String v = arg.substring(s1 + 1);
+        k.toLowerCase();
+        if (k == "ssid") cfg_wifi_ssid = v;
+        else if (k == "pass") cfg_wifi_pass = v;
+        else if (k == "url") cfg_server_url = v;
+        else if (k == "tpl") cfg_template_url = v;
+        else { Serial.println("[CLI] key tidak dikenal"); return; }
+        saveConfig();
+        Serial.printf("[CLI] %s = %s (tersimpan)\n", k.c_str(), v.c_str());
+      } else {
+        Serial.println("[CLI] Gunakan: config set <ssid|pass|url|tpl> <nilai>");
+      }
+    }
+  }
+  else if (cmd == "reboot") {
+    Serial.println("[CLI] Reboot...");
+    delay(200);
+    ESP.restart();
+  }
+  else {
+    Serial.printf("[CLI] Perintah tidak dikenal: %s (ketik help)\n", line.c_str());
+  }
+}
+
+void handleSerialCLI() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      if (cliBuf.length() > 0) {
+        processCliCommand(cliBuf);
+        cliBuf = "";
+      }
+    } else {
+      if (cliBuf.length() < 127) cliBuf += c;
+    }
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   randomSeed(esp_random());
@@ -2245,6 +2654,7 @@ void setup() {
   drawMainMenu();
 
   Serial.println("Setup selesai, heap tersisa: " + String(ESP.getFreeHeap()));
+  Serial.println("Ketik 'help' untuk CLI (Serial Monitor 115200).");
 }
 
 // ═══════════════════════════════════════════════
@@ -2254,6 +2664,8 @@ static unsigned long lastUI = 0;
 static int animFrame = 0;
 
 void loop() {
+  handleSerialCLI();
+
   // Non-blocking transient info (verification result hold)
   if (transientActive) {
     if (transientMode == 2) {
@@ -2378,6 +2790,9 @@ void loop() {
     btSpamTick();
     if (millis() - lastUI > 200) { drawBTSpam(animFrame++); lastUI = millis(); }
   }
+  if (currentState == MACRO_RUNNING && isMacroRunning) {
+    macroTick();
+  }
 
   if (currentState == MAIN_MENU) {
     if (cfg_autosync_min > 0 && (millis() - lastAutoSync) >= (unsigned long)cfg_autosync_min * 60000UL) {
@@ -2471,6 +2886,11 @@ void loop() {
           currentState = CLOUD_SYNC;
           startCloudSync();
           break;
+        case 14:
+          currentState = MACRO_MENU;
+          macroSelection = 0;
+          drawMacroMenu();
+          break;
       }
     }
   }
@@ -2561,6 +2981,26 @@ void loop() {
     if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
       delay(300);
       stopBLEScan();
+      currentState = MAIN_MENU;
+      drawMainMenu();
+    }
+  }
+  else if (currentState == MACRO_MENU) {
+    if (digitalRead(BTN_TOP) == LOW) {
+      delay(200);
+      macroSelection = (macroSelection + 1) % MACRO_COUNT;
+      drawMacroMenu();
+    }
+    if (digitalRead(BTN_BOTTOM) == LOW) {
+      delay(200);
+      startMacro(macroSelection);
+    }
+  }
+  else if (currentState == MACRO_RUNNING) {
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300);
+      stopAllAttacks();
+      isMacroRunning = false;
       currentState = MAIN_MENU;
       drawMainMenu();
     }

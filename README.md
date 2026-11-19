@@ -63,6 +63,10 @@ Cocok untuk:
 
 ### Fitur Pendukung
 
+- Serial CLI via Serial Monitor 115200 (ketik help).
+- Macro attack sequence (RECON & ASSAULT).
+- BLE raw advertisement replay, iBeacon & Eddystone spoof.
+
 - Deteksi PMF/WPA3 presisi (authmode + parsing RSN capabilities beacon) sebelum pengujian management frame.
 - Persistent storage menggunakan NVS.
 - UI TFT dengan radar, progress bar, dan animasi.
@@ -206,6 +210,22 @@ Aktifkan softAP `NISKALA_OTA` (password `niskala123`). Sambungkan laptop ke AP t
 Mengirim hasil Probe/Karma/Password ke hosting (alternatif SD card). Konfigurasi WiFi SSID/password dan Server URL lewat Web Remote > Config, lalu jalankan menu `CLOUD SYNC`. Upload `server/sync.php` ke hosting dan arahkan ke URL tersebut.
 
 </details>
+
+### Serial CLI
+
+Hubungkan via USB dan buka Serial Monitor 115200, lalu ketik perintah:
+
+- help - daftar perintah
+- status - info state, paket, heap, uptime
+- scan - scan WiFi dan tampilkan hasil
+- stop - hentikan semua modul
+- beacon / probe / karma / global / blespam / blescan - mulai modul
+- deauth AA:BB:CC:DD:EE:FF - deauth target MAC
+- ble-raw 020106... - replay advertisement BLE mentah (hex)
+- ble-ibeacon [major minor] - spoof iBeacon
+- ble-eddy - spoof Eddystone-UID
+- config get / config set ssid Nilai - baca/ubah konfigurasi
+- reboot - restart perangkat
 
 ## Arsitektur
 
