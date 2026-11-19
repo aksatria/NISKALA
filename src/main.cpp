@@ -917,8 +917,10 @@ void drawEvilTwinRunning(int frame) {
     }
   }
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.setCursor(180, 30);
-  tft.print("P:" + String((uint32_t)g_packetsSent));
+  tft.setTextFont(1);
+  tft.setCursor(150, 30);
+  tft.print("P:" + String((uint32_t)g_packetsSent) + " E:" + String((uint32_t)g_txErrors));
+  tft.setTextFont(2);
   drawFooter("TEKAN TOMBOL = STOP");
 }
 
@@ -1801,8 +1803,11 @@ void startEvilTwinWithDeauth() {
   g_attackMode = ATK_EVIL_TWIN;
   evilTwinStartTime = millis();
 
-  Serial.printf("Evil Twin Started. SSID: %s ch=%d (attempt %d/%d)\n",
-                safeSSID.c_str(), g_targetChannel,
+  Serial.printf("Evil Twin Started. SSID: %s BSSID=%02X:%02X:%02X:%02X:%02X:%02X ch=%d (attempt %d/%d)\n",
+                safeSSID.c_str(),
+                g_targetBSSID[0], g_targetBSSID[1], g_targetBSSID[2],
+                g_targetBSSID[3], g_targetBSSID[4], g_targetBSSID[5],
+                g_targetChannel,
                 verifyAttempts + 1, MAX_VERIFY_ATTEMPTS);
 }
 
@@ -1885,7 +1890,7 @@ bool detectPMFExact(const uint8_t* bssid, uint8_t channel) {
   esp_wifi_set_promiscuous(true);
 
   unsigned long start = millis();
-  while (!g_pmfFound && (millis() - start) < 700) {
+  while (!g_pmfFound && (millis() - start) < 1500) {
     delay(10);
   }
 

