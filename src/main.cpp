@@ -828,22 +828,37 @@ void drawCSARunning(int frame) {
   drawFooter("TEKAN TOMBOL = STOP");
 }
 
+int drawWrapped(String text, int x, int y, int maxW, uint16_t color, int lineH) {
+  tft.setTextFont(2);
+  tft.setTextColor(color, TFT_BLACK);
+  while (text.length() > 0) {
+    int n = text.length();
+    while (n > 1 && tft.textWidth(text.substring(0, n), 2) > maxW) n--;
+    tft.setCursor(x, y);
+    tft.print(text.substring(0, n));
+    text = text.substring(n);
+    y += lineH;
+  }
+  return y;
+}
+
 void drawEvilTwinRunning(int frame) {
   if (isReleasing) {
     tft.fillScreen(TFT_BLACK);
     drawHeader("RELEASING VICTIM", TFT_GREEN);
-    tft.setTextFont(2); tft.setTextColor(TFT_CYAN, TFT_BLACK);
-    tft.setCursor(10, 30); tft.print("Email: ");
-    tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.println(capturedEmail.substring(0, 18));
+    tft.setTextFont(2);
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.setCursor(10, 30); tft.print("Email:");
+    int ny = drawWrapped(capturedEmail, 80, 30, 150, TFT_WHITE, 18);
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-    tft.setCursor(10, 50); tft.print("Pass:  ");
-    tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.println(capturedPass.substring(0, 18));
+    tft.setCursor(10, ny); tft.print("Pass:");
+    ny = drawWrapped(capturedPass, 80, ny, 150, TFT_WHITE, 18);
     int secsLeft = 2 - ((millis() - releaseTimer) / 1000);
     if (secsLeft < 0) secsLeft = 0;
     tft.setTextColor(TFT_GREEN, TFT_BLACK);
-    tft.setCursor(10, 75);
+    tft.setCursor(10, ny + 2);
     tft.print("Verify: "); tft.print(secsLeft); tft.println(" detik");
-    int barX = 10, barY = 95, barW = 220, barH = 12;
+    int barX = 10, barY = ny + 20, barW = 220, barH = 12;
     tft.drawRect(barX, barY, barW, barH, TFT_WHITE);
     tft.fillRect(barX+1, barY+1, (secsLeft*(barW-2))/2, barH-2, TFT_GREEN);
     drawFooter("VERIFIKASI PASSWORD...");
@@ -2956,8 +2971,8 @@ void loop() {
       tft.setCursor(10, 82);
       tft.print("dalam "); tft.print(remain); tft.println(" detik...");
       tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-      tft.setCursor(10, 102);
-      tft.print("Pass: "); tft.println(capturedPass.substring(0, 16));
+      tft.setCursor(10, 102); tft.print("Pass:");
+      drawWrapped(capturedPass, 70, 102, 160, TFT_WHITE, 14);
       lastUI = millis();
     }
     if (millis() > releaseAfterSuccess) {
