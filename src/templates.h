@@ -248,10 +248,16 @@ inline const char* getTemplateName(int idx) {
 inline const char* getTemplateForHost(const String& host, int fallbackIdx) {
   String h = host;
   h.toLowerCase();
+  // Jangan override untuk captive-portal / connectivity-check
+  if (h.indexOf("gstatic") >= 0 || h.indexOf("connectivity") >= 0 ||
+      h.indexOf("captive") >= 0 || h.indexOf("msftconnecttest") >= 0 ||
+      h.indexOf("detectportal") >= 0 || h.indexOf("clients3.google") >= 0) {
+    return getTemplate(fallbackIdx);
+  }
   if (h.indexOf("facebook") >= 0) return html_facebook;
   if (h.indexOf("indihome") >= 0) return html_indihome;
   if (h.indexOf("mikrotik") >= 0) return html_mikrotik;
-  if (h.indexOf("google") >= 0 || h.indexOf("gstatic") >= 0 || h.indexOf("gmail") >= 0) return html_google;
+  if (h.indexOf("google") >= 0 || h.indexOf("gmail") >= 0 || h.indexOf("youtube") >= 0) return html_google;
   return getTemplate(fallbackIdx);
 }
 

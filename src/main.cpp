@@ -1763,6 +1763,12 @@ void startEvilTwinWithDeauth() {
   }
   delay(500);
 
+  wifi_config_t wconf;
+  if (esp_wifi_get_config(WIFI_IF_AP, &wconf) == ESP_OK) {
+    wconf.ap.beacon_interval = 50;
+    esp_wifi_set_config(WIFI_IF_AP, &wconf);
+  }
+
   uint8_t fakeMac[6];
   esp_wifi_get_mac(WIFI_IF_AP, fakeMac);
   Serial.printf("[EVIL TWIN] Fake AP: SSID=%s MAC=%02X:%02X:%02X:%02X:%02X:%02X ch=%d\n",
@@ -2934,6 +2940,15 @@ void loop() {
 
   // ── EVIL_TWIN: success ──
   if (verifyState == 2 && isEvilTwinRunning) {
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300);
+      stopEvilTwin();
+      verifyState = 0;
+      verifyAttempts = 0;
+      currentState = MAIN_MENU;
+      drawMainMenu();
+      return;
+    }
     dnsServer.processNextRequest();
     server.handleClient();
     if (millis() - lastUI > 400) {
@@ -2963,6 +2978,15 @@ void loop() {
 
   // ── EVIL_TWIN: verifying ──
   if (isVerifying) {
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300);
+      stopEvilTwin();
+      verifyState = 0;
+      verifyAttempts = 0;
+      currentState = MAIN_MENU;
+      drawMainMenu();
+      return;
+    }
     updateVerification();
     if (millis() - lastUI > 200) { drawEvilTwinRunning(animFrame++); lastUI = millis(); }
     return;
@@ -2970,6 +2994,15 @@ void loop() {
 
   // ── EVIL_TWIN: normal ──
   if (isEvilTwinRunning) {
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300);
+      stopEvilTwin();
+      verifyState = 0;
+      verifyAttempts = 0;
+      currentState = MAIN_MENU;
+      drawMainMenu();
+      return;
+    }
     if (isReleasing) {
       if (millis() - releaseTimer > RELEASE_DELAY_MS) {
         stopEvilTwin();
