@@ -159,6 +159,15 @@ int macroPhase = 0;
 int macroSelection = 0;
 unsigned long macroPhaseStart = 0;
 String cliBuf = "";
+
+// Screensaver (dim + particle orbit)
+bool screensaverActive = false;
+unsigned long lastActivity = 0;
+unsigned long lastScreensaverDraw = 0;
+int screensaverFrame = 0;
+#define SCREENSAVER_IDLE_MS 45000
+#define BL_DIM 51
+#define BL_FULL 255
 bool isClientMonitorRunning = false;
 int clientSelection = 0;
 int clientScroll = 0;
@@ -2714,6 +2723,52 @@ void stopClientMonitor() {
   Serial.println("[CLIENT] Monitor berhenti");
 }
 
+void setBacklight(uint8_t duty) {
+  static bool blInit = false;
+  if (!blInit) {
+    ledcSetup(0, 5000, 8);
+    ledcAttachPin(TFT_BL, 0);
+    blInit = true;
+  }
+  ledcWrite(0, duty);
+}
+
+void drawParticleOrbit(int frame) {
+  int cx = 120, cy = 60;
+  int rx = 68, ry = 26;
+  tft.fillScreen(TFT_BLACK);
+
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextFont(4);
+  tft.setTextColor(TFT_DARKGREEN, TFT_BLACK);
+  tft.drawString("NISKALA", cx, cy);
+
+  int n = 10;
+  for (int i = 0; i < n; i++) {
+    float a = (frame * 0.035f) + (i * 2.0f * PI / n);
+    int x = cx + (int)(cos(a) * rx);
+    int y = cy + (int)(sin(a) * ry);
+    uint16_t col = TFT_GREEN;
+    if (i % 3 == 1) col = TFT_CYAN;
+    else if (i % 3 == 2) col = TFT_DARKCYAN;
+    tft.fillCircle(x, y, 2, col);
+
+    float a2 = a - 0.45f;
+    int x2 = cx + (int)(cos(a2) * rx);
+    int y2 = cy + (int)(sin(a2) * ry);
+    tft.fillCircle(x2, y2, 1, TFT_DARKGREY);
+  }
+  tft.setTextDatum(TL_DATUM);
+
+  tft.setTextFont(1);
+  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+  tft.setCursor(4, 112);
+  tft.print("IDLE  BAT:");
+  tft.print(readBatteryPercent());
+  tft.print("%  H:");
+  tft.print(ESP.getFreeHeap());
+}
+
 void setup() {
   Serial.begin(115200);
   randomSeed(esp_random());
@@ -2768,6 +2823,7 @@ void setup() {
 
   Serial.println("Setup selesai, heap tersisa: " + String(ESP.getFreeHeap()));
   Serial.println("Ketik 'help' untuk CLI (Serial Monitor 115200).");
+  lastActivity = millis();
 }
 
 // ═══════════════════════════════════════════════
@@ -2778,6 +2834,33 @@ static int animFrame = 0;
 
 void loop() {
   handleSerialCLI();
+
+  // ---- Screensaver (dim + particle orbit) ----
+  bool anyBtn = (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW);
+  if (screensaverActive) {
+    if (anyBtn) {
+      screensaverActive = false;
+      setBacklight(BL_FULL);
+      lastActivity = millis();
+      if (currentState == MAIN_MENU) drawMainMenu();
+      delay(200);
+      return;
+    }
+    if (millis() - lastScreensaverDraw > 50) {
+      drawParticleOrbit(screensaverFrame++);
+      lastScreensaverDraw = millis();
+    }
+    return;
+  }
+  if (anyBtn) lastActivity = millis();
+  if (currentState == MAIN_MENU && millis() - lastActivity > SCREENSAVER_IDLE_MS) {
+    screensaverActive = true;
+    screensaverFrame = 0;
+    setBacklight(BL_DIM);
+    drawParticleOrbit(0);
+    return;
+  }
+  // ---- end screensaver ----
 
   // Non-blocking transient info (verification result hold)
   if (transientActive) {
