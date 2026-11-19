@@ -2727,8 +2727,24 @@ void setBacklight(uint8_t duty) {
   ledcWrite(0, duty);
 }
 
+void drawTiltedOrbit(int cx, int cy, int rx, int ry, float angle, uint16_t color) {
+  const int STEPS = 28;
+  float cosT = cos(angle), sinT = sin(angle);
+  for (int i = 0; i < STEPS; i++) {
+    float a0 = i * 2.0f * PI / STEPS;
+    float a1 = (i + 1) * 2.0f * PI / STEPS;
+    int x0 = cx + (int)(cos(a0) * rx * cosT - sin(a0) * ry * sinT);
+    int y0 = cy + (int)(cos(a0) * rx * sinT + sin(a0) * ry * cosT);
+    int x1 = cx + (int)(cos(a1) * rx * cosT - sin(a1) * ry * sinT);
+    int y1 = cy + (int)(cos(a1) * rx * sinT + sin(a1) * ry * cosT);
+    tft.drawLine(x0, y0, x1, y1, color);
+  }
+}
+
 void drawPlanetSystem(int frame) {
-  int cx = 120, cy = 62;
+  int cx = 120, cy = 60;
+  const float TILT = 16.0f * PI / 180.0f;
+  const float cosT = cos(TILT), sinT = sin(TILT);
   tft.fillScreen(TFT_BLACK);
 
   static int starX[24], starY[24];
@@ -2744,30 +2760,45 @@ void drawPlanetSystem(int frame) {
     tft.drawPixel(starX[i], starY[i], (i % 3 == 0) ? TFT_WHITE : TFT_DARKGREY);
   }
 
-  tft.drawCircle(cx, cy, 16, TFT_DARKGREY);
-  tft.fillCircle(cx, cy, 11, TFT_YELLOW);
-  tft.fillCircle(cx, cy, 8, TFT_ORANGE);
-  tft.fillCircle(cx, cy, 4, TFT_WHITE);
-
-  struct Planet { int orbit; int size; uint16_t color; float speed; float phase; };
-  static const Planet P[] = {
-    {24, 2, TFT_DARKCYAN, 0.08f, 0.0f},
-    {35, 3, TFT_GREEN,    0.055f, 1.3f},
-    {47, 2, TFT_CYAN,     0.04f, 2.6f},
-    {60, 4, TFT_RED,      0.028f, 3.9f},
-    {73, 3, TFT_MAGENTA,  0.02f, 5.2f},
+  struct Planet {
+    int orbit; int size; uint16_t color; float speed; float phase; bool ring;
   };
+  static const Planet P[] = {
+    {20, 2, 0xC618, 0.09f, 0.0f, false},  // Merkurius
+    {27, 3, 0xFE58, 0.07f, 1.5f, false},  // Venus
+    {34, 3, 0x001F, 0.055f, 2.8f, false}, // Bumi
+    {41, 3, 0xF800, 0.045f, 4.0f, false}, // Mars
+    {50, 5, 0xFDA0, 0.032f, 5.5f, false}, // Jupiter
+    {58, 4, 0xFF60, 0.024f, 6.8f, true},  // Saturnus (cincin)
+    {65, 3, 0x07FF, 0.018f, 8.0f, false}, // Uranus
+    {72, 3, 0x0410, 0.014f, 9.2f, false}, // Neptunus
+  };
+  const int NP = 8;
 
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < NP; i++) {
+    drawTiltedOrbit(cx, cy, P[i].orbit, (int)(P[i].orbit * 0.5f), TILT, TFT_DARKGREY);
+  }
+
+  tft.drawCircle(cx, cy, 14, TFT_DARKGREY);
+  tft.fillCircle(cx, cy, 10, TFT_YELLOW);
+  tft.fillCircle(cx, cy, 7, TFT_ORANGE);
+  tft.fillCircle(cx, cy, 3, TFT_WHITE);
+
+  for (int i = 0; i < NP; i++) {
     float a = P[i].phase + (float)frame * P[i].speed;
-    float x = cx + cos(a) * P[i].orbit;
-    float y = cy + sin(a) * P[i].orbit * 0.55f;
-    tft.fillCircle((int)x, (int)y, P[i].size, P[i].color);
+    float dx = cos(a) * P[i].orbit;
+    float dy = sin(a) * P[i].orbit * 0.5f;
+    int x = cx + (int)(dx * cosT - dy * sinT);
+    int y = cy + (int)(dx * sinT + dy * cosT);
+    tft.fillCircle(x, y, P[i].size, P[i].color);
+    if (P[i].ring) {
+      tft.drawEllipse(x, y, P[i].size + 3, 2, P[i].color);
+    }
   }
 
   tft.setTextFont(1);
   tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.setCursor(4, 118);
+  tft.setCursor(4, 122);
   tft.print("IDLE  BAT:");
   tft.print(readBatteryPercent());
   tft.print("%  H:");
