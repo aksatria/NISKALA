@@ -494,10 +494,6 @@ void drawMainMenu() {
   String label = String(menuItems[idx]);
   tft.setTextFont(4);
   tft.setTextColor(TFT_GREEN, TFT_BLACK);
-  if (tft.textWidth(label, 4) > 200) {
-    tft.setTextFont(2);
-    tft.setTextColor(TFT_CYAN, TFT_BLACK);
-  }
   tft.drawString(label, 120, 86);
 
   tft.setTextFont(2);
@@ -2731,36 +2727,47 @@ void setBacklight(uint8_t duty) {
   ledcWrite(0, duty);
 }
 
-void drawParticleOrbit(int frame) {
-  int cx = 120, cy = 60;
-  int rx = 68, ry = 26;
+void drawPlanetSystem(int frame) {
+  int cx = 120, cy = 62;
   tft.fillScreen(TFT_BLACK);
 
-  tft.setTextDatum(MC_DATUM);
-  tft.setTextFont(4);
-  tft.setTextColor(TFT_DARKGREEN, TFT_BLACK);
-  tft.drawString("NISKALA", cx, cy);
-
-  int n = 10;
-  for (int i = 0; i < n; i++) {
-    float a = (frame * 0.035f) + (i * 2.0f * PI / n);
-    int x = cx + (int)(cos(a) * rx);
-    int y = cy + (int)(sin(a) * ry);
-    uint16_t col = TFT_GREEN;
-    if (i % 3 == 1) col = TFT_CYAN;
-    else if (i % 3 == 2) col = TFT_DARKCYAN;
-    tft.fillCircle(x, y, 2, col);
-
-    float a2 = a - 0.45f;
-    int x2 = cx + (int)(cos(a2) * rx);
-    int y2 = cy + (int)(sin(a2) * ry);
-    tft.fillCircle(x2, y2, 1, TFT_DARKGREY);
+  static int starX[24], starY[24];
+  static bool starsInit = false;
+  if (!starsInit) {
+    for (int i = 0; i < 24; i++) {
+      starX[i] = random(240);
+      starY[i] = random(135);
+    }
+    starsInit = true;
   }
-  tft.setTextDatum(TL_DATUM);
+  for (int i = 0; i < 24; i++) {
+    tft.drawPixel(starX[i], starY[i], (i % 3 == 0) ? TFT_WHITE : TFT_DARKGREY);
+  }
+
+  tft.drawCircle(cx, cy, 16, TFT_DARKGREY);
+  tft.fillCircle(cx, cy, 11, TFT_YELLOW);
+  tft.fillCircle(cx, cy, 8, TFT_ORANGE);
+  tft.fillCircle(cx, cy, 4, TFT_WHITE);
+
+  struct Planet { int orbit; int size; uint16_t color; float speed; float phase; };
+  static const Planet P[] = {
+    {24, 2, TFT_DARKCYAN, 0.08f, 0.0f},
+    {35, 3, TFT_GREEN,    0.055f, 1.3f},
+    {47, 2, TFT_CYAN,     0.04f, 2.6f},
+    {60, 4, TFT_RED,      0.028f, 3.9f},
+    {73, 3, TFT_MAGENTA,  0.02f, 5.2f},
+  };
+
+  for (int i = 0; i < 5; i++) {
+    float a = P[i].phase + (float)frame * P[i].speed;
+    float x = cx + cos(a) * P[i].orbit;
+    float y = cy + sin(a) * P[i].orbit * 0.55f;
+    tft.fillCircle((int)x, (int)y, P[i].size, P[i].color);
+  }
 
   tft.setTextFont(1);
   tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  tft.setCursor(4, 112);
+  tft.setCursor(4, 118);
   tft.print("IDLE  BAT:");
   tft.print(readBatteryPercent());
   tft.print("%  H:");
@@ -2845,7 +2852,7 @@ void loop() {
       return;
     }
     if (millis() - lastScreensaverDraw > 50) {
-      drawParticleOrbit(screensaverFrame++);
+      drawPlanetSystem(screensaverFrame++);
       lastScreensaverDraw = millis();
     }
     return;
@@ -2855,7 +2862,7 @@ void loop() {
     screensaverActive = true;
     screensaverFrame = 0;
     setBacklight(BL_DIM);
-    drawParticleOrbit(0);
+    drawPlanetSystem(0);
     return;
   }
   // ---- end screensaver ----
