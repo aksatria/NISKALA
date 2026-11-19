@@ -1693,11 +1693,13 @@ void startCloudSync() {
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(cfg_wifi_ssid.c_str(), cfg_wifi_pass.c_str());
+  Serial.printf("[SYNC] Connect %s ...\n", cfg_wifi_ssid.c_str());
   unsigned long t = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - t < 12000) {
     delay(200);
   }
   if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[SYNC] GAGAL konek WiFi");
     tft.setTextColor(TFT_RED, TFT_BLACK);
     tft.setCursor(10, 105); tft.println("GAGAL konek WiFi");
     delay(2000);
@@ -1717,6 +1719,7 @@ void startCloudSync() {
   int code = http.POST(json);
   String resp = http.getString();
   http.end();
+  Serial.printf("[SYNC] HTTP %d: %s\n", code, resp.c_str());
 
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.fillRect(0, 105, 240, 12, TFT_BLACK);
@@ -2614,6 +2617,10 @@ void processCliCommand(String line) {
         Serial.println("[CLI] Gunakan: config set <ssid|pass|url|tpl> <nilai>");
       }
     }
+  }
+  else if (cmd == "sync" || cmd == "cloudsync") {
+    Serial.println("[CLI] Mulai Cloud Sync...");
+    startCloudSync();
   }
   else if (cmd == "reboot") {
     Serial.println("[CLI] Reboot...");
