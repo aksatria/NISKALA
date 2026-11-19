@@ -1,4 +1,4 @@
-﻿# NISKALA
+# NISKALA
 
 <div align="center">
 
@@ -239,6 +239,24 @@ Mengirim hasil Probe/Karma/Password ke hosting (alternatif SD card). Konfigurasi
 | `PROBE_LOG_SIZE` | `attack_engine.h` | Ukuran buffer probe log. |
 | `KARMA_MAX_SSIDS` | `karma.h` | Jumlah slot SSID Karma. |
 | `MAX_VERIFY_ATTEMPTS` | `main.cpp` | Batas percobaan verifikasi. |
+
+
+### Kredensial (jangan commit)
+
+WiFi SSID/password dan API key Cloud Sync dipisah ke file lokal yang di-ignore Git:
+
+| File | Status | Keterangan |
+|---|---|---|
+| src/secrets.h | Tidak di-commit | Berisi NISKALA_WIFI_SSID, NISKALA_WIFI_PASS, NISKALA_SYNC_API_KEY. |
+| src/secrets.example.h | Di-commit | Template, salin menjadi secrets.h. |
+| server/config.php | Tidak di-commit | Berisi define('API_KEY', ...). |
+| server/config.example.php | Di-commit | Template, salin menjadi config.php. |
+
+Cara pakai:
+
+1. Salin src/secrets.example.h menjadi src/secrets.h, lalu isi nilai asli.
+2. Salin server/config.example.php menjadi server/config.php, lalu isi API key.
+3. Jangan commit secrets.h dan config.php (sudah di-ignore di .gitignore).
 
 ## Batasan
 

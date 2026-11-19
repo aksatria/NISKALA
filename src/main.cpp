@@ -23,7 +23,22 @@ Preferences prefs;
 #define BTN_BOTTOM 35
 #define BAT_PIN 34
 #define FW_VERSION "3.1"
-#define SYNC_API_KEY "niskala-secret-2026"
+// Kredensial opsional dari src/secrets.h (file lokal, TIDAK di-commit).
+#if __has_include("secrets.h")
+  #include "secrets.h"
+#endif
+
+#ifndef NISKALA_WIFI_SSID
+  #define NISKALA_WIFI_SSID ""
+#endif
+#ifndef NISKALA_WIFI_PASS
+  #define NISKALA_WIFI_PASS ""
+#endif
+#ifndef NISKALA_SYNC_API_KEY
+  #define NISKALA_SYNC_API_KEY ""
+#endif
+
+#define SYNC_API_KEY NISKALA_SYNC_API_KEY
 
 const int MAX_VERIFY_ATTEMPTS = 5;
 const unsigned long VERIFY_TIMEOUT_MS = 6000;
@@ -92,8 +107,8 @@ int cfg_auth_burst = 20;
 int cfg_hop_interval_ms = 120;
 int cfg_beacon_hop_ms = 100;
 int cfg_deauth_reason = 0;
-String cfg_wifi_ssid = "Aksa Bintang";
-String cfg_wifi_pass = "MembanguN_5381";
+String cfg_wifi_ssid = NISKALA_WIFI_SSID;
+String cfg_wifi_pass = NISKALA_WIFI_PASS;
 String cfg_server_url = "https://niskalasys.my.id/sync.php";
 String cfg_template_url = "https://niskalasys.my.id/template.html";
 String g_customTemplate = "";

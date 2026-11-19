@@ -19,9 +19,22 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-define('API_KEY', 'niskala-secret-2026');
+$apiKey = '';
+if (file_exists(__DIR__ . '/config.php')) {
+    require __DIR__ . '/config.php';
+    $apiKey = defined('API_KEY') ? API_KEY : '';
+} elseif (getenv('NISKALA_API_KEY')) {
+    $apiKey = getenv('NISKALA_API_KEY');
+}
+
+if ($apiKey === '') {
+    http_response_code(503);
+    echo json_encode(['ok' => false, 'msg' => 'endpoint not configured']);
+    exit;
+}
+
 $key = isset($_SERVER['HTTP_X_API_KEY']) ? $_SERVER['HTTP_X_API_KEY'] : '';
-if ($key !== API_KEY) {
+if (!hash_equals($apiKey, $key)) {
     http_response_code(401);
     echo json_encode(['ok' => false, 'msg' => 'unauthorized']);
     exit;

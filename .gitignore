@@ -33,6 +33,7 @@ Desktop.ini
 !.env.example
 secrets.h
 credentials.h
+server/config.php
 
 # Codex/agent local files
 .agent/
