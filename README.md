@@ -57,6 +57,9 @@ Cocok untuk:
 | Karma Attack | Simulasi respons terhadap probe request. |
 | CSA Attack | Pengujian channel switch announcement (beacon/action frame). |
 | Web Remote | Kendali scan & serang dari browser HP via softAP. |
+| BLE Scan | Pemetaan perangkat BLE sekitar + MAC tracking. |
+| OTA Update | Flashing firmware via WiFi tanpa cabut USB. |
+| Cloud Sync | Kirim hasil pengujian (Probe/Karma/Password) ke hosting. |
 
 ### Fitur Pendukung
 
@@ -85,6 +88,12 @@ TTGO-T-Display-ESP32/
 │   ├── templates.h       # Template HTML
 │   ├── web_remote.h      # Web control (remote scan/serang)
 │   └── wifi_bypass.c     # Komponen kompatibilitas build
+├── server/
+│   ├── sync.php          # Endpoint Cloud Sync (POST JSON)
+│   ├── view.php          # Dashboard viewer hasil sync
+│   ├── template.html     # Template captive portal dari hosting
+│   └── data/
+│       └── .htaccess     # Proteksi akses langsung folder data
 ├── .gitignore
 ├── LICENSE
 ├── platformio.ini
@@ -248,7 +257,7 @@ Mengirim hasil Probe/Karma/Password ke hosting (alternatif SD card). Konfigurasi
 - [x] Runtime config attack (Deauth/Auth burst, Hop/Beacon interval) via Web Remote + NVS.
 - [x] Refactor delay blocking -> non-blocking pada flow verifikasi Evil Twin.
 - [x] Deteksi PMF/WPA3 presisi (authmode + parsing RSN capabilities beacon).
-- [ ] Mode UI minimal untuk lab.
+- [x] BLE Scan + MAC tracking perangkat sekitar.
 
 ## Lisensi
 
