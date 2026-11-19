@@ -487,9 +487,7 @@ void drawMainMenu() {
 
   // Satu menu per layar (font besar)
   int idx = menuSelection;
-  drawCornerBrackets(20, 42, 200, 66, TFT_GREEN);
-
-  // Ikon modul di dalam kotak
+  // Ikon modul (tanpa bingkai siku)
   drawMenuIcon(idx, 112, 48, TFT_GREEN);
 
   tft.setTextDatum(MC_DATUM);
