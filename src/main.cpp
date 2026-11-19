@@ -1746,7 +1746,6 @@ void stopAllAttacks() {
 void stopEvilTwin();
 
 void startEvilTwinWithDeauth() {
-  WiFi.disconnect(true);
   WiFi.mode(WIFI_AP_STA);
   delay(200);
 
@@ -1762,12 +1761,6 @@ void startEvilTwinWithDeauth() {
     return;
   }
   delay(500);
-
-  wifi_config_t wconf;
-  if (esp_wifi_get_config(WIFI_IF_AP, &wconf) == ESP_OK) {
-    wconf.ap.beacon_interval = 50;
-    esp_wifi_set_config(WIFI_IF_AP, &wconf);
-  }
 
   uint8_t fakeMac[6];
   esp_wifi_get_mac(WIFI_IF_AP, fakeMac);
