@@ -26,7 +26,8 @@ enum AttackMode {
   ATK_BEACON,
   ATK_PROBE,
   ATK_KARMA,
-  ATK_CSA
+  ATK_CSA,
+  ATK_CLIENT_MONITOR
 };
 extern volatile AttackMode g_attackMode;
 
@@ -60,6 +61,38 @@ extern ProbeEntry g_probeLog[PROBE_LOG_SIZE];
 extern volatile int g_probeLogHead;
 extern volatile int g_probeLogCount;
 extern portMUX_TYPE g_probeLogMux;
+
+#define CLIENT_MAX 24
+struct ClientEntry {
+  uint8_t mac[6];
+  int8_t rssi;
+  uint32_t packets;
+  unsigned long lastSeen;
+};
+extern ClientEntry g_clients[CLIENT_MAX];
+extern int g_clientCount;
+extern portMUX_TYPE g_clientMux;
+
+inline void clientMonitorLog(const uint8_t* mac, int8_t rssi) {
+  portENTER_CRITICAL(&g_clientMux);
+  for (int i = 0; i < g_clientCount; i++) {
+    if (memcmp(g_clients[i].mac, mac, 6) == 0) {
+      g_clients[i].rssi = rssi;
+      g_clients[i].packets++;
+      g_clients[i].lastSeen = millis();
+      portEXIT_CRITICAL(&g_clientMux);
+      return;
+    }
+  }
+  if (g_clientCount < CLIENT_MAX) {
+    memcpy(g_clients[g_clientCount].mac, mac, 6);
+    g_clients[g_clientCount].rssi = rssi;
+    g_clients[g_clientCount].packets = 1;
+    g_clients[g_clientCount].lastSeen = millis();
+    g_clientCount++;
+  }
+  portEXIT_CRITICAL(&g_clientMux);
+}
 
 // ═══════════════════════════════════════════════
 // Deauth frame  [PATCH 4] reason code parameter
@@ -419,6 +452,24 @@ inline void packetSniffer_cb(void* buf, wifi_promiscuous_pkt_type_t type) {
       }
     }
   }
+
+  if (g_attackMode == ATK_CLIENT_MONITOR && type == WIFI_PKT_DATA) {
+    uint8_t* a1 = &p[4];
+    uint8_t* a2 = &p[10];
+    uint8_t* a3 = &p[16];
+    if (memcmp(a1, g_targetBSSID, 6) == 0 ||
+        memcmp(a2, g_targetBSSID, 6) == 0 ||
+        memcmp(a3, g_targetBSSID, 6) == 0) {
+      const uint8_t* cand[2] = { a1, a2 };
+      for (int i = 0; i < 2; i++) {
+        if (memcmp(cand[i], g_targetBSSID, 6) != 0 &&
+            (cand[i][0] & 0x01) == 0 &&
+            cand[i][0] != 0xFF) {
+          clientMonitorLog(cand[i], pkt->rx_ctrl.rssi);
+        }
+      }
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -457,6 +508,8 @@ inline void attackTask(void* param) {
         break;
       case ATK_CSA:
         sendCSATick();
+        break;
+      case ATK_CLIENT_MONITOR:
         break;
       case ATK_PROBE: {
         static unsigned long lastHop = 0;

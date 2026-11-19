@@ -60,12 +60,14 @@ Cocok untuk:
 | BLE Scan | Pemetaan perangkat BLE sekitar + MAC tracking. |
 | OTA Update | Flashing firmware via WiFi tanpa cabut USB. |
 | Cloud Sync | Kirim hasil pengujian (Probe/Karma/Password) ke hosting. |
+| Client Monitor | Lihat klien/station terhubung ke AP target + deauth presisi. |
 
 ### Fitur Pendukung
 
 - Serial CLI via Serial Monitor 115200 (ketik help).
 - Macro attack sequence (RECON & ASSAULT).
 - BLE raw advertisement replay, iBeacon & Eddystone spoof.
+- Client Monitor: lihat klien terhubung & deauth presisi per MAC.
 
 - Deteksi PMF/WPA3 presisi (authmode + parsing RSN capabilities beacon) sebelum pengujian management frame.
 - Persistent storage menggunakan NVS.

