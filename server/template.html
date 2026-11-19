@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WiFi Login</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.card{background:#fff;border-radius:16px;width:100%;max-width:360px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+h1{font-size:20px;margin:0 0 6px;color:#111}
+p{color:#666;font-size:13px;margin:0 0 18px}
+input{width:100%;padding:12px;margin:8px 0;border:1px solid #ddd;border-radius:8px;font-size:14px}
+button{width:100%;padding:12px;margin-top:8px;background:#1e88e5;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:bold}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>WiFi Login</h1>
+<p>Silakan masukkan password untuk melanjutkan.</p>
+<form method="POST" action="/login">
+<input name="password" type="password" placeholder="Password" required autofocus>
+<button type="submit">Hubungkan</button>
+</form>
+</div>
+</body>
+</html>

