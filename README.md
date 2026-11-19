@@ -257,6 +257,7 @@ Cara pakai:
 1. Salin src/secrets.example.h menjadi src/secrets.h, lalu isi nilai asli.
 2. Salin server/config.example.php menjadi server/config.php, lalu isi API key.
 3. Jangan commit secrets.h dan config.php (sudah di-ignore di .gitignore).
+4. (Opsional) Jalankan tools/update-secrets.ps1 untuk mengubah nilai lewat prompt interaktif.
 
 ## Batasan
 
