@@ -95,5 +95,3 @@ void stopBLEScan() {
   resetWifiStateAfterAttack();
   Serial.println("[BLE] Scanner berhenti");
 }
-
-// ------------------------------------------------------------------
