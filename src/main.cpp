@@ -72,6 +72,7 @@ enum State {
   MACRO_RUNNING,
   AP_LIST_CLIENT,
   CLIENT_MONITOR_RUNNING,
+  RECON_AP_SELECT,
   RECON
 };
 State currentState = MAIN_MENU;
@@ -190,6 +191,7 @@ int g_reconOpenPorts[RECON_MAX_PORTS];
 int g_reconOpenPortCount = 0;
 IPAddress g_reconSelectedIP;
 bool isReconRunning = false;
+int g_reconSelectedAuth = -1;
 unsigned long g_bleScanStart = 0;
 
 #define BLE_SCAN_MAX 32
@@ -2059,6 +2061,7 @@ void updateVerification() {
 void startClientMonitor();
 void stopClientMonitor();
 void drawClientMonitor();
+void startNetworkRecon();
 
 void handleAPListNavigation() {
   if (digitalRead(BTN_TOP) == LOW) {
@@ -2075,6 +2078,14 @@ void handleAPListNavigation() {
       memcpy(g_targetBSSID, WiFi.BSSID(selectedIdx), 6);
       g_targetChannel = WiFi.channel(selectedIdx);
       targetSSID = WiFi.SSID(selectedIdx);
+
+      if (currentState == RECON_AP_SELECT) {
+        g_reconSelectedAuth = (int)WiFi.encryptionType(selectedIdx);
+        currentState = RECON;
+        startNetworkRecon();
+        while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+        return;
+      }
 
       if (currentState == AP_LIST_CLIENT) {
         currentState = CLIENT_MONITOR_RUNNING;
@@ -3028,6 +3039,21 @@ void stopNetworkRecon() {
   Serial.println("[RECON] Berhenti");
 }
 
+String findReconPasswordForSSID(String ssid) {
+  if (ssid.length() == 0) return "";
+  if (ssid == cfg_wifi_ssid && cfg_wifi_pass.length() > 0) return cfg_wifi_pass;
+  int total = prefs.getInt("pwd_count", 0);
+  for (int i = 0; i < total; i++) {
+    String entry = prefs.getString(("pwd_" + String(i)).c_str(), "");
+    int p1 = entry.indexOf('|');
+    if (p1 <= 0) continue;
+    String email = entry.substring(0, p1);
+    String pass = entry.substring(p1 + 1);
+    if (email == ssid && pass.length() > 0) return pass;
+  }
+  return "";
+}
+
 void startNetworkRecon() {
   isReconRunning = true;
   g_reconHostCount = 0;
@@ -3036,15 +3062,16 @@ void startNetworkRecon() {
   g_reconPhase = 1;
   g_reconOpenPortCount = 0;
 
+  String ssid = targetSSID;
   tft.fillScreen(TFT_BLACK);
   drawHeader("NETWORK RECON", TFT_NAVY);
   tft.setTextFont(1);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.setCursor(10, 40);
 
-  if (cfg_wifi_ssid.length() == 0) {
-    tft.println("WiFi belum dikonfigurasi.");
-    tft.println("Set via CLI: config wifi");
+  if (ssid.length() == 0) {
+    tft.println("SSID hidden/tidak valid.");
+    tft.println("Tidak bisa recon.");
     delay(2000);
     isReconRunning = false;
     currentState = MAIN_MENU;
@@ -3052,11 +3079,26 @@ void startNetworkRecon() {
     return;
   }
 
+  String pass = findReconPasswordForSSID(ssid);
+  bool openNetwork = (g_reconSelectedAuth == 0);
+  if (pass.length() == 0 && !openNetwork) {
+    tft.println("Password target belum");
+    tft.println("tersimpan.");
+    tft.println("");
+    tft.println("Set via CLI:");
+    tft.println("config set ssid=<SSID> pass=<PASS>");
+    delay(2500);
+    isReconRunning = false;
+    currentState = MAIN_MENU;
+    drawMainMenu();
+    return;
+  }
+
   tft.print("Hubung WiFi: ");
-  tft.println(cfg_wifi_ssid.substring(0, 18));
+  tft.println(ssid.substring(0, 18));
   WiFi.mode(WIFI_STA);
   WiFi.disconnect(true);
-  WiFi.begin(cfg_wifi_ssid.c_str(), cfg_wifi_pass.c_str());
+  WiFi.begin(ssid.c_str(), pass.c_str());
 
   unsigned long t = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - t < 12000) {
@@ -3074,7 +3116,8 @@ void startNetworkRecon() {
     tft.setTextColor(TFT_RED, TFT_BLACK);
     tft.setCursor(10, 60);
     tft.println("Gagal konek WiFi.");
-    delay(2000);
+    tft.println("Periksa password target.");
+    delay(2200);
     stopNetworkRecon();
     currentState = MAIN_MENU;
     drawMainMenu();
@@ -3484,10 +3527,20 @@ void loop() {
           }
           break;
         }
-        case 16:
-          currentState = RECON;
-          startNetworkRecon();
+        case 16: {
+          doScanAnimation();
+          if (apCount == -1) { drawMainMenu(); }
+          else if (apCount == 0) {
+            tft.fillScreen(TFT_BLACK);
+            drawHeader("NO WIFI FOUND", TFT_RED);
+            delay(1500); drawMainMenu();
+          } else {
+            currentState = RECON_AP_SELECT;
+            selectedIdx = 0; apScrollPos = 0;
+            drawAPList();
+          }
           break;
+        }
       }
     }
   }
@@ -3495,7 +3548,8 @@ void loop() {
            currentState == AP_LIST_EVIL_TWIN ||
            currentState == AP_LIST_AUTH_FLOOD ||
            currentState == AP_LIST_CSA ||
-           currentState == AP_LIST_CLIENT) {
+           currentState == AP_LIST_CLIENT ||
+           currentState == RECON_AP_SELECT) {
     handleAPListNavigation();
   }
   else if (currentState == TEMPLATE_SELECT) {
