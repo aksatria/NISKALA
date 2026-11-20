@@ -1743,9 +1743,8 @@ void startCloudSync() {
     tft.setCursor(10, 40); tft.println("Belum dikonfigurasi.");
     tft.setCursor(10, 60); tft.println("Isi WiFi & URL di");
     tft.setCursor(10, 80); tft.println("Web Remote > Config.");
-    delay(2500);
-    currentState = MAIN_MENU;
-    drawMainMenu();
+    g_cloudPhase = CLOUD_PHASE_DONE;
+    g_cloudTimer = millis();
     return;
   }
 
@@ -1823,6 +1822,28 @@ void resetWifiStateAfterAttack() {
   WiFi.softAPdisconnect(true);
   restoreOriginalApMac();
   WiFi.mode(WIFI_STA);
+}
+
+// Hentikan serangan tanpa memutus AP kontrol Web Remote
+void stopAttacksKeepWebRemote() {
+  if (isDeauthRunning) { isDeauthRunning = false; esp_wifi_set_promiscuous(false); }
+  if (isBeaconRunning) isBeaconRunning = false;
+  if (isAuthFloodRunning) isAuthFloodRunning = false;
+  if (isGlobalDeauthRunning) isGlobalDeauthRunning = false;
+  if (isProbeRunning) { isProbeRunning = false; esp_wifi_set_promiscuous(false); }
+  if (isBTSpamRunning) { btSpamStop(); isBTSpamRunning = false; }
+  if (isCSARunning) { isCSARunning = false; esp_wifi_set_promiscuous(false); }
+  if (isKarmaRunning) { isKarmaRunning = false; esp_wifi_set_promiscuous(false); }
+  if (isEvilTwinRunning) {
+    isEvilTwinRunning = false;
+    isReleasing = false;
+    isVerifying = false;
+    verifyState = 0;
+    server.stop();
+    dnsServer.stop();
+    esp_wifi_set_promiscuous(false);
+  }
+  g_attackMode = ATK_IDLE;
 }
 
 // Hentikan semua modul serangan tanpa merusak AP kontrol saat idle
@@ -3806,6 +3827,7 @@ void loop() {
     if (currentState == FETCH_TEMPLATE && (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW)) {
       delay(200);
       WiFi.disconnect();
+      restoreOriginalApMac();
       WiFi.mode(WIFI_STA);
       currentState = TEMPLATE_SELECT;
       drawTemplateSelect();
@@ -3873,6 +3895,7 @@ void loop() {
     if (currentState == CLOUD_SYNC && (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW)) {
       delay(200);
       WiFi.disconnect();
+      restoreOriginalApMac();
       WiFi.mode(WIFI_STA);
       g_cloudPhase = CLOUD_PHASE_IDLE;
       currentState = MAIN_MENU;

@@ -21,6 +21,7 @@ extern int selectedTemplateIdx;
 extern int verifyAttempts;
 extern int verifyState;
 extern void stopAllAttacks();
+extern void stopAttacksKeepWebRemote();
 extern uint8_t g_targetBSSID[6];
 extern volatile uint8_t g_targetChannel;
 extern volatile uint32_t g_packetsSent;
@@ -330,6 +331,8 @@ inline void setupWebRemote() {
       for (int i = 0; i < 6; i++) g_targetBSSID[i] = (uint8_t)values[i];
 
       String mode = server.hasArg("mode") ? server.arg("mode") : "deauth";
+      server.send(200, "text/plain", "Attack Started");
+
       stopAllAttacks();
 
       if (mode == "evil") {
@@ -348,8 +351,6 @@ inline void setupWebRemote() {
         currentState = DEAUTH_MENU;
         startDeauthEngine();
       }
-
-      server.send(200, "text/plain", "Attack Started");
     } else {
       server.send(400, "text/plain", "Bad Request");
     }
@@ -357,41 +358,41 @@ inline void setupWebRemote() {
 
   // Stop semua
   server.on("/api/stop", []() {
-    stopAllAttacks();
+    stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
     server.send(200, "text/plain", "Stopped");
   });
 
   // Quick start modul lain
   server.on("/api/start/beacon", []() {
+    server.send(200, "text/plain", "Beacon Started");
     stopAllAttacks();
     currentState = BEACON_SPAM;
     startBeaconSpam();
-    server.send(200, "text/plain", "Beacon Started");
   });
   server.on("/api/start/global", []() {
+    server.send(200, "text/plain", "Global Started");
     stopAllAttacks();
     currentState = GLOBAL_DEAUTH;
     startGlobalDeauth();
-    server.send(200, "text/plain", "Global Started");
   });
   server.on("/api/start/probe", []() {
+    server.send(200, "text/plain", "Probe Started");
     stopAllAttacks();
     currentState = PROBE_SNIFF;
     startProbeSniffer();
-    server.send(200, "text/plain", "Probe Started");
   });
   server.on("/api/start/ble", []() {
+    server.send(200, "text/plain", "BLE Started");
     stopAllAttacks();
     currentState = BT_SPAM;
     startBTSpam();
-    server.send(200, "text/plain", "BLE Started");
   });
   server.on("/api/start/karma", []() {
+    server.send(200, "text/plain", "Karma Started");
     stopAllAttacks();
     currentState = KARMA_SCAN;
     startKarmaScan();
-    server.send(200, "text/plain", "Karma Started");
   });
 
   // Export Probe Sniff CSV
