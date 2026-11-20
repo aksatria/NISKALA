@@ -31,6 +31,8 @@ extern KarmaClientEntry g_karmaClients[KARMA_MAX_CLIENTS];
 extern int g_karmaClientCount;
 extern volatile uint32_t g_karmaResponses;
 extern volatile bool g_karmaActiveMode;
+extern volatile uint32_t g_packetsSent;
+extern volatile uint32_t g_txErrors;
 
 // Curated SSID list untuk broadcast probe — 5 SSID paling umum di PNL publik
 static const char* CURATED_SSIDS[] = {
@@ -134,6 +136,8 @@ inline void sendKarmaProbeResponse(const uint8_t* dst, const char* ssid) {
   frame[p++] = 0x03; frame[p++] = 0x01; frame[p++] = channel;
 
   esp_err_t err = esp_wifi_80211_tx(WIFI_IF_AP, frame, p, true);
+  g_packetsSent++;
+  if (err != ESP_OK) g_txErrors++;
   if (err == ESP_OK) g_karmaResponses++;
 }
 

@@ -17,6 +17,9 @@
 #include "templates.h"
 #include "bt_spam.h"
 
+void restoreOriginalApMac();
+void resetWifiStateAfterAttack();
+
 TFT_eSPI tft = TFT_eSPI();
 Preferences prefs;
 Preferences apPrefs;
@@ -108,6 +111,7 @@ const char* menuItems[] = {
 volatile AttackMode g_attackMode = ATK_IDLE;
 volatile uint32_t g_packetsSent = 0;
 volatile uint32_t g_txErrors = 0;
+uint8_t g_originalApMac[6] = {0,0,0,0,0,0};
 volatile bool g_victimFound = false;
 uint8_t g_victimMAC[6] = {0};
 uint8_t g_targetBSSID[6] = {0};
@@ -1301,6 +1305,7 @@ void startKarmaScan() {
 
   WiFi.mode(WIFI_AP_STA);
   delay(200);
+  restoreOriginalApMac();
   WiFi.softAP("Karma_Scan", NULL, 1, 1, 8);
   delay(300);
 
@@ -1317,8 +1322,7 @@ void startKarmaScan() {
 void stopKarmaScan() {
   isKarmaRunning = false;
   g_attackMode = ATK_IDLE;
-  esp_wifi_set_promiscuous(false);
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
   Serial.println("[KARMA] Scan stopped");
 }
 
@@ -1349,8 +1353,7 @@ void startDeauthEngine() {
 void stopDeauthEngine() {
   isDeauthRunning = false;
   g_attackMode = ATK_IDLE;
-  esp_wifi_set_promiscuous(false);
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
 }
 
 void startAuthFlood() {
@@ -1376,11 +1379,12 @@ void startAuthFlood() {
 void stopAuthFlood() {
   isAuthFloodRunning = false;
   g_attackMode = ATK_IDLE;
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
 }
 
 void startGlobalDeauth() {
   if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  restoreOriginalApMac();
   WiFi.softAP("Global_Deauth", "12345678", 1, 1); delay(300);
   esp_wifi_set_promiscuous(false);
   g_packetsSent = 0;
@@ -1392,11 +1396,12 @@ void startGlobalDeauth() {
 void stopGlobalDeauth() {
   isGlobalDeauthRunning = false;
   g_attackMode = ATK_IDLE;
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
 }
 
 void startBeaconSpam() {
   WiFi.mode(WIFI_AP);
+  restoreOriginalApMac();
   WiFi.softAP("Beacon_Init", "12345678", 1, 1); delay(300);
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
   esp_wifi_set_promiscuous(false);
@@ -1409,11 +1414,12 @@ void startBeaconSpam() {
 void stopBeaconSpam() {
   isBeaconRunning = false;
   g_attackMode = ATK_IDLE;
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
 }
 
 void startProbeSniffer() {
   if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  restoreOriginalApMac();
   WiFi.softAP("Probe_Sniff", "12345678", 1, 1); delay(200);
   portENTER_CRITICAL(&g_probeLogMux);
   g_probeLogHead = 0; g_probeLogCount = 0;
@@ -1428,8 +1434,7 @@ void startProbeSniffer() {
 void stopProbeSniffer() {
   isProbeRunning = false;
   g_attackMode = ATK_IDLE;
-  esp_wifi_set_promiscuous(false);
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
 }
 
 void startBTSpam() {
@@ -1443,7 +1448,7 @@ void startBTSpam() {
 void stopBTSpam() {
   btSpamStop();
   isBTSpamRunning = false;
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
 }
 
 // ── CSA  [PATCH 2] ──
@@ -1481,8 +1486,7 @@ void startCSAAttack() {
 void stopCSAAttack() {
   isCSARunning = false;
   g_attackMode = ATK_IDLE;
-  esp_wifi_set_promiscuous(false);
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
   Serial.println("[CSA] Stopped");
 }
 
@@ -1509,6 +1513,7 @@ void drawWebRemoteScreen() {
 void startWebRemote() {
   WiFi.mode(WIFI_AP_STA);
   delay(200);
+  restoreOriginalApMac();
   WiFi.softAP("NISKALA_CTRL", "niskala123", 1, 0, 4);
   delay(300);
   server.begin();
@@ -1521,7 +1526,7 @@ void startWebRemote() {
 void stopWebRemote() {
   server.stop();
   dnsServer.stop();
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
   isWebRemoteRunning = false;
   Serial.println("[WEB] Remote control berhenti");
 }
@@ -1546,6 +1551,7 @@ void drawOtaScreen() {
 
 void startOTA() {
   WiFi.mode(WIFI_AP);
+  restoreOriginalApMac();
   WiFi.softAP("NISKALA_OTA", "niskala123", 1, 0, 1);
   delay(300);
   ArduinoOTA.setHostname("niskala");
@@ -1560,7 +1566,7 @@ void startOTA() {
 
 void stopOTA() {
   isOtaRunning = false;
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
   Serial.println("[OTA] Berhenti");
 }
 
@@ -1650,7 +1656,7 @@ void stopBLEScan() {
   if (g_bleScan) g_bleScan->stop();
   g_bleScanning = false;
   BLEDevice::deinit(true);
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
   Serial.println("[BLE] Scanner berhenti");
 }
 
@@ -1782,6 +1788,20 @@ void startCloudSync() {
 
 void stopEvilTwin();
 
+void restoreOriginalApMac() {
+  if (g_originalApMac[0] != 0 || g_originalApMac[1] != 0 || g_originalApMac[2] != 0 ||
+      g_originalApMac[3] != 0 || g_originalApMac[4] != 0 || g_originalApMac[5] != 0) {
+    esp_wifi_set_mac(WIFI_IF_AP, g_originalApMac);
+  }
+}
+
+void resetWifiStateAfterAttack() {
+  esp_wifi_set_promiscuous(false);
+  WiFi.softAPdisconnect(true);
+  restoreOriginalApMac();
+  WiFi.mode(WIFI_STA);
+}
+
 // Hentikan semua modul serangan tanpa merusak AP kontrol saat idle
 void stopAllAttacks() {
   if (isDeauthRunning) stopDeauthEngine();
@@ -1800,8 +1820,7 @@ void stopAllAttacks() {
     verifyAttempts = 0;
     server.stop();
     dnsServer.stop();
-    esp_wifi_set_promiscuous(false);
-    WiFi.mode(WIFI_STA);
+    resetWifiStateAfterAttack();
   }
   g_attackMode = ATK_IDLE;
 }
@@ -1835,6 +1854,7 @@ String getBestDiscoveredSSID() {
 void startEvilTwinWithDeauth() {
   WiFi.mode(WIFI_AP_STA);
   delay(100);
+  restoreOriginalApMac();
 
   String safeSSID = targetSSID;
   if (safeSSID.length() == 0) {
@@ -1895,8 +1915,7 @@ void stopEvilTwin() {
   g_attackMode = ATK_IDLE;
   server.stop();
   dnsServer.stop();
-  esp_wifi_set_promiscuous(false);
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
 }
 
 // ═══════════════════════════════════════════════
@@ -2845,8 +2864,7 @@ void startClientMonitor() {
 void stopClientMonitor() {
   isClientMonitorRunning = false;
   g_attackMode = ATK_IDLE;
-  esp_wifi_set_promiscuous(false);
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
   Serial.println("[CLIENT] Monitor berhenti");
 }
 
@@ -3143,8 +3161,7 @@ void reconPortScan(int hostIdx) {
 void stopNetworkRecon() {
   isReconRunning = false;
   g_reconPhase = 1;
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_STA);
+  resetWifiStateAfterAttack();
   Serial.println("[RECON] Berhenti");
 }
 
@@ -3378,6 +3395,8 @@ void setup() {
   Serial.println("[2/4] Disclaimer...");
   showDisclaimerFlow();
 
+  WiFi.mode(WIFI_AP_STA);
+  esp_wifi_get_mac(WIFI_IF_AP, g_originalApMac);
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
 
