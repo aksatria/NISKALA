@@ -1843,7 +1843,6 @@ void cloudSyncTick() {
     }
   }
 }
-void stopEvilTwin();
 
 void restoreOriginalApMac() {
   if (g_originalApMac[0] != 0 || g_originalApMac[1] != 0 || g_originalApMac[2] != 0 ||
