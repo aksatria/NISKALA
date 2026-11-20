@@ -16,9 +16,10 @@
 #include "karma.h"
 #include "templates.h"
 #include "bt_spam.h"
+#include "wifi_state.h"
+#include "ui_helpers.h"
 
-void restoreOriginalApMac();
-void resetWifiStateAfterAttack();
+
 
 TFT_eSPI tft = TFT_eSPI();
 Preferences prefs;
@@ -453,24 +454,6 @@ void drawMenuIcon(int idx, int x, int y, uint16_t color) {
       tft.drawLine(x+13, y+9, x+13, y+12, color);
       break;
   }
-}
-
-void drawHeader(String title, uint16_t bgColor) {
-  tft.fillRect(0, 0, 240, 24, bgColor);
-  tft.setTextDatum(MC_DATUM); tft.setTextFont(2);
-  tft.setTextColor(TFT_WHITE, bgColor);
-  tft.drawString(title, 120, 12);
-  tft.drawFastHLine(0, 24, 240, TFT_DARKGREY);
-  tft.setTextDatum(TL_DATUM);
-}
-
-void drawFooter(String hint) {
-  tft.drawFastHLine(0, 115, 240, TFT_DARKGREY);
-  tft.fillRect(0, 116, 240, 19, TFT_BLACK);
-  tft.setTextDatum(MC_DATUM); tft.setTextFont(1);
-  tft.setTextColor(TFT_CYAN, TFT_BLACK);
-  tft.drawString(hint, 120, 125);
-  tft.setTextDatum(TL_DATUM);
 }
 
 // ═══════════════════════════════════════════════
@@ -1855,20 +1838,6 @@ void cloudSyncTick() {
       drawMainMenu();
     }
   }
-}
-
-void restoreOriginalApMac() {
-  if (g_originalApMac[0] != 0 || g_originalApMac[1] != 0 || g_originalApMac[2] != 0 ||
-      g_originalApMac[3] != 0 || g_originalApMac[4] != 0 || g_originalApMac[5] != 0) {
-    esp_wifi_set_mac(WIFI_IF_AP, g_originalApMac);
-  }
-}
-
-void resetWifiStateAfterAttack() {
-  esp_wifi_set_promiscuous(false);
-  WiFi.softAPdisconnect(true);
-  restoreOriginalApMac();
-  WiFi.mode(WIFI_STA);
 }
 
 // Hentikan serangan tanpa memutus AP kontrol Web Remote
