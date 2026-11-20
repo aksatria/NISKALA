@@ -552,15 +552,24 @@ void drawAPList() {
     drawSignalBars(120, 30, rssi, TFT_CYAN);
 
     String ssid = WiFi.SSID(idx);
-    if (ssid.length() > 12) ssid = ssid.substring(0, 12);
+    bool hidden = (ssid.length() == 0);
+    if (hidden) {
+      ssid = "(HIDDEN)";
+    } else if (ssid.length() > 12) {
+      ssid = ssid.substring(0, 12);
+    }
 
     tft.setTextFont(4);
-    tft.setTextColor(TFT_CYAN, TFT_BLACK);
-    tft.drawString(ssid, 120, 68);
+    tft.setTextColor(hidden ? TFT_ORANGE : TFT_CYAN, TFT_BLACK);
+    tft.drawString(ssid, 120, 58);
 
     tft.setTextFont(2);
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-    tft.drawString("CH " + String(WiFi.channel(idx)) + "  |  " + String(rssi) + " dBm", 120, 100);
+    tft.drawString("CH " + String(WiFi.channel(idx)) + "  |  " + String(rssi) + " dBm", 120, 84);
+
+    tft.setTextFont(1);
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.drawString(WiFi.BSSIDstr(idx), 120, 104);
   } else {
     drawBackIcon(110, 46, TFT_GREEN);
 
