@@ -165,51 +165,123 @@ Konfigurasi board, pin TFT, partition, dan dependency berada di `platformio.ini`
 > Jalankan modul hanya setelah memastikan kanal, perangkat, dan jaringan yang digunakan memang berada dalam scope pengujian.
 
 <details>
-<summary><strong>Detail modul pengujian</strong></summary>
+<summary><strong>Detail modul pengujian (16 modul)</strong></summary>
 
-### Deauth Manual
+### 1. Deauth Manual
+Mengirim frame deautentikasi ke satu AP target untuk memutus klien yang terhubung.
 
-Digunakan untuk menguji respons management frame pada AP lab. Modul menampilkan status paket dan menolak target yang terdeteksi menggunakan PMF/WPA3.
+**Contoh kasus:** memeriksa apakah AP di lab rentan terhadap deauth; atau memaksa satu perangkat tertentu putus lalu mengamati proses reconnect-nya.
 
-### Evil Twin / Captive Portal
+**Cara pakai:** pilih `DEAUTH MANUAL` → scan → pilih AP target → tombol bawah untuk start/stop. Perhatikan angka `P:` (paket terkirim) dan `E:` (error) di kanan layar.
 
-Digunakan untuk simulasi awareness dan pengujian captive portal pada perangkat milik sendiri. Template HTML berada di `src/templates.h`.
+**Catatan:** target yang terdeteksi PMF/WPA3 akan ditolak karena deauth tidak efektif.
 
-### Beacon Spam dan Probe Sniff
+### 2. Evil Twin / Captive Portal
+Membuat AP palsu dengan SSID yang sama dengan target dan captive portal untuk menangkap kredensial.
 
-Digunakan untuk menguji bagaimana perangkat menangani SSID uji dan probe request dalam lingkungan terkontrol.
+**Contoh kasus:** simulasi serangan phishing WiFi untuk melatih karyawan/klien agar tidak asal memasukkan password ke portal mencurigakan.
 
-### Global Deauth dan Auth Flood
+**Cara pakai:** pilih `EVIL TWIN` → scan → pilih AP target → pilih template (Generic/IndiHome/Facebook/MikroTik/Google/Hosting) → korban terhubung ke AP palsu → password yang dimasukkan diverifikasi ke AP asli. Template dikelola di `src/templates.h`.
 
-Hanya untuk lab terisolasi. Kedua modul dapat mengganggu konektivitas perangkat lain jika digunakan di luar scope.
+**Catatan:** AP target yang SSID-nya tersembunyi otomatis memakai SSID hasil `PROBE SNIFF`/`KARMA ATTACK` bila tersedia.
 
-### Bluetooth Spam
+### 3. Beacon Spam
+Menyiarkan banyak SSID palsu secara bergantian (channel hopping) untuk menguji respons perangkat terhadap SSID uji.
 
-Menguji respons perangkat terhadap BLE advertisement. WiFi dan BLE berbagi radio pada ESP32 sehingga keduanya tidak berjalan penuh secara bersamaan.
+**Contoh kasus:** mengisi daftar WiFi korban dengan SSID palsu untuk menguji ketahanan driver WiFi atau sekadar simulasi di lab.
 
-### Password Vault
+**Cara pakai:** pilih `BEACON SPAM`. Tekan tombol untuk berhenti.
 
-Menampilkan hasil pengujian yang disimpan pada NVS. Hapus data hanya setelah memastikan data tersebut tidak lagi diperlukan.
+### 4. Probe Sniff
+Menangkap probe request yang dipancarkan perangkat, menampilkan MAC, vendor, hitungan, RSSI, dan SSID.
 
-### Karma Attack
+**Contoh kasus:** mengungkap SSID tersembunyi yang tersimpan di HP korban (HP otomatis mem-probe SSID tersimpan); atau memetakan perangkat yang mencari jaringan tertentu.
 
-Digunakan untuk penelitian probe request dan simulasi respons SSID pada lab wireless.
+**Cara pakai:** pilih `PROBE SNIFF` dan biarkan berjalan. SSID kosong (broadcast probe) ditampilkan sebagai `(hidden)`.
 
-### CSA Attack
+### 5. Global Deauth
+Mengirim deauth broadcast ke semua channel secara berputar.
 
-Mengirim Channel Switch Announcement melalui beacon dan action frame. Berguna untuk pengujian ketahanan klien terhadap perpindahan kanal, termasuk target dengan PMF/WPA3.
+**Contoh kasus:** pengujian ketahanan seluruh AP di lab terisolasi terhadap gangguan management frame.
 
-### Web Remote
+**Cara pakai:** pilih `GLOBAL DEAUTH`. Hanya gunakan di lingkungan yang benar-benar terisolasi.
 
-Mengaktifkan softAP `NISKALA_CTRL` (password `niskala123`). Buka `http://192.168.4.1` di browser HP untuk scan WiFi, pilih target, mulai Deauth atau quick-start Beacon/Global/Probe/BLE, cek status live, config runtime, dan export hasil Probe/Karma/Password ke CSV.
+### 6. Auth Flood
+Membanjiri tabel autentikasi AP target dengan frame authentication ber-MAC acak.
 
-### OTA Update
+**Contoh kasus:** menguji apakah AP target mampu menahan serangan auth flood.
 
-Aktifkan softAP `NISKALA_OTA` (password `niskala123`). Sambungkan laptop ke AP tersebut, lalu jalankan `pio run -e ota -t upload` untuk flash firmware via WiFi (tanpa cabut USB).
+**Cara pakai:** pilih `AUTH FLOOD` → scan → pilih AP target.
 
-### Cloud Sync
+### 7. Bluetooth Spam
+Mengirim BLE advertisement dari berbagai vendor (Apple, Fast Pair, Swift Pair, Samsung, Amazon, AirPods, iBeacon, Eddystone) secara bergantian.
 
-Mengirim hasil Probe/Karma/Password ke hosting (alternatif SD card). Konfigurasi WiFi SSID/password dan Server URL lewat Web Remote > Config, lalu jalankan menu `CLOUD SYNC`. Upload `server/sync.php` ke hosting dan arahkan ke URL tersebut.
+**Contoh kasus:** menguji respons perangkat terhadap popup pairing BLE (mis. popup Fast Pair/Swift Pair).
+
+**Cara pakai:** pilih `BLUETOOTH SPAM`. WiFi dimatikan sementara karena radio dipakai BLE.
+
+### 8. Password Vault
+Menyimpan dan menampilkan kredensial yang tertangkap dari Evil Twin, lengkap dengan status verifikasi (OK/XX/?).
+
+**Contoh kasus:** mereview hasil simulasi phishing (email/username, password, status benar/salah).
+
+**Cara pakai:** pilih `PASSWORD` → tombol atas untuk navigasi, tombol bawah untuk hapus entri/hapus semua/kembali.
+
+### 9. Karma Attack
+Merespons probe request dengan probe response, membuat perangkat mengira SSID yang dicarinya tersedia.
+
+**Contoh kasus:** memancing klien terhubung otomatis ke AP yang dikontrol untuk penelitian probe request.
+
+**Cara pakai:** pilih `KARMA ATTACK`, tunggu hasil, lalu pilih SSID untuk melanjutkan ke Evil Twin.
+
+### 10. CSA Attack
+Mengirim Channel Switch Announcement (beacon + action frame) untuk memaksa klien pindah kanal.
+
+**Contoh kasus:** menguji ketahanan klien terhadap CSA, termasuk target dengan PMF/WPA3 yang kebal deauth.
+
+**Cara pakai:** pilih `CSA ATTACK` → scan → pilih AP target.
+
+### 11. Web Remote
+Mengendalikan NISKALA dari browser HP/laptop via softAP `NISKALA_CTRL`.
+
+**Contoh kasus:** scan dan serang WiFi dari jarak dekat tanpa menyentuh tombol board.
+
+**Cara pakai:** pilih `WEB REMOTE` → hubungkan HP ke WiFi `NISKALA_CTRL` (password `niskala123`) → buka `http://192.168.4.1`. Tersedia scan, attack mode, quick-start, chart paket, config runtime, dan export CSV.
+
+### 12. OTA Update
+Update firmware via WiFi tanpa mencabut USB.
+
+**Contoh kasus:** flashing firmware baru saat board sudah terpasang di lokasi yang sulit dijangkau.
+
+**Cara pakai:** pilih `OTA UPDATE` → hubungkan laptop ke `NISKALA_OTA` (password `niskala123`) → jalankan `pio run -e ota -t upload`.
+
+### 13. BLE Scan
+Memindai perangkat BLE di sekitar dan melacak MAC-nya.
+
+**Contoh kasus:** memetakan AirTag/smartwatch/perangkat BLE di area lab, atau melacak kehadiran MAC tertentu.
+
+**Cara pakai:** pilih `BLE SCAN`. Tekan tombol untuk berhenti.
+
+### 14. Cloud Sync
+Mengirim hasil Probe/Karma/Password/BLE ke hosting sebagai alternatif penyimpanan (pengganti SD card).
+
+**Contoh kasus:** menyimpan hasil pengujian ke dashboard web agar bisa diakses dari mana saja.
+
+**Cara pakai:** isi WiFi SSID/password dan Server URL lewat `WEB REMOTE > Config`, lalu jalankan `CLOUD SYNC`. Upload `server/sync.php` dan `server/config.php` ke hosting.
+
+### 15. Macro
+Menjalankan rangkaian serangan secara otomatis.
+
+**Contoh kasus:** `RECON` (Probe Sniff → Karma) untuk intelijen pasif, atau `ASSAULT` (Beacon Spam → Global Deauth) untuk tekanan aktif.
+
+**Cara pakai:** pilih `MACRO` → pilih `RECON` atau `ASSAULT` → tombol bawah untuk menjalankan.
+
+### 16. Client Monitor
+Memantau klien/station yang terhubung ke AP target secara real-time (MAC, RSSI, jumlah paket).
+
+**Contoh kasus:** melihat perangkat yang sedang terhubung ke AP target, lalu melakukan deauth presisi ke salah satu MAC.
+
+**Cara pakai:** pilih `CLIENT MONITOR` → scan → pilih AP target → tombol atas untuk pilih klien, tombol bawah untuk deauth klien terpilih / kembali.
 
 </details>
 
