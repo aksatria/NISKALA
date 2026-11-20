@@ -3037,59 +3037,46 @@ void drawTiltedOrbit(int cx, int cy, int rx, int ry, float angle, uint16_t color
   }
 }
 
-void drawPlanetSystem(int frame) {
-  int cx = 120, cy = 60;
-  const float TILT = 16.0f * PI / 180.0f;
-  const float cosT = cos(TILT), sinT = sin(TILT);
+void drawButterflyScreensaver(int frame) {
+  static const uint16_t BF_COLORS[] = { TFT_RED, TFT_GREEN, TFT_CYAN, TFT_MAGENTA, TFT_YELLOW, TFT_ORANGE, TFT_WHITE, TFT_BLUE };
+  static const int BF_COUNT = 10;
+  struct Bfly { float x; float y; float vx; float vy; float phase; uint16_t color; };
+  static Bfly b[BF_COUNT];
+  static bool bInit = false;
+  if (!bInit) {
+    for (int i = 0; i < BF_COUNT; i++) {
+      b[i].x = random(20, 220);
+      b[i].y = random(20, 110);
+      b[i].vx = ((random(100) - 50) / 18.0f);
+      b[i].vy = ((random(100) - 50) / 18.0f);
+      if (b[i].vx == 0) b[i].vx = 0.6f;
+      if (b[i].vy == 0) b[i].vy = 0.4f;
+      b[i].phase = random(628) / 100.0f;
+      b[i].color = BF_COLORS[i % 8];
+    }
+    bInit = true;
+  }
+
   tft.fillScreen(TFT_BLACK);
+  for (int i = 0; i < BF_COUNT; i++) {
+    b[i].x += b[i].vx;
+    b[i].y += b[i].vy;
+    if (b[i].x < 8) { b[i].x = 8; b[i].vx = -b[i].vx; }
+    if (b[i].x > 232) { b[i].x = 232; b[i].vx = -b[i].vx; }
+    if (b[i].y < 8) { b[i].y = 8; b[i].vy = -b[i].vy; }
+    if (b[i].y > 110) { b[i].y = 110; b[i].vy = -b[i].vy; }
 
-  static int starX[24], starY[24];
-  static bool starsInit = false;
-  if (!starsInit) {
-    for (int i = 0; i < 24; i++) {
-      starX[i] = random(240);
-      starY[i] = random(135);
-    }
-    starsInit = true;
-  }
-  for (int i = 0; i < 24; i++) {
-    tft.drawPixel(starX[i], starY[i], (i % 3 == 0) ? TFT_WHITE : TFT_DARKGREY);
-  }
+    int x = (int)b[i].x;
+    int y = (int)b[i].y;
+    float flap = sin((float)frame * 0.35f + b[i].phase) * 4.0f;
+    int w = (int)flap + 3;
+    uint16_t col = b[i].color;
 
-  struct Planet {
-    int orbit; int size; uint16_t color; float speed; float phase; bool ring;
-  };
-  static const Planet P[] = {
-    {20, 2, 0xC618, 0.09f, 0.0f, false},  // Merkurius
-    {27, 3, 0xFE58, 0.07f, 1.5f, false},  // Venus
-    {34, 3, 0x001F, 0.055f, 2.8f, false}, // Bumi
-    {41, 3, 0xF800, 0.045f, 4.0f, false}, // Mars
-    {50, 5, 0xFDA0, 0.032f, 5.5f, false}, // Jupiter
-    {58, 4, 0xFF60, 0.024f, 6.8f, true},  // Saturnus (cincin)
-    {65, 3, 0x07FF, 0.018f, 8.0f, false}, // Uranus
-    {72, 3, 0x0410, 0.014f, 9.2f, false}, // Neptunus
-  };
-  const int NP = 8;
-
-  for (int i = 0; i < NP; i++) {
-    drawTiltedOrbit(cx, cy, P[i].orbit, (int)(P[i].orbit * 0.5f), TILT, TFT_DARKGREY);
-  }
-
-  tft.drawCircle(cx, cy, 14, TFT_DARKGREY);
-  tft.fillCircle(cx, cy, 10, TFT_YELLOW);
-  tft.fillCircle(cx, cy, 7, TFT_ORANGE);
-  tft.fillCircle(cx, cy, 3, TFT_WHITE);
-
-  for (int i = 0; i < NP; i++) {
-    float a = P[i].phase + (float)frame * P[i].speed;
-    float dx = cos(a) * P[i].orbit;
-    float dy = sin(a) * P[i].orbit * 0.5f;
-    int x = cx + (int)(dx * cosT - dy * sinT);
-    int y = cy + (int)(dx * sinT + dy * cosT);
-    tft.fillCircle(x, y, P[i].size, P[i].color);
-    if (P[i].ring) {
-      tft.drawEllipse(x, y, P[i].size + 3, 2, P[i].color);
-    }
+    tft.drawLine(x - 2, y, x + 2, y, col);
+    tft.fillTriangle(x - 1, y, x - 5, y - w, x - 9, y, col);
+    tft.fillTriangle(x + 1, y, x + 5, y - w, x + 9, y, col);
+    tft.fillTriangle(x - 1, y, x - 4, y + w, x - 8, y, col);
+    tft.fillTriangle(x + 1, y, x + 4, y + w, x + 8, y, col);
   }
 
   tft.setTextFont(1);
@@ -3099,9 +3086,7 @@ void drawPlanetSystem(int frame) {
   tft.print(readBatteryPercent());
   tft.print("%  H:");
   tft.print(ESP.getFreeHeap());
-}
-
-volatile bool g_pingOK = false;
+}volatile bool g_pingOK = false;
 volatile bool g_pingDone = false;
 
 static void onReconPingSuccess(esp_ping_handle_t hdl, void* args) {
@@ -3606,8 +3591,8 @@ void loop() {
       delay(200);
       return;
     }
-    if (millis() - lastScreensaverDraw > 50) {
-      drawPlanetSystem(screensaverFrame++);
+    if (millis() - lastScreensaverDraw > 70) {
+      drawButterflyScreensaver(screensaverFrame++);
       lastScreensaverDraw = millis();
     }
     return;
@@ -3617,7 +3602,7 @@ void loop() {
     screensaverActive = true;
     screensaverFrame = 0;
     setBacklight(BL_DIM);
-    drawPlanetSystem(0);
+    drawButterflyScreensaver(0);
     return;
   }
   // ---- end screensaver ----
