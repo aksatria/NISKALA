@@ -39,6 +39,7 @@ extern String cfg_wifi_pass;
 extern String cfg_server_url;
 extern int cfg_autosync_min;
 extern int readBatteryPercent();
+extern TaskHandle_t attackTaskHandle;
 extern String cfg_template_url;
 
 inline String jsonEscape(const String& s) {
@@ -200,7 +201,7 @@ function drawChart(data) {
 }
 function poll() {
   fetch('/api/status').then(r => r.json()).then(s => {
-    document.getElementById('info').innerText = 'mode ' + s.mode + ' | pkt ' + s.packets + ' | err ' + s.txerrors + ' | heap ' + s.heap + 'B | bat ' + (s.battery||0) + '% | t ' + (s.temp||0) + 'C | up ' + s.uptime + 's | ' + s.target;
+    document.getElementById('info').innerText = 'mode ' + s.mode + ' | pkt ' + s.packets + ' | err ' + s.txerrors + ' | heap ' + s.heap + 'B | stack ' + (s.stack||0) + 'B | bat ' + (s.battery||0) + '% | t ' + (s.temp||0) + 'C | up ' + s.uptime + 's | ' + s.target;
     pktSamples.push(s.packets);
     if (pktSamples.length > 60) pktSamples.shift();
     drawChart(pktSamples);
@@ -273,6 +274,7 @@ inline void setupWebRemote() {
                   ",\"mode\":" + String((int)currentState) +
                   ",\"battery\":" + String(readBatteryPercent()) +
                   ",\"temp\":" + String((int)temperatureRead()) +
+                  ",\"stack\":" + String(attackTaskHandle ? (int)uxTaskGetStackHighWaterMark(attackTaskHandle) : 0) +
                   ",\"target\":\"" + jsonEscape(targetSSID) + "\"}";
     server.send(200, "application/json", json);
   });

@@ -2750,9 +2750,11 @@ void processCliCommand(String line) {
 
   if (cmd == "help") { cliPrintHelp(); }
   else if (cmd == "status") {
-    Serial.printf("State=%d Mode=%d PKT=%u ERR=%u Heap=%u Bat=%d Temp=%.0f Uptime=%lu\n",
+    Serial.printf("State=%d Mode=%d PKT=%u ERR=%u Heap=%u Bat=%d Temp=%.0f Stack=%u Uptime=%lu\n",
       (int)currentState, (int)g_attackMode, (unsigned)g_packetsSent, (unsigned)g_txErrors,
-      (unsigned)ESP.getFreeHeap(), readBatteryPercent(), temperatureRead(), (unsigned long)(millis() / 1000));
+      (unsigned)ESP.getFreeHeap(), readBatteryPercent(), temperatureRead(),
+      attackTaskHandle ? (unsigned)uxTaskGetStackHighWaterMark(attackTaskHandle) : 0,
+      (unsigned long)(millis() / 1000));
   }
   else if (cmd == "scan") {
     WiFi.mode(WIFI_STA);
