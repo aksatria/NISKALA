@@ -52,6 +52,7 @@ const unsigned long SUCCESS_HOLD_MS = 4000;
 
 enum State {
   MAIN_MENU,
+  AP_SCANNING,
   AP_LIST_DEAUTH,
   AP_LIST_EVIL_TWIN,
   AP_LIST_AUTH_FLOOD,
@@ -249,6 +250,9 @@ uint8_t transientMode = 0;
 String targetSSID = "";
 int apCount = 0;
 int selectedIdx = 0;
+int g_scanPendingMenu = -1;
+int g_scanFrame = 0;
+unsigned long g_scanLastDraw = 0;
 int apScrollPos = 0;
 
 int selectedTemplateIdx = 0;
@@ -2448,6 +2452,56 @@ void doScanAnimation() {
   }
 }
 
+void startApScan(int pendingMenu) {
+  g_scanPendingMenu = pendingMenu;
+  g_scanFrame = 0;
+  g_scanLastDraw = 0;
+  currentState = AP_SCANNING;
+  tft.fillScreen(TFT_BLACK);
+  drawScanAnimation(0);
+  WiFi.scanNetworks(true, true);
+}
+
+void apScanTick() {
+  int n = WiFi.scanComplete();
+  if (n >= 0) {
+    apCount = n;
+    int menu = g_scanPendingMenu;
+    g_scanPendingMenu = -1;
+    if (menu == 0) { currentState = AP_LIST_DEAUTH; }
+    else if (menu == 1) { currentState = AP_LIST_EVIL_TWIN; }
+    else if (menu == 5) { currentState = AP_LIST_AUTH_FLOOD; }
+    else if (menu == 9) { currentState = AP_LIST_CSA; }
+    else if (menu == 15) { currentState = AP_LIST_CLIENT; }
+    else if (menu == 16) { currentState = RECON_AP_SELECT; }
+    else { currentState = MAIN_MENU; }
+    selectedIdx = 0; apScrollPos = 0;
+    if (apCount > 0) drawAPList();
+    else {
+      tft.fillScreen(TFT_BLACK);
+      drawHeader("NO WIFI FOUND", TFT_RED);
+      delay(1500);
+      drawMainMenu();
+      currentState = MAIN_MENU;
+    }
+  } else if (n == -2) {
+    apCount = 0;
+    g_scanPendingMenu = -1;
+    currentState = MAIN_MENU;
+    drawMainMenu();
+  } else if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    WiFi.scanDelete();
+    apCount = -1;
+    g_scanPendingMenu = -1;
+    delay(200);
+    currentState = MAIN_MENU;
+    drawMainMenu();
+  } else if (millis() - g_scanLastDraw > 60) {
+    drawScanAnimation(g_scanFrame++);
+    g_scanLastDraw = millis();
+  }
+}
+
 // ═══════════════════════════════════════════════
 // Disclaimer
 // ═══════════════════════════════════════════════
@@ -2696,9 +2750,9 @@ void processCliCommand(String line) {
 
   if (cmd == "help") { cliPrintHelp(); }
   else if (cmd == "status") {
-    Serial.printf("State=%d Mode=%d PKT=%u ERR=%u Heap=%u Uptime=%lu\n",
+    Serial.printf("State=%d Mode=%d PKT=%u ERR=%u Heap=%u Bat=%d Temp=%.0f Uptime=%lu\n",
       (int)currentState, (int)g_attackMode, (unsigned)g_packetsSent, (unsigned)g_txErrors,
-      (unsigned)ESP.getFreeHeap(), (unsigned long)(millis() / 1000));
+      (unsigned)ESP.getFreeHeap(), readBatteryPercent(), temperatureRead(), (unsigned long)(millis() / 1000));
   }
   else if (cmd == "scan") {
     WiFi.mode(WIFI_STA);
@@ -3769,22 +3823,9 @@ void loop() {
     if (digitalRead(BTN_BOTTOM) == LOW) {
       delay(200);
       switch (menuSelection) {
-        case 0: case 1: case 5: {
-          doScanAnimation();
-          if (apCount == -1) { drawMainMenu(); }
-          else if (apCount == 0) {
-            tft.fillScreen(TFT_BLACK);
-            drawHeader("NO WIFI FOUND", TFT_RED);
-            delay(1500); drawMainMenu();
-          } else {
-            if (menuSelection == 0) currentState = AP_LIST_DEAUTH;
-            else if (menuSelection == 1) currentState = AP_LIST_EVIL_TWIN;
-            else currentState = AP_LIST_AUTH_FLOOD;
-            selectedIdx = 0; apScrollPos = 0;
-            drawAPList();
-          }
+        case 0: case 1: case 5:
+          startApScan(menuSelection);
           break;
-        }
         case 2:
           currentState = BEACON_SPAM;
           startBeaconSpam();
@@ -3816,20 +3857,9 @@ void loop() {
           startKarmaScan();
           drawKarmaScan(0);
           break;
-        case 9: {
-          doScanAnimation();
-          if (apCount == -1) { drawMainMenu(); }
-          else if (apCount == 0) {
-            tft.fillScreen(TFT_BLACK);
-            drawHeader("NO WIFI FOUND", TFT_RED);
-            delay(1500); drawMainMenu();
-          } else {
-            currentState = AP_LIST_CSA;
-            selectedIdx = 0; apScrollPos = 0;
-            drawAPList();
-          }
+        case 9:
+          startApScan(9);
           break;
-        }
         case 10:
           currentState = WEB_REMOTE;
           startWebRemote();
@@ -3851,34 +3881,12 @@ void loop() {
           macroSelection = 0;
           drawMacroMenu();
           break;
-        case 15: {
-          doScanAnimation();
-          if (apCount == -1) { drawMainMenu(); }
-          else if (apCount == 0) {
-            tft.fillScreen(TFT_BLACK);
-            drawHeader("NO WIFI FOUND", TFT_RED);
-            delay(1500); drawMainMenu();
-          } else {
-            currentState = AP_LIST_CLIENT;
-            selectedIdx = 0; apScrollPos = 0;
-            drawAPList();
-          }
+        case 15:
+          startApScan(15);
           break;
-        }
-        case 16: {
-          doScanAnimation();
-          if (apCount == -1) { drawMainMenu(); }
-          else if (apCount == 0) {
-            tft.fillScreen(TFT_BLACK);
-            drawHeader("NO WIFI FOUND", TFT_RED);
-            delay(1500); drawMainMenu();
-          } else {
-            currentState = RECON_AP_SELECT;
-            selectedIdx = 0; apScrollPos = 0;
-            drawAPList();
-          }
+        case 16:
+          startApScan(16);
           break;
-        }
         case 17:
           currentState = APWIFI_VIEW;
           apWifiSelection = 0;
@@ -3888,6 +3896,9 @@ void loop() {
           break;
       }
     }
+  }
+  else if (currentState == AP_SCANNING) {
+    apScanTick();
   }
   else if (currentState == AP_LIST_DEAUTH ||
            currentState == AP_LIST_EVIL_TWIN ||
