@@ -16,8 +16,10 @@
 #include "karma.h"
 #include "templates.h"
 #include "bt_spam.h"
+#include "state_machine.h"
 #include "wifi_state.h"
 #include "ui_helpers.h"
+#include "ui_icons.h"
 
 
 
@@ -51,38 +53,6 @@ const unsigned long VERIFY_TIMEOUT_MS = 6000;
 const unsigned long RELEASE_DELAY_MS = 2000;
 const unsigned long SUCCESS_HOLD_MS = 4000;
 
-enum State {
-  MAIN_MENU,
-  AP_SCANNING,
-  AP_LIST_DEAUTH,
-  AP_LIST_EVIL_TWIN,
-  AP_LIST_AUTH_FLOOD,
-  AP_LIST_CSA,
-  TEMPLATE_SELECT,
-  FETCH_TEMPLATE,
-  DEAUTH_MENU,
-  AUTH_FLOOD_RUNNING,
-  EVIL_TWIN_RUNNING,
-  BEACON_SPAM,
-  PROBE_SNIFF,
-  GLOBAL_DEAUTH,
-  BT_SPAM,
-  VIEW_PASSWORDS,
-  KARMA_SCAN,
-  KARMA_RESULTS,
-  CSA_RUNNING,
-  WEB_REMOTE,
-  OTA_MODE,
-  BLE_SCAN,
-  CLOUD_SYNC,
-  MACRO_MENU,
-  MACRO_RUNNING,
-  AP_LIST_CLIENT,
-  CLIENT_MONITOR_RUNNING,
-  RECON_AP_SELECT,
-  RECON,
-  APWIFI_VIEW
-};
 State currentState = MAIN_MENU;
 
 #include "web_remote.h"
@@ -356,104 +326,6 @@ void drawCornerBrackets(int x, int y, int w, int h, uint16_t color) {
   tft.drawLine(x+w-len, y, x+w, y, color); tft.drawLine(x+w, y, x+w, y+len, color);
   tft.drawLine(x, y+h-len, x, y+h, color); tft.drawLine(x, y+h, x+len, y+h, color);
   tft.drawLine(x+w-len, y+h, x+w, y+h, color); tft.drawLine(x+w, y+h-len, x+w, y+h, color);
-}
-
-void drawMenuIcon(int idx, int x, int y, uint16_t color) {
-  switch(idx) {
-    case 0:
-      tft.fillTriangle(x+5, y, x, y+8, x+5, y+6, color);
-      tft.fillTriangle(x+5, y+6, x+5, y+14, x+10, y+6, color);
-      break;
-    case 1:
-      tft.drawCircle(x+5, y+7, 5, color); tft.drawCircle(x+9, y+7, 5, color);
-      break;
-    case 2:
-      tft.fillCircle(x+5, y+7, 2, color);
-      tft.drawCircle(x+5, y+7, 5, color); tft.drawCircle(x+5, y+7, 8, color);
-      break;
-    case 3:
-      tft.drawCircle(x+6, y+6, 4, color); tft.drawLine(x+9, y+9, x+13, y+13, color);
-      break;
-    case 4:
-      tft.drawCircle(x+7, y+7, 5, color);
-      tft.drawLine(x+7, y+1, x+7, y+13, color);
-      tft.drawLine(x+1, y+7, x+13, y+7, color);
-      break;
-    case 5:
-      tft.fillRect(x+2, y+2, 10, 10, color);
-      tft.drawLine(x+4, y+4, x+10, y+10, TFT_BLACK);
-      break;
-    case 6:
-      tft.drawLine(x+6, y, x+6, y+10, color);
-      tft.drawLine(x+6, y+10, x+2, y+14, color);
-      tft.drawLine(x+6, y+10, x+10, y+14, color);
-      tft.drawCircle(x+6, y+4, 2, color);
-      break;
-    case 7:
-      tft.drawCircle(x+4, y+5, 3, color);
-      tft.drawLine(x+6, y+7, x+10, y+11, color);
-      tft.drawLine(x+10, y+11, x+8, y+13, color);
-      break;
-    case 8:
-      tft.drawCircle(x+7, y+7, 7, color);
-      tft.drawCircle(x+7, y+7, 4, color);
-      tft.fillCircle(x+7, y+7, 2, color);
-      tft.drawLine(x+7, y, x+7, y+14, color);
-      tft.drawLine(x, y+7, x+14, y+7, color);
-      break;
-    case 9:
-      tft.drawCircle(x+7, y+7, 7, color);
-      tft.drawLine(x+2, y+7, x+12, y+7, color);
-      tft.drawLine(x+7, y+2, x+7, y+12, color);
-      tft.drawLine(x+4, y+4, x+10, y+10, color);
-      tft.drawLine(x+10, y+4, x+4, y+10, color);
-      break;
-    case 10:
-      tft.drawRect(x+1, y+3, 10, 8, color);
-      tft.drawLine(x+11, y+5, x+13, y+7, color);
-      tft.drawLine(x+11, y+9, x+13, y+7, color);
-      tft.fillRect(x+3, y+5, 6, 4, color);
-      break;
-    case 11:
-      tft.drawLine(x+7, y+2, x+7, y+11, color);
-      tft.drawLine(x+3, y+6, x+7, y+2, color);
-      tft.drawLine(x+11, y+6, x+7, y+2, color);
-      tft.drawFastHLine(x+2, y+13, 10, color);
-      break;
-    case 12:
-      tft.drawCircle(x+7, y+7, 7, color);
-      tft.drawLine(x+7, y+7, x+12, y+4, color);
-      tft.drawLine(x+7, y+7, x+2, y+10, color);
-      break;
-    case 13:
-      tft.drawCircle(x+7, y+4, 3, color);
-      tft.drawCircle(x+7, y+4, 6, color);
-      tft.drawFastHLine(x+2, y+12, 10, color);
-      tft.drawLine(x+7, y+12, x+7, y+9, color);
-      break;
-    case 14:
-      tft.drawRect(x+2, y+4, 10, 7, color);
-      tft.drawRect(x+4, y+2, 6, 7, color);
-      tft.drawLine(x+7, y+9, x+7, y+13, color);
-      break;
-    case 15:
-      tft.drawCircle(x+7, y+7, 4, color);
-      tft.drawCircle(x+7, y+7, 7, color);
-      tft.drawFastHLine(x+2, y+13, 10, color);
-      break;
-    case 16:
-      tft.drawCircle(x+7, y+7, 4, color);
-      tft.drawCircle(x+7, y+7, 7, color);
-      tft.drawLine(x+7, y+1, x+7, y+13, color);
-      tft.drawLine(x+1, y+7, x+13, y+7, color);
-      break;
-    case 17:
-      tft.drawCircle(x+4, y+3, 3, color);
-      tft.drawLine(x+6, y+5, x+13, y+12, color);
-      tft.drawLine(x+9, y+12, x+13, y+12, color);
-      tft.drawLine(x+13, y+9, x+13, y+12, color);
-      break;
-  }
 }
 
 // ═══════════════════════════════════════════════
