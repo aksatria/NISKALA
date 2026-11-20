@@ -19,6 +19,7 @@
 
 TFT_eSPI tft = TFT_eSPI();
 Preferences prefs;
+Preferences apPrefs;
 
 #define BTN_TOP 0
 #define BTN_BOTTOM 35
@@ -182,6 +183,7 @@ bool g_bleScanning = false;
 
 #define RECON_MAX_HOSTS 20
 #define RECON_MAX_PORTS 14
+#define MAX_AP_WIFI 20
 IPAddress g_reconHosts[RECON_MAX_HOSTS];
 int g_reconHostCount = 0;
 int g_reconSelection = 0;
@@ -2512,6 +2514,11 @@ bool macFromString(const char* s, uint8_t mac[6]) {
   return true;
 }
 
+bool apWifiAdd(String ssid, String pass);
+String apWifiFindPassword(String ssid);
+void apWifiList();
+bool apWifiDelete(int idx);
+
 void cliPrintHelp() {
   Serial.println("NISKALA CLI");
   Serial.println("  help");
@@ -2524,6 +2531,7 @@ void cliPrintHelp() {
   Serial.println("  ble-ibeacon [major minor]");
   Serial.println("  ble-eddy");
   Serial.println("  config get | config set <ssid|pass|url|tpl> <nilai>");
+  Serial.println("  apwifi add <SSID> <PASS> | apwifi list | apwifi del <index>");
   Serial.println("  reboot");
 }
 
@@ -2687,6 +2695,34 @@ void processCliCommand(String line) {
       } else {
         Serial.println("[CLI] Gunakan: config set <ssid|pass|url|tpl> <nilai>");
       }
+    }
+  }
+  else if (cmd == "apwifi") {
+    arg.trim();
+    int s = arg.indexOf(' ');
+    String sub = (s > 0) ? arg.substring(0, s) : arg;
+    String rest = (s > 0) ? arg.substring(s + 1) : "";
+    sub.toLowerCase();
+    if (sub == "add" || sub == "set") {
+      rest.trim();
+      int s2 = rest.indexOf(' ');
+      if (s2 > 0) {
+        String ssid = rest.substring(0, s2);
+        String pass = rest.substring(s2 + 1);
+        pass.trim();
+        if (apWifiAdd(ssid, pass)) Serial.printf("[APWIFI] Tersimpan: %s\n", ssid.c_str());
+        else Serial.println("[APWIFI] Gagal simpan (penuh/argumen kosong).");
+      } else {
+        Serial.println("[APWIFI] Gunakan: apwifi add <SSID> <PASS>");
+      }
+    } else if (sub == "list") {
+      apWifiList();
+    } else if (sub == "del" || sub == "delete") {
+      int idx = rest.toInt();
+      if (apWifiDelete(idx)) Serial.printf("[APWIFI] Index %d dihapus\n", idx);
+      else Serial.println("[APWIFI] Index tidak valid");
+    } else {
+      Serial.println("[APWIFI] Gunakan: add <SSID> <PASS> | list | del <index>");
     }
   }
   else if (cmd == "sync" || cmd == "cloudsync") {
@@ -3039,8 +3075,61 @@ void stopNetworkRecon() {
   Serial.println("[RECON] Berhenti");
 }
 
+bool apWifiAdd(String ssid, String pass) {
+  if (ssid.length() == 0 || pass.length() == 0) return false;
+  int count = apPrefs.getInt("count", 0);
+  for (int i = 0; i < count; i++) {
+    String key = "ssid_" + String(i);
+    if (apPrefs.getString(key.c_str(), "") == ssid) {
+      apPrefs.putString(("pass_" + String(i)).c_str(), pass);
+      return true;
+    }
+  }
+  if (count >= MAX_AP_WIFI) return false;
+  apPrefs.putString(("ssid_" + String(count)).c_str(), ssid);
+  apPrefs.putString(("pass_" + String(count)).c_str(), pass);
+  apPrefs.putInt("count", count + 1);
+  return true;
+}
+
+String apWifiFindPassword(String ssid) {
+  if (ssid.length() == 0) return "";
+  int count = apPrefs.getInt("count", 0);
+  for (int i = 0; i < count; i++) {
+    if (apPrefs.getString(("ssid_" + String(i)).c_str(), "") == ssid) {
+      return apPrefs.getString(("pass_" + String(i)).c_str(), "");
+    }
+  }
+  return "";
+}
+
+void apWifiList() {
+  int count = apPrefs.getInt("count", 0);
+  Serial.printf("[APWIFI] %d kredensial\n", count);
+  for (int i = 0; i < count; i++) {
+    Serial.printf("  %2d  %s  %s\n", i,
+      apPrefs.getString(("ssid_" + String(i)).c_str(), "(?)").c_str(),
+      apPrefs.getString(("pass_" + String(i)).c_str(), "").c_str());
+  }
+}
+
+bool apWifiDelete(int idx) {
+  int count = apPrefs.getInt("count", 0);
+  if (idx < 0 || idx >= count) return false;
+  for (int i = idx; i < count - 1; i++) {
+    apPrefs.putString(("ssid_" + String(i)).c_str(), apPrefs.getString(("ssid_" + String(i + 1)).c_str(), ""));
+    apPrefs.putString(("pass_" + String(i)).c_str(), apPrefs.getString(("pass_" + String(i + 1)).c_str(), ""));
+  }
+  apPrefs.remove(("ssid_" + String(count - 1)).c_str());
+  apPrefs.remove(("pass_" + String(count - 1)).c_str());
+  apPrefs.putInt("count", count - 1);
+  return true;
+}
+
 String findReconPasswordForSSID(String ssid) {
   if (ssid.length() == 0) return "";
+  String apPass = apWifiFindPassword(ssid);
+  if (apPass.length() > 0) return apPass;
   if (ssid == cfg_wifi_ssid && cfg_wifi_pass.length() > 0) return cfg_wifi_pass;
   int total = prefs.getInt("pwd_count", 0);
   for (int i = 0; i < total; i++) {
@@ -3183,6 +3272,7 @@ void setup() {
   pinMode(BTN_BOTTOM, INPUT_PULLUP);
   analogSetPinAttenuation(BAT_PIN, ADC_11db);
   prefs.begin("deauther", false);
+  apPrefs.begin("deauther_ap", false);
 
   cfg_deauth_burst = prefs.getInt("cfg_deauth", 5);
   cfg_auth_burst = prefs.getInt("cfg_auth", 20);
