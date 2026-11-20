@@ -3213,6 +3213,10 @@ void startNetworkRecon() {
     return;
   }
 
+  if (pass.length() > 0 && apWifiAdd(ssid, pass)) {
+    Serial.printf("[RECON] Auto-save AP: %s\n", ssid.c_str());
+  }
+
   IPAddress ip = WiFi.localIP();
   IPAddress mask = WiFi.subnetMask();
   IPAddress gw = WiFi.gatewayIP();
