@@ -74,7 +74,8 @@ enum State {
   AP_LIST_CLIENT,
   CLIENT_MONITOR_RUNNING,
   RECON_AP_SELECT,
-  RECON
+  RECON,
+  APWIFI_VIEW
 };
 State currentState = MAIN_MENU;
 
@@ -82,7 +83,7 @@ State currentState = MAIN_MENU;
 
 int menuSelection = 0;
 int menuScrollPos = 0;
-const int MENU_COUNT = 17;
+const int MENU_COUNT = 18;
 const char* menuItems[] = {
   "DEAUTH MANUAL",
   "EVIL TWIN",
@@ -100,7 +101,8 @@ const char* menuItems[] = {
   "CLOUD SYNC",
   "MACRO",
   "CLIENT MONITOR",
-  "NETWORK RECON"
+  "NETWORK RECON",
+  "AP WIFI"
 };
 
 volatile AttackMode g_attackMode = ATK_IDLE;
@@ -221,6 +223,10 @@ int viewSelection = 0;
 int viewScrollPos = 0;
 bool confirmDeleteAll = false;
 unsigned long lastDeletePress = 0;
+int apWifiSelection = 0;
+int apWifiScrollPos = 0;
+bool confirmApWifiDelete = false;
+unsigned long lastApWifiDeletePress = 0;
 const int MAX_SAVED_PWDS = 50;
 
 DNSServer dnsServer;
@@ -399,6 +405,12 @@ void drawMenuIcon(int idx, int x, int y, uint16_t color) {
       tft.drawCircle(x+7, y+7, 7, color);
       tft.drawLine(x+7, y+1, x+7, y+13, color);
       tft.drawLine(x+1, y+7, x+13, y+7, color);
+      break;
+    case 17:
+      tft.drawCircle(x+4, y+3, 3, color);
+      tft.drawLine(x+6, y+5, x+13, y+12, color);
+      tft.drawLine(x+9, y+12, x+13, y+12, color);
+      tft.drawLine(x+13, y+9, x+13, y+12, color);
       break;
   }
 }
@@ -3034,6 +3046,67 @@ void drawNetworkRecon() {
   }
 }
 
+void drawApWifiView() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("AP WIFI TERSIMPAN", TFT_DARKCYAN);
+  tft.setTextFont(1);
+
+  int count = apPrefs.getInt("count", 0);
+  if (count == 0) {
+    tft.setTextColor(TFT_RED, TFT_BLACK);
+    tft.setCursor(10, 50);
+    tft.println("Belum ada kredensial.");
+    tft.println("Tambah via CLI:");
+    tft.println("apwifi add <SSID> <PASS>");
+    drawFooter("TOMBOL: Kembali");
+    return;
+  }
+
+  if (apWifiSelection > count) apWifiSelection = count;
+  if (apWifiSelection < apWifiScrollPos) apWifiScrollPos = apWifiSelection;
+  else if (apWifiSelection >= apWifiScrollPos + 3) apWifiScrollPos = apWifiSelection - 2;
+
+  if (apWifiSelection < count) {
+    String ssid = apPrefs.getString(("ssid_" + String(apWifiSelection)).c_str(), "");
+    String pass = apPrefs.getString(("pass_" + String(apWifiSelection)).c_str(), "");
+    if (ssid.length() > 20) ssid = ssid.substring(0, 20);
+    if (pass.length() > 24) pass = pass.substring(0, 24);
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.setCursor(10, 30);
+    tft.print("SSID: "); tft.print(ssid);
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.setCursor(10, 42);
+    tft.print("PASS: "); tft.print(pass);
+  }
+
+  int rows = 3;
+  for (int i = 0; i < rows; i++) {
+    int idx = apWifiScrollPos + i;
+    int y = 56 + i * 16;
+    if (idx < count) {
+      bool selected = (idx == apWifiSelection);
+      if (selected) tft.fillRoundRect(4, y - 1, 232, 14, 3, TFT_DARKGREY);
+      String ssid = apPrefs.getString(("ssid_" + String(idx)).c_str(), "");
+      if (ssid.length() > 22) ssid = ssid.substring(0, 22);
+      tft.setTextColor(selected ? TFT_YELLOW : TFT_WHITE, selected ? TFT_DARKGREY : TFT_BLACK);
+      tft.setCursor(10, y);
+      tft.print(String(idx) + " " + ssid);
+    } else if (idx == count) {
+      bool selected = (idx == apWifiSelection);
+      if (selected) tft.fillRoundRect(4, y - 1, 232, 14, 3, TFT_DARKGREY);
+      tft.setTextColor(selected ? TFT_YELLOW : TFT_GREEN, selected ? TFT_DARKGREY : TFT_BLACK);
+      tft.setCursor(10, y);
+      tft.print("KEMBALI");
+    }
+  }
+
+  if (confirmApWifiDelete && apWifiSelection < count) {
+    drawFooter("TEKAN LAGI = HAPUS");
+  } else {
+    drawFooter("ATAS:Pilih | BAWAH:Hapus/Kembali");
+  }
+}
+
 void reconPortScan(int hostIdx) {
   if (hostIdx < 0 || hostIdx >= g_reconHostCount) return;
   g_reconSelectedIP = g_reconHosts[hostIdx];
@@ -3635,6 +3708,13 @@ void loop() {
           }
           break;
         }
+        case 17:
+          currentState = APWIFI_VIEW;
+          apWifiSelection = 0;
+          apWifiScrollPos = 0;
+          confirmApWifiDelete = false;
+          drawApWifiView();
+          break;
       }
     }
   }
@@ -3808,6 +3888,44 @@ void loop() {
         g_reconPhase = 1;
         drawNetworkRecon();
       }
+    }
+  }
+  else if (currentState == APWIFI_VIEW) {
+    int count = apPrefs.getInt("count", 0);
+    if (digitalRead(BTN_TOP) == LOW) {
+      delay(200);
+      confirmApWifiDelete = false;
+      apWifiSelection++;
+      if (apWifiSelection > count) apWifiSelection = 0;
+      if (apWifiSelection < apWifiScrollPos) apWifiScrollPos = apWifiSelection;
+      else if (apWifiSelection >= apWifiScrollPos + 3) apWifiScrollPos = apWifiSelection - 2;
+      drawApWifiView();
+    }
+    if (digitalRead(BTN_BOTTOM) == LOW) {
+      delay(200);
+      if (apWifiSelection == count) {
+        confirmApWifiDelete = false;
+        currentState = MAIN_MENU;
+        drawMainMenu();
+      } else if (count > 0 && apWifiSelection < count) {
+        if (!confirmApWifiDelete) {
+          confirmApWifiDelete = true;
+          lastApWifiDeletePress = millis();
+          drawApWifiView();
+        } else {
+          apWifiDelete(apWifiSelection);
+          confirmApWifiDelete = false;
+          int newCount = apPrefs.getInt("count", 0);
+          if (newCount == 0) apWifiSelection = 0;
+          else if (apWifiSelection >= newCount) apWifiSelection = newCount;
+          apWifiScrollPos = 0;
+          drawApWifiView();
+        }
+      }
+    }
+    if (confirmApWifiDelete && millis() - lastApWifiDeletePress > 3000) {
+      confirmApWifiDelete = false;
+      drawApWifiView();
     }
   }
   else if (currentState == VIEW_PASSWORDS) {
