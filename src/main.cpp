@@ -57,6 +57,7 @@ State currentState = MAIN_MENU;
 #include "web_remote.h"
 #include "recon.h"
 #include "cloud.h"
+#include "ble_scan.h"
 #include "telemetry.h"
 
 int menuSelection = 0;
@@ -161,7 +162,6 @@ int clientScroll = 0;
 ClientEntry g_clients[CLIENT_MAX];
 int g_clientCount = 0;
 portMUX_TYPE g_clientMux = portMUX_INITIALIZER_UNLOCKED;
-bool g_bleScanning = false;
 
 #define RECON_MAX_HOSTS 20
 #define RECON_MAX_PORTS 14
@@ -195,18 +195,8 @@ IPAddress g_reconGateway;
 IPAddress g_reconSubnet;
 char g_reconBanners[RECON_MAX_PORTS][40];
 WiFiClient g_reconClient;
-unsigned long g_bleScanStart = 0;
 
-#define BLE_SCAN_MAX 32
-struct BleScanEntry {
-  char mac[18];
-  char name[33];
-  int8_t rssi;
-  unsigned long lastSeen;
-  bool used;
-};
-BleScanEntry g_bleScanLog[BLE_SCAN_MAX];
-int g_bleScanCount = 0;
+
 bool transientActive = false;
 unsigned long transientUntil = 0;
 uint8_t transientMode = 0;
@@ -1478,94 +1468,6 @@ void stopOTA() {
 
 // ------------------------------------------------------------------
 // BLE Scanner & MAC Tracking
-// ------------------------------------------------------------------
-class BleScanCallbacks : public BLEAdvertisedDeviceCallbacks {
-  void onResult(BLEAdvertisedDevice d) {
-    String mac = String(d.getAddress().toString().c_str());
-    int8_t rssi = d.getRSSI();
-    String name = d.haveName() ? String(d.getName().c_str()) : String("");
-
-    for (int i = 0; i < g_bleScanCount; i++) {
-      if (strcmp(g_bleScanLog[i].mac, mac.c_str()) == 0) {
-        g_bleScanLog[i].rssi = rssi;
-        g_bleScanLog[i].lastSeen = millis();
-        if (name.length() > 0) {
-          strncpy(g_bleScanLog[i].name, name.c_str(), 32);
-          g_bleScanLog[i].name[32] = 0;
-        }
-        return;
-      }
-    }
-    if (g_bleScanCount < BLE_SCAN_MAX) {
-      BleScanEntry* e = &g_bleScanLog[g_bleScanCount];
-      strncpy(e->mac, mac.c_str(), 17);
-      e->mac[17] = 0;
-      strncpy(e->name, name.c_str(), 32);
-      e->name[32] = 0;
-      e->rssi = rssi;
-      e->lastSeen = millis();
-      e->used = true;
-      g_bleScanCount++;
-    }
-  }
-};
-
-BLEScan* g_bleScan = nullptr;
-
-void drawBleScan() {
-  tft.fillScreen(TFT_BLACK);
-  drawHeader("BLE SCANNER", TFT_BLUE);
-  tft.setTextFont(1);
-  tft.setTextColor(TFT_CYAN, TFT_BLACK);
-  tft.setCursor(4, 28);
-  tft.print("MAC               RSSI  NAME");
-
-  int shown = 0;
-  for (int i = 0; i < g_bleScanCount && shown < 4; i++) {
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.setCursor(4, 40 + shown * 18);
-    char buf[64];
-    const char* bname = g_bleScanLog[i].name[0] ? g_bleScanLog[i].name : vendorFromMacStr(g_bleScanLog[i].mac);
-    snprintf(buf, sizeof(buf), "%s  %4d  %s",
-             g_bleScanLog[i].mac, g_bleScanLog[i].rssi, bname);
-    tft.print(buf);
-    shown++;
-  }
-  if (g_bleScanCount == 0) {
-    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    tft.setCursor(4, 50);
-    tft.print("Menunggu perangkat BLE...");
-  }
-  tft.setTextColor(TFT_GREEN, TFT_BLACK);
-  tft.setCursor(4, 108);
-  tft.print("Total: " + String(g_bleScanCount));
-  drawFooter("TOMBOL = STOP");
-}
-
-void startBLEScan() {
-  WiFi.mode(WIFI_OFF);
-  if (!BLEDevice::getInitialized()) BLEDevice::init("");
-  g_bleScan = BLEDevice::getScan();
-  g_bleScan->setAdvertisedDeviceCallbacks(new BleScanCallbacks());
-  g_bleScan->setActiveScan(true);
-  g_bleScan->setInterval(100);
-  g_bleScan->setWindow(99);
-  g_bleScanCount = 0;
-  g_bleScanStart = millis();
-  g_bleScan->start(0, false);
-  g_bleScanning = true;
-  Serial.println("[BLE] Scanner aktif");
-  drawBleScan();
-}
-
-void stopBLEScan() {
-  if (g_bleScan) g_bleScan->stop();
-  g_bleScanning = false;
-  BLEDevice::deinit(true);
-  resetWifiStateAfterAttack();
-  Serial.println("[BLE] Scanner berhenti");
-}
-
 // ------------------------------------------------------------------
 // Cloud Sync (kirim hasil ke hosting)
 // ------------------------------------------------------------------
