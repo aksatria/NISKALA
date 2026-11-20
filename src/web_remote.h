@@ -383,7 +383,7 @@ inline void setupWebRemote() {
     startProbeSniffer();
   });
   server.on("/api/start/ble", []() {
-    server.send(200, "text/plain", "BLE Started");
+    server.send(200, "text/plain", "BLE Started - WiFi off, Web Remote disconnected");
     stopAllAttacks();
     currentState = BT_SPAM;
     startBTSpam();
