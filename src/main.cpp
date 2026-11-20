@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <TFT_eSPI.h>
 #include <esp_wifi.h>
+#include <ping/ping_sock.h>
 #include <DNSServer.h>
 #include <WebServer.h>
 #include <Preferences.h>
@@ -70,7 +71,8 @@ enum State {
   MACRO_MENU,
   MACRO_RUNNING,
   AP_LIST_CLIENT,
-  CLIENT_MONITOR_RUNNING
+  CLIENT_MONITOR_RUNNING,
+  RECON
 };
 State currentState = MAIN_MENU;
 
@@ -78,7 +80,7 @@ State currentState = MAIN_MENU;
 
 int menuSelection = 0;
 int menuScrollPos = 0;
-const int MENU_COUNT = 16;
+const int MENU_COUNT = 17;
 const char* menuItems[] = {
   "DEAUTH MANUAL",
   "EVIL TWIN",
@@ -95,7 +97,8 @@ const char* menuItems[] = {
   "BLE SCAN",
   "CLOUD SYNC",
   "MACRO",
-  "CLIENT MONITOR"
+  "CLIENT MONITOR",
+  "NETWORK RECON"
 };
 
 volatile AttackMode g_attackMode = ATK_IDLE;
@@ -175,6 +178,18 @@ ClientEntry g_clients[CLIENT_MAX];
 int g_clientCount = 0;
 portMUX_TYPE g_clientMux = portMUX_INITIALIZER_UNLOCKED;
 bool g_bleScanning = false;
+
+#define RECON_MAX_HOSTS 20
+#define RECON_MAX_PORTS 14
+IPAddress g_reconHosts[RECON_MAX_HOSTS];
+int g_reconHostCount = 0;
+int g_reconSelection = 0;
+int g_reconScroll = 0;
+int g_reconPhase = 0;
+int g_reconOpenPorts[RECON_MAX_PORTS];
+int g_reconOpenPortCount = 0;
+IPAddress g_reconSelectedIP;
+bool isReconRunning = false;
 unsigned long g_bleScanStart = 0;
 
 #define BLE_SCAN_MAX 32
@@ -374,6 +389,12 @@ void drawMenuIcon(int idx, int x, int y, uint16_t color) {
       tft.drawCircle(x+7, y+7, 4, color);
       tft.drawCircle(x+7, y+7, 7, color);
       tft.drawFastHLine(x+2, y+13, 10, color);
+      break;
+    case 16:
+      tft.drawCircle(x+7, y+7, 4, color);
+      tft.drawCircle(x+7, y+7, 7, color);
+      tft.drawLine(x+7, y+1, x+7, y+13, color);
+      tft.drawLine(x+1, y+7, x+13, y+7, color);
       break;
   }
 }
@@ -2858,6 +2879,254 @@ void drawPlanetSystem(int frame) {
   tft.print(ESP.getFreeHeap());
 }
 
+volatile bool g_pingOK = false;
+volatile bool g_pingDone = false;
+
+static void onReconPingSuccess(esp_ping_handle_t hdl, void* args) {
+  (void)hdl; (void)args;
+  g_pingOK = true;
+}
+
+static void onReconPingTimeout(esp_ping_handle_t hdl, void* args) {
+  (void)hdl; (void)args;
+  g_pingOK = false;
+}
+
+static void onReconPingEnd(esp_ping_handle_t hdl, void* args) {
+  (void)hdl; (void)args;
+  g_pingDone = true;
+}
+
+bool pingHost(IPAddress ip, uint32_t timeout_ms) {
+  esp_ping_config_t cfg;
+  memset(&cfg, 0, sizeof(cfg));
+  cfg.count = 1;
+  cfg.interval_ms = 10;
+  cfg.timeout_ms = timeout_ms;
+  cfg.data_size = 32;
+  cfg.tos = 0;
+  cfg.ttl = 64;
+  cfg.task_stack_size = 2048;
+  cfg.task_prio = 2;
+  cfg.interface = 0;
+  cfg.target_addr.type = IPADDR_TYPE_V4;
+  cfg.target_addr.u_addr.ip4.addr = (uint32_t)ip;
+
+  esp_ping_callbacks_t cbs;
+  memset(&cbs, 0, sizeof(cbs));
+  cbs.on_ping_success = onReconPingSuccess;
+  cbs.on_ping_timeout = onReconPingTimeout;
+  cbs.on_ping_end = onReconPingEnd;
+
+  esp_ping_handle_t ping = NULL;
+  g_pingOK = false;
+  g_pingDone = false;
+  if (esp_ping_new_session(&cfg, &cbs, &ping) != ESP_OK) return false;
+  if (esp_ping_start(ping) != ESP_OK) {
+    esp_ping_delete_session(ping);
+    return false;
+  }
+
+  uint32_t start = millis();
+  while (!g_pingDone && (millis() - start) < (timeout_ms + 600)) {
+    delay(2);
+  }
+  esp_ping_stop(ping);
+  esp_ping_delete_session(ping);
+  return g_pingOK;
+}
+
+void drawNetworkRecon() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("NETWORK RECON", TFT_NAVY);
+  tft.setTextFont(1);
+
+  if (g_reconPhase == 1) {
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.setCursor(10, 30);
+    tft.printf("Host ditemukan: %d\n", g_reconHostCount);
+
+    int rows = 4;
+    for (int i = 0; i < rows; i++) {
+      int idx = g_reconScroll + i;
+      int y = 44 + i * 16;
+      if (idx < g_reconHostCount) {
+        bool selected = (idx == g_reconSelection);
+        if (selected) tft.fillRoundRect(4, y - 1, 232, 14, 3, TFT_DARKGREY);
+        tft.setTextColor(selected ? TFT_YELLOW : TFT_WHITE, selected ? TFT_DARKGREY : TFT_BLACK);
+        tft.setCursor(10, y);
+        tft.print("> ");
+        tft.print(g_reconHosts[idx].toString());
+      } else if (idx == g_reconHostCount) {
+        bool selected = (idx == g_reconSelection);
+        if (selected) tft.fillRoundRect(4, y - 1, 232, 14, 3, TFT_DARKGREY);
+        tft.setTextColor(selected ? TFT_YELLOW : TFT_DARKGREY, selected ? TFT_DARKGREY : TFT_BLACK);
+        tft.setCursor(10, y);
+        tft.print("KEMBALI");
+      }
+    }
+    drawFooter("ATAS: Pilih | BAWAH: Scan/Kembali");
+  } else {
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.setCursor(10, 30);
+    tft.print("Port scan: ");
+    tft.print(g_reconSelectedIP.toString());
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+
+    if (g_reconOpenPortCount == 0) {
+      tft.setCursor(10, 50);
+      tft.println("Tidak ada port terbuka.");
+    } else {
+      int rows = 6;
+      for (int i = 0; i < g_reconOpenPortCount && i < rows; i++) {
+        tft.setCursor(10, 44 + i * 12);
+        tft.printf("TCP %d OPEN\n", g_reconOpenPorts[i]);
+      }
+    }
+    drawFooter("TOMBOL: Kembali");
+  }
+}
+
+void reconPortScan(int hostIdx) {
+  if (hostIdx < 0 || hostIdx >= g_reconHostCount) return;
+  g_reconSelectedIP = g_reconHosts[hostIdx];
+  g_reconOpenPortCount = 0;
+  g_reconPhase = 2;
+
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("PORT SCAN", TFT_NAVY);
+  tft.setTextFont(1);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 40);
+  tft.print(g_reconSelectedIP.toString());
+
+  const int ports[RECON_MAX_PORTS] = {21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 3306, 3389, 8080, 9200};
+  WiFiClient client;
+  for (int i = 0; i < RECON_MAX_PORTS; i++) {
+    tft.fillRect(0, 60, 240, 12, TFT_BLACK);
+    tft.setCursor(10, 60);
+    tft.printf("Cek TCP %d...", ports[i]);
+    if (client.connect(g_reconSelectedIP, ports[i], 300)) {
+      if (g_reconOpenPortCount < RECON_MAX_PORTS) {
+        g_reconOpenPorts[g_reconOpenPortCount++] = ports[i];
+      }
+      client.stop();
+    }
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(200);
+      break;
+    }
+  }
+  drawNetworkRecon();
+}
+
+void stopNetworkRecon() {
+  isReconRunning = false;
+  g_reconPhase = 1;
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_STA);
+  Serial.println("[RECON] Berhenti");
+}
+
+void startNetworkRecon() {
+  isReconRunning = true;
+  g_reconHostCount = 0;
+  g_reconSelection = 0;
+  g_reconScroll = 0;
+  g_reconPhase = 1;
+  g_reconOpenPortCount = 0;
+
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("NETWORK RECON", TFT_NAVY);
+  tft.setTextFont(1);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 40);
+
+  if (cfg_wifi_ssid.length() == 0) {
+    tft.println("WiFi belum dikonfigurasi.");
+    tft.println("Set via CLI: config wifi");
+    delay(2000);
+    isReconRunning = false;
+    currentState = MAIN_MENU;
+    drawMainMenu();
+    return;
+  }
+
+  tft.print("Hubung WiFi: ");
+  tft.println(cfg_wifi_ssid.substring(0, 18));
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(true);
+  WiFi.begin(cfg_wifi_ssid.c_str(), cfg_wifi_pass.c_str());
+
+  unsigned long t = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - t < 12000) {
+    delay(100);
+    if (digitalRead(BTN_TOP) == LOW) {
+      delay(200);
+      stopNetworkRecon();
+      currentState = MAIN_MENU;
+      drawMainMenu();
+      return;
+    }
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    tft.setTextColor(TFT_RED, TFT_BLACK);
+    tft.setCursor(10, 60);
+    tft.println("Gagal konek WiFi.");
+    delay(2000);
+    stopNetworkRecon();
+    currentState = MAIN_MENU;
+    drawMainMenu();
+    return;
+  }
+
+  IPAddress ip = WiFi.localIP();
+  IPAddress mask = WiFi.subnetMask();
+  IPAddress gw = WiFi.gatewayIP();
+  uint32_t ipU = (uint32_t)ip;
+  uint32_t maskU = (uint32_t)mask;
+  uint32_t netU = ipU & maskU;
+  uint32_t bcU = netU | ~maskU;
+  uint32_t first = netU + 1;
+  uint32_t last = bcU - 1;
+  uint32_t total = (last >= first) ? (last - first + 1) : 0;
+
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("PING SWEEP", TFT_NAVY);
+  tft.setTextFont(1);
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.setCursor(10, 40);
+  tft.printf("IP  : %s\n", ip.toString().c_str());
+  tft.setCursor(10, 52);
+  tft.printf("GW  : %s\n", gw.toString().c_str());
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 64);
+  tft.print("Scan: ");
+
+  uint32_t scanned = 0;
+  for (uint32_t h = first; h <= last && h != 0; h++) {
+    if (h == ipU) continue;
+    scanned++;
+    IPAddress host((uint32_t)h);
+    bool alive = pingHost(host, 100);
+    if (alive && g_reconHostCount < RECON_MAX_HOSTS) {
+      g_reconHosts[g_reconHostCount++] = host;
+    }
+    if ((scanned % 10) == 0 || alive) {
+      tft.fillRect(50, 64, 180, 10, TFT_BLACK);
+      tft.setCursor(50, 64);
+      tft.printf("%u/%u host:%u", (unsigned)scanned, (unsigned)total, (unsigned)g_reconHostCount);
+    }
+    if (digitalRead(BTN_TOP) == LOW) {
+      delay(200);
+      break;
+    }
+  }
+
+  g_reconPhase = 1;
+  drawNetworkRecon();
+}
 void setup() {
   Serial.begin(115200);
   randomSeed(esp_random());
@@ -3215,6 +3484,10 @@ void loop() {
           }
           break;
         }
+        case 16:
+          currentState = RECON;
+          startNetworkRecon();
+          break;
       }
     }
   }
@@ -3358,6 +3631,34 @@ void loop() {
         tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.setCursor(4, 104);
         tft.print("DEAUTH OK");
+      }
+    }
+  }
+  else if (currentState == RECON) {
+    if (g_reconPhase == 1) {
+      if (digitalRead(BTN_TOP) == LOW) {
+        delay(200);
+        g_reconSelection++;
+        if (g_reconSelection > g_reconHostCount) g_reconSelection = 0;
+        if (g_reconSelection < g_reconScroll) g_reconScroll = g_reconSelection;
+        else if (g_reconSelection >= g_reconScroll + 4) g_reconScroll = g_reconSelection - 3;
+        drawNetworkRecon();
+      }
+      if (digitalRead(BTN_BOTTOM) == LOW) {
+        delay(200);
+        if (g_reconSelection == g_reconHostCount) {
+          stopNetworkRecon();
+          currentState = MAIN_MENU;
+          drawMainMenu();
+        } else if (g_reconHostCount > 0 && g_reconSelection < g_reconHostCount) {
+          reconPortScan(g_reconSelection);
+        }
+      }
+    } else {
+      if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+        delay(300);
+        g_reconPhase = 1;
+        drawNetworkRecon();
       }
     }
   }
