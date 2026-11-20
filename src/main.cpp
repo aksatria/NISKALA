@@ -85,6 +85,7 @@ enum State {
 State currentState = MAIN_MENU;
 
 #include "web_remote.h"
+#include "telemetry.h"
 
 int menuSelection = 0;
 int menuScrollPos = 0;
@@ -2750,11 +2751,7 @@ void processCliCommand(String line) {
 
   if (cmd == "help") { cliPrintHelp(); }
   else if (cmd == "status") {
-    Serial.printf("State=%d Mode=%d PKT=%u ERR=%u Heap=%u Bat=%d Temp=%.0f Stack=%u Uptime=%lu\n",
-      (int)currentState, (int)g_attackMode, (unsigned)g_packetsSent, (unsigned)g_txErrors,
-      (unsigned)ESP.getFreeHeap(), readBatteryPercent(), temperatureRead(),
-      attackTaskHandle ? (unsigned)uxTaskGetStackHighWaterMark(attackTaskHandle) : 0,
-      (unsigned long)(millis() / 1000));
+    Serial.println(buildSystemStatusLine());
   }
   else if (cmd == "scan") {
     WiFi.mode(WIFI_STA);
