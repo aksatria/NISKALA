@@ -112,7 +112,7 @@ inline void sendDeauthFrame(const uint8_t* dst, const uint8_t* bssid, uint8_t re
   frame[24] = reason;
   frame[25] = 0x00;
 
-  esp_err_t err = sendWifiFrameAndCount(frame, sizeof(frame), true);
+  sendWifiFrameAndCount(frame, sizeof(frame), true);
 }
 
 inline void sendDisassocFrame(const uint8_t* dst, const uint8_t* bssid, uint8_t reason = 0x08) {
@@ -128,7 +128,7 @@ inline void sendDisassocFrame(const uint8_t* dst, const uint8_t* bssid, uint8_t 
   memcpy(&frame[16], bssid, 6);
   frame[24] = reason;
   frame[25] = 0x00;
-  esp_err_t err = sendWifiFrameAndCount(frame, sizeof(frame), true);
+  sendWifiFrameAndCount(frame, sizeof(frame), true);
 }
 
 inline void sendDeauthBurst(const uint8_t* bssid) {
@@ -176,7 +176,7 @@ inline void sendAuthFrame(const uint8_t* srcMAC, const uint8_t* bssid) {
   frame[26] = 0x01; frame[27] = 0x00;
   frame[28] = 0x00; frame[29] = 0x00;
 
-  esp_err_t err = sendWifiFrameAndCount(frame, sizeof(frame), true);
+  sendWifiFrameAndCount(frame, sizeof(frame), true);
 }
 
 inline void sendAuthFloodTick() {
@@ -246,7 +246,7 @@ inline void sendBeaconFrame(const char* ssid, const uint8_t* bssid, uint8_t ch, 
   // RSN capabilities
   frame[p++] = 0x00; frame[p++] = 0x00;
 
-  esp_err_t err = sendWifiFrameAndCount(frame, p, true);
+  sendWifiFrameAndCount(frame, p, true);
 }
 
 inline void sendBeaconSpamTick() {
@@ -308,7 +308,7 @@ inline void sendCSABeacon(const uint8_t* bssid, const char* ssid,
   frame[p++] = newCh;
   frame[p++] = count;
 
-  esp_err_t err = sendWifiFrameAndCount(frame, p, true);
+  sendWifiFrameAndCount(frame, p, true);
 }
 
 inline void sendCSAActionFrame(const uint8_t* dst, const uint8_t* bssid,
@@ -331,7 +331,7 @@ inline void sendCSAActionFrame(const uint8_t* dst, const uint8_t* bssid,
   frame[p++] = newCh;
   frame[p++] = count;
 
-  esp_err_t err = sendWifiFrameAndCount(frame, p, true);
+  sendWifiFrameAndCount(frame, p, true);
 }
 
 inline void sendCSATick() {

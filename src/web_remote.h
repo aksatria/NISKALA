@@ -333,23 +333,23 @@ inline void setupWebRemote() {
       String mode = server.hasArg("mode") ? server.arg("mode") : "deauth";
       server.send(200, "text/plain", "Attack Started");
 
-      stopAllAttacks();
-
       if (mode == "evil") {
+        stopAllAttacks();
         selectedTemplateIdx = 0;
         verifyAttempts = 0;
         verifyState = 0;
         currentState = EVIL_TWIN_RUNNING;
         startEvilTwinWithDeauth();
-      } else if (mode == "auth") {
-        currentState = AUTH_FLOOD_RUNNING;
-        startAuthFlood();
-      } else if (mode == "csa") {
-        currentState = CSA_RUNNING;
-        startCSAAttack();
       } else {
-        currentState = DEAUTH_MENU;
-        startDeauthEngine();
+        stopAttacksKeepWebRemote();
+        currentState = WEB_REMOTE;
+        if (mode == "auth") {
+          startAuthFlood();
+        } else if (mode == "csa") {
+          startCSAAttack();
+        } else {
+          startDeauthEngine();
+        }
       }
     } else {
       server.send(400, "text/plain", "Bad Request");

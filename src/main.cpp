@@ -1355,16 +1355,20 @@ void stopKarmaScan() {
 
 // ── Deauth ──
 void startDeauthEngine() {
-  if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
-  uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
-  if (memcmp(mac, g_targetBSSID, 6) != 0) {
-    esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
-    if (macErr != ESP_OK) {
-      Serial.printf("[WARN] set_mac failed (%d), pakai MAC existing\n", macErr);
+  if (isWebRemoteRunning) {
+    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  } else {
+    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+    uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
+    if (memcmp(mac, g_targetBSSID, 6) != 0) {
+      esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
+      if (macErr != ESP_OK) {
+        Serial.printf("[WARN] set_mac failed (%d), pakai MAC existing\n", macErr);
+      }
+      delay(50);
     }
-    delay(50);
+    WiFi.softAP("Deauther_Fix", "12345678", 1, 1); delay(400);
   }
-  WiFi.softAP("Deauther_Fix", "12345678", 1, 1); delay(400);
   applyPromiscuousFilter(false);
   esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
   esp_wifi_set_promiscuous(true);
@@ -1384,16 +1388,20 @@ void stopDeauthEngine() {
 }
 
 void startAuthFlood() {
-  if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
-  uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
-  if (memcmp(mac, g_targetBSSID, 6) != 0) {
-    esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
-    if (macErr != ESP_OK) {
-      Serial.printf("[WARN] set_mac failed (%d)\n", macErr);
+  if (isWebRemoteRunning) {
+    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  } else {
+    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+    uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
+    if (memcmp(mac, g_targetBSSID, 6) != 0) {
+      esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
+      if (macErr != ESP_OK) {
+        Serial.printf("[WARN] set_mac failed (%d)\n", macErr);
+      }
+      delay(50);
     }
-    delay(50);
+    WiFi.softAP("AuthFlood", "12345678", 1, 1); delay(300);
   }
-  WiFi.softAP("AuthFlood", "12345678", 1, 1); delay(300);
   esp_wifi_set_promiscuous(false);
   esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
   delay(100);
@@ -1488,16 +1496,20 @@ void stopBTSpam() {
 
 // ── CSA  [PATCH 2] ──
 void startCSAAttack() {
-  if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
-  uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
-  if (memcmp(mac, g_targetBSSID, 6) != 0) {
-    esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
-    if (macErr != ESP_OK) {
-      Serial.printf("[WARN] CSA set_mac failed (%d)\n", macErr);
+  if (isWebRemoteRunning) {
+    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  } else {
+    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+    uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
+    if (memcmp(mac, g_targetBSSID, 6) != 0) {
+      esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
+      if (macErr != ESP_OK) {
+        Serial.printf("[WARN] CSA set_mac failed (%d)\n", macErr);
+      }
+      delay(50);
     }
-    delay(50);
+    WiFi.softAP("CSA_Init", "12345678", 1, 1); delay(300);
   }
-  WiFi.softAP("CSA_Init", "12345678", 1, 1); delay(300);
   applyPromiscuousFilter(false);
   esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
   esp_wifi_set_promiscuous(true);
@@ -2932,16 +2944,20 @@ void drawClientMonitor() {
 }
 
 void startClientMonitor() {
-  if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
-  uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
-  if (memcmp(mac, g_targetBSSID, 6) != 0) {
-    esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
-    if (macErr != ESP_OK) {
-      Serial.printf("[WARN] ClientMon set_mac failed (%d)\n", macErr);
+  if (isWebRemoteRunning) {
+    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  } else {
+    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+    uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
+    if (memcmp(mac, g_targetBSSID, 6) != 0) {
+      esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
+      if (macErr != ESP_OK) {
+        Serial.printf("[WARN] ClientMon set_mac failed (%d)\n", macErr);
+      }
+      delay(50);
     }
-    delay(50);
+    WiFi.softAP("Client_Mon", "12345678", g_targetChannel, 1); delay(300);
   }
-  WiFi.softAP("Client_Mon", "12345678", g_targetChannel, 1); delay(300);
   esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
   portENTER_CRITICAL(&g_clientMux);
   g_clientCount = 0;
@@ -3914,6 +3930,11 @@ void loop() {
     }
   }
   else if (currentState == WEB_REMOTE) {
+    if (isKarmaRunning && millis() - karmaScanStart > KARMA_SCAN_DURATION_MS) {
+      stopAttacksKeepWebRemote();
+      currentState = WEB_REMOTE;
+      Serial.println("[KARMA] Web scan selesai, AP kontrol tetap aktif");
+    }
     dnsServer.processNextRequest();
     server.handleClient();
     if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
