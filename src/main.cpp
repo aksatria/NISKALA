@@ -1364,7 +1364,8 @@ void startDeauthEngine() {
   if (isWebRemoteRunning) {
     if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
   } else {
-    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+    WiFi.mode(WIFI_OFF);
+    delay(50);
     uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
     if (memcmp(mac, g_targetBSSID, 6) != 0) {
       esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
@@ -1373,6 +1374,7 @@ void startDeauthEngine() {
       }
       delay(50);
     }
+    WiFi.mode(WIFI_AP_STA);
     WiFi.softAP("Deauther_Fix", "12345678", 1, 1); delay(400);
   }
   applyPromiscuousFilter(false);
