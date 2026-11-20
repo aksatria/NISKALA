@@ -366,20 +366,20 @@ inline void setupWebRemote() {
   // Quick start modul lain
   server.on("/api/start/beacon", []() {
     server.send(200, "text/plain", "Beacon Started");
-    stopAllAttacks();
-    currentState = BEACON_SPAM;
+    stopAttacksKeepWebRemote();
+    currentState = WEB_REMOTE;
     startBeaconSpam();
   });
   server.on("/api/start/global", []() {
     server.send(200, "text/plain", "Global Started");
-    stopAllAttacks();
-    currentState = GLOBAL_DEAUTH;
+    stopAttacksKeepWebRemote();
+    currentState = WEB_REMOTE;
     startGlobalDeauth();
   });
   server.on("/api/start/probe", []() {
     server.send(200, "text/plain", "Probe Started");
-    stopAllAttacks();
-    currentState = PROBE_SNIFF;
+    stopAttacksKeepWebRemote();
+    currentState = WEB_REMOTE;
     startProbeSniffer();
   });
   server.on("/api/start/ble", []() {
@@ -390,8 +390,8 @@ inline void setupWebRemote() {
   });
   server.on("/api/start/karma", []() {
     server.send(200, "text/plain", "Karma Started");
-    stopAllAttacks();
-    currentState = KARMA_SCAN;
+    stopAttacksKeepWebRemote();
+    currentState = WEB_REMOTE;
     startKarmaScan();
   });
 

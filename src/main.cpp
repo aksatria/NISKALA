@@ -202,16 +202,29 @@ bool g_bleScanning = false;
 #define RECON_MAX_HOSTS 20
 #define RECON_MAX_PORTS 14
 #define MAX_AP_WIFI 20
+#define RECON_PHASE_CONNECTING 0
+#define RECON_PHASE_SWEEP 1
+#define RECON_PHASE_HOST_LIST 2
+#define RECON_PHASE_PORT_SCAN 3
+#define RECON_PHASE_PORT_RESULT 4
 IPAddress g_reconHosts[RECON_MAX_HOSTS];
 int g_reconHostCount = 0;
 int g_reconSelection = 0;
 int g_reconScroll = 0;
-int g_reconPhase = 0;
+int g_reconPhase = RECON_PHASE_HOST_LIST;
 int g_reconOpenPorts[RECON_MAX_PORTS];
 int g_reconOpenPortCount = 0;
 IPAddress g_reconSelectedIP;
 bool isReconRunning = false;
 int g_reconSelectedAuth = -1;
+uint32_t g_reconFirst = 0;
+uint32_t g_reconLast = 0;
+uint32_t g_reconNext = 0;
+uint32_t g_reconTotal = 0;
+uint32_t g_reconScanned = 0;
+unsigned long g_reconConnectStart = 0;
+int g_reconPortIndex = 0;
+WiFiClient g_reconClient;
 unsigned long g_bleScanStart = 0;
 
 #define BLE_SCAN_MAX 32
@@ -1317,9 +1330,11 @@ void startKarmaScan() {
 
   WiFi.mode(WIFI_AP_STA);
   delay(200);
-  restoreOriginalApMac();
-  WiFi.softAP("Karma_Scan", NULL, 1, 1, 8);
-  delay(300);
+  if (!isWebRemoteRunning) {
+    restoreOriginalApMac();
+    WiFi.softAP("Karma_Scan", NULL, 1, 1, 8);
+    delay(300);
+  }
 
   applyPromiscuousFilter(false);
   esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
@@ -1396,8 +1411,10 @@ void stopAuthFlood() {
 
 void startGlobalDeauth() {
   if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
-  restoreOriginalApMac();
-  WiFi.softAP("Global_Deauth", "12345678", 1, 1); delay(300);
+  if (!isWebRemoteRunning) {
+    restoreOriginalApMac();
+    WiFi.softAP("Global_Deauth", "12345678", 1, 1); delay(300);
+  }
   esp_wifi_set_promiscuous(false);
   g_packetsSent = 0;
   g_txErrors = 0;
@@ -1412,9 +1429,13 @@ void stopGlobalDeauth() {
 }
 
 void startBeaconSpam() {
-  WiFi.mode(WIFI_AP);
-  restoreOriginalApMac();
-  WiFi.softAP("Beacon_Init", "12345678", 1, 1); delay(300);
+  if (!isWebRemoteRunning) {
+    WiFi.mode(WIFI_AP);
+    restoreOriginalApMac();
+    WiFi.softAP("Beacon_Init", "12345678", 1, 1); delay(300);
+  } else {
+    WiFi.mode(WIFI_AP_STA);
+  }
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
   esp_wifi_set_promiscuous(false);
   g_packetsSent = 0;
@@ -1431,8 +1452,10 @@ void stopBeaconSpam() {
 
 void startProbeSniffer() {
   if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
-  restoreOriginalApMac();
-  WiFi.softAP("Probe_Sniff", "12345678", 1, 1); delay(200);
+  if (!isWebRemoteRunning) {
+    restoreOriginalApMac();
+    WiFi.softAP("Probe_Sniff", "12345678", 1, 1); delay(200);
+  }
   portENTER_CRITICAL(&g_probeLogMux);
   g_probeLogHead = 0; g_probeLogCount = 0;
   portEXIT_CRITICAL(&g_probeLogMux);
@@ -2140,6 +2163,7 @@ void startClientMonitor();
 void stopClientMonitor();
 void drawClientMonitor();
 void startNetworkRecon();
+void stopNetworkRecon();
 
 void handleAPListNavigation() {
   if (digitalRead(BTN_TOP) == LOW) {
@@ -3094,7 +3118,7 @@ void drawNetworkRecon() {
   drawHeader("NETWORK RECON", TFT_NAVY);
   tft.setTextFont(1);
 
-  if (g_reconPhase == 1) {
+  if (g_reconPhase == RECON_PHASE_HOST_LIST) {
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
     tft.setCursor(10, 30);
     tft.printf("Host ditemukan: %d\n", g_reconHostCount);
@@ -3205,7 +3229,8 @@ void reconPortScan(int hostIdx) {
   if (hostIdx < 0 || hostIdx >= g_reconHostCount) return;
   g_reconSelectedIP = g_reconHosts[hostIdx];
   g_reconOpenPortCount = 0;
-  g_reconPhase = 2;
+  g_reconPortIndex = 0;
+  g_reconPhase = RECON_PHASE_PORT_SCAN;
 
   tft.fillScreen(TFT_BLACK);
   drawHeader("PORT SCAN", TFT_NAVY);
@@ -3213,30 +3238,90 @@ void reconPortScan(int hostIdx) {
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.setCursor(10, 40);
   tft.print(g_reconSelectedIP.toString());
-
-  const int ports[RECON_MAX_PORTS] = {21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 3306, 3389, 8080, 9200};
-  WiFiClient client;
-  for (int i = 0; i < RECON_MAX_PORTS; i++) {
-    tft.fillRect(0, 60, 240, 12, TFT_BLACK);
-    tft.setCursor(10, 60);
-    tft.printf("Cek TCP %d...", ports[i]);
-    if (client.connect(g_reconSelectedIP, ports[i], 300)) {
-      if (g_reconOpenPortCount < RECON_MAX_PORTS) {
-        g_reconOpenPorts[g_reconOpenPortCount++] = ports[i];
-      }
-      client.stop();
-    }
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
-      delay(200);
-      break;
-    }
-  }
-  drawNetworkRecon();
+  tft.setCursor(10, 60);
+  tft.print("Mulai scan...");
 }
 
+void reconTick() {
+  if (g_reconPhase == RECON_PHASE_CONNECTING) {
+    if (WiFi.status() == WL_CONNECTED) {
+      IPAddress ip = WiFi.localIP();
+      IPAddress mask = WiFi.subnetMask();
+      uint32_t ipU = (uint32_t)ip;
+      uint32_t maskU = (uint32_t)mask;
+      uint32_t netU = ipU & maskU;
+      uint32_t bcU = netU | ~maskU;
+      g_reconFirst = netU + 1;
+      g_reconLast = bcU - 1;
+      g_reconTotal = (g_reconLast >= g_reconFirst) ? (g_reconLast - g_reconFirst + 1) : 0;
+      g_reconNext = g_reconFirst;
+      g_reconScanned = 0;
+
+      tft.fillScreen(TFT_BLACK);
+      drawHeader("PING SWEEP", TFT_NAVY);
+      tft.setTextFont(1);
+      tft.setTextColor(TFT_CYAN, TFT_BLACK);
+      tft.setCursor(10, 40);
+      tft.printf("IP  : %s\n", ip.toString().c_str());
+      tft.setCursor(10, 52);
+      tft.printf("GW  : %s\n", WiFi.gatewayIP().toString().c_str());
+      tft.setTextColor(TFT_WHITE, TFT_BLACK);
+      tft.setCursor(10, 64);
+      tft.print("Scan: ");
+      g_reconPhase = RECON_PHASE_SWEEP;
+    } else if (millis() - g_reconConnectStart > 12000) {
+      tft.setTextColor(TFT_RED, TFT_BLACK);
+      tft.setCursor(10, 60);
+      tft.println("Gagal konek WiFi.");
+      tft.println("Periksa password target.");
+      stopNetworkRecon();
+      currentState = MAIN_MENU;
+      drawMainMenu();
+      return;
+    }
+  } else if (g_reconPhase == RECON_PHASE_SWEEP) {
+    for (int i = 0; i < 3 && g_reconNext <= g_reconLast && g_reconNext != 0; i++) {
+      uint32_t h = g_reconNext++;
+      if (h == (uint32_t)WiFi.localIP()) continue;
+      g_reconScanned++;
+      IPAddress host((uint32_t)h);
+      bool alive = pingHost(host, 100);
+      if (alive && g_reconHostCount < RECON_MAX_HOSTS) {
+        g_reconHosts[g_reconHostCount++] = host;
+      }
+    }
+
+    tft.fillRect(50, 64, 180, 10, TFT_BLACK);
+    tft.setCursor(50, 64);
+    tft.printf("%u/%u host:%u", (unsigned)g_reconScanned, (unsigned)g_reconTotal, (unsigned)g_reconHostCount);
+
+    if (g_reconNext > g_reconLast || g_reconNext == 0) {
+      g_reconPhase = RECON_PHASE_HOST_LIST;
+      drawNetworkRecon();
+    }
+  } else if (g_reconPhase == RECON_PHASE_PORT_SCAN) {
+    static const int ports[RECON_MAX_PORTS] = {21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 3306, 3389, 8080, 9200};
+    if (g_reconPortIndex < RECON_MAX_PORTS) {
+      int port = ports[g_reconPortIndex++];
+      tft.fillRect(0, 60, 240, 12, TFT_BLACK);
+      tft.setCursor(10, 60);
+      tft.printf("Cek TCP %d...", port);
+      if (g_reconClient.connect(g_reconSelectedIP, port, 150)) {
+        if (g_reconOpenPortCount < RECON_MAX_PORTS) {
+          g_reconOpenPorts[g_reconOpenPortCount++] = port;
+        }
+        g_reconClient.stop();
+      }
+    } else {
+      g_reconPhase = RECON_PHASE_PORT_RESULT;
+      drawNetworkRecon();
+    }
+  }
+}
 void stopNetworkRecon() {
   isReconRunning = false;
-  g_reconPhase = 1;
+  g_reconClient.stop();
+  g_reconPhase = RECON_PHASE_HOST_LIST;
   resetWifiStateAfterAttack();
   Serial.println("[RECON] Berhenti");
 }
@@ -3314,8 +3399,9 @@ void startNetworkRecon() {
   g_reconHostCount = 0;
   g_reconSelection = 0;
   g_reconScroll = 0;
-  g_reconPhase = 1;
   g_reconOpenPortCount = 0;
+  g_reconPortIndex = 0;
+  g_reconPhase = RECON_PHASE_CONNECTING;
 
   String ssid = targetSSID;
   tft.fillScreen(TFT_BLACK);
@@ -3327,7 +3413,6 @@ void startNetworkRecon() {
   if (ssid.length() == 0) {
     tft.println("SSID hidden/tidak valid.");
     tft.println("Tidak bisa recon.");
-    delay(2000);
     isReconRunning = false;
     currentState = MAIN_MENU;
     drawMainMenu();
@@ -3342,7 +3427,6 @@ void startNetworkRecon() {
     tft.println("");
     tft.println("Set via CLI:");
     tft.println("config set ssid=<SSID> pass=<PASS>");
-    delay(2500);
     isReconRunning = false;
     currentState = MAIN_MENU;
     drawMainMenu();
@@ -3354,80 +3438,7 @@ void startNetworkRecon() {
   WiFi.mode(WIFI_STA);
   WiFi.disconnect(true);
   WiFi.begin(ssid.c_str(), pass.c_str());
-
-  unsigned long t = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t < 12000) {
-    delay(100);
-    if (digitalRead(BTN_TOP) == LOW) {
-      delay(200);
-      stopNetworkRecon();
-      currentState = MAIN_MENU;
-      drawMainMenu();
-      return;
-    }
-  }
-
-  if (WiFi.status() != WL_CONNECTED) {
-    tft.setTextColor(TFT_RED, TFT_BLACK);
-    tft.setCursor(10, 60);
-    tft.println("Gagal konek WiFi.");
-    tft.println("Periksa password target.");
-    delay(2200);
-    stopNetworkRecon();
-    currentState = MAIN_MENU;
-    drawMainMenu();
-    return;
-  }
-
-  if (pass.length() > 0 && apWifiAdd(ssid, pass)) {
-    Serial.printf("[RECON] Auto-save AP: %s\n", ssid.c_str());
-  }
-
-  IPAddress ip = WiFi.localIP();
-  IPAddress mask = WiFi.subnetMask();
-  IPAddress gw = WiFi.gatewayIP();
-  uint32_t ipU = (uint32_t)ip;
-  uint32_t maskU = (uint32_t)mask;
-  uint32_t netU = ipU & maskU;
-  uint32_t bcU = netU | ~maskU;
-  uint32_t first = netU + 1;
-  uint32_t last = bcU - 1;
-  uint32_t total = (last >= first) ? (last - first + 1) : 0;
-
-  tft.fillScreen(TFT_BLACK);
-  drawHeader("PING SWEEP", TFT_NAVY);
-  tft.setTextFont(1);
-  tft.setTextColor(TFT_CYAN, TFT_BLACK);
-  tft.setCursor(10, 40);
-  tft.printf("IP  : %s\n", ip.toString().c_str());
-  tft.setCursor(10, 52);
-  tft.printf("GW  : %s\n", gw.toString().c_str());
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.setCursor(10, 64);
-  tft.print("Scan: ");
-
-  uint32_t scanned = 0;
-  for (uint32_t h = first; h <= last && h != 0; h++) {
-    if (h == ipU) continue;
-    scanned++;
-    IPAddress host((uint32_t)h);
-    bool alive = pingHost(host, 100);
-    if (alive && g_reconHostCount < RECON_MAX_HOSTS) {
-      g_reconHosts[g_reconHostCount++] = host;
-    }
-    if ((scanned % 10) == 0 || alive) {
-      tft.fillRect(50, 64, 180, 10, TFT_BLACK);
-      tft.setCursor(50, 64);
-      tft.printf("%u/%u host:%u", (unsigned)scanned, (unsigned)total, (unsigned)g_reconHostCount);
-    }
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
-      delay(200);
-      break;
-    }
-  }
-
-  g_reconPhase = 1;
-  drawNetworkRecon();
+  g_reconConnectStart = millis();
 }
 void setup() {
   Serial.begin(115200);
@@ -3982,7 +3993,7 @@ void loop() {
     }
   }
   else if (currentState == RECON) {
-    if (g_reconPhase == 1) {
+    if (g_reconPhase == RECON_PHASE_HOST_LIST) {
       if (digitalRead(BTN_TOP) == LOW) {
         delay(200);
         g_reconSelection++;
@@ -4001,11 +4012,19 @@ void loop() {
           reconPortScan(g_reconSelection);
         }
       }
-    } else {
+    } else if (g_reconPhase == RECON_PHASE_PORT_RESULT) {
       if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
         delay(300);
-        g_reconPhase = 1;
+        g_reconPhase = RECON_PHASE_HOST_LIST;
         drawNetworkRecon();
+      }
+    } else {
+      reconTick();
+      if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+        delay(300);
+        stopNetworkRecon();
+        currentState = MAIN_MENU;
+        drawMainMenu();
       }
     }
   }

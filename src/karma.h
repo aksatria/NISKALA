@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <esp_wifi.h>
 #include <string.h>
+#include "tx_count.h"
 
 #define KARMA_MAX_SSIDS    16
 #define KARMA_MAX_CLIENTS  16
@@ -135,9 +136,7 @@ inline void sendKarmaProbeResponse(const uint8_t* dst, const char* ssid) {
   esp_wifi_get_channel(&channel, &sec);
   frame[p++] = 0x03; frame[p++] = 0x01; frame[p++] = channel;
 
-  esp_err_t err = esp_wifi_80211_tx(WIFI_IF_AP, frame, p, true);
-  g_packetsSent++;
-  if (err != ESP_OK) g_txErrors++;
+  esp_err_t err = sendWifiFrameAndCount(frame, p, true);
   if (err == ESP_OK) g_karmaResponses++;
 }
 
