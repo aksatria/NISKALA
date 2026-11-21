@@ -122,17 +122,24 @@
   details .ans{border-top:1px solid var(--line);padding:15px 18px 18px;font-size:14px;line-height:1.7;color:var(--muted);font-weight:600;background:rgba(0,0,0,.08)}
 
   .profile-section{padding-top:20px}
-  .profile-card{display:grid;grid-template-columns:280px 1fr;gap:32px;align-items:center;background:linear-gradient(135deg,rgba(255,255,255,.035),rgba(0,230,118,.055));border:1px solid var(--line-2);border-radius:20px;padding:24px;overflow:hidden}
+  .profile-card{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:32px;align-items:center;background:linear-gradient(135deg,rgba(255,255,255,.035),rgba(0,230,118,.055));border:1px solid var(--line-2);border-radius:20px;padding:24px;overflow:hidden}
+  .profile-card::after{content:"";position:absolute;inset:-35%;z-index:-1;pointer-events:none;background:conic-gradient(from 0deg,transparent 0 68%,rgba(0,230,118,.14) 73%,transparent 78%);animation:profileSweep 10s linear infinite}
   .profile-photo-wrap{position:relative;min-height:280px;display:flex;align-items:center;justify-content:center}
   .profile-photo-wrap::before{content:"";position:absolute;width:250px;height:250px;border-radius:24px;background:radial-gradient(circle,rgba(0,230,118,.2),transparent 68%);filter:blur(8px)}
-  .profile-photo{position:relative;width:240px;height:240px;display:block;object-fit:cover;border-radius:22px;border:1px solid rgba(0,230,118,.45);background:#03080a;image-rendering:pixelated;box-shadow:0 18px 50px rgba(0,0,0,.48),0 0 0 8px rgba(0,230,118,.04),inset 0 0 0 1px rgba(255,255,255,.06)}
+  .profile-orbit{position:absolute;width:286px;height:286px;z-index:1;pointer-events:none;opacity:.9;animation:profileOrbit 14s linear infinite}
+  .profile-photo{position:relative;z-index:2;width:240px;height:240px;display:block;object-fit:cover;border-radius:22px;border:1px solid rgba(0,230,118,.45);background:#03080a;image-rendering:pixelated;box-shadow:0 18px 50px rgba(0,0,0,.48),0 0 0 8px rgba(0,230,118,.04),inset 0 0 0 1px rgba(255,255,255,.06)}
+  .profile-copy{min-width:0;position:relative;z-index:1}
   .profile-copy .kicker{text-align:left}
   .profile-copy h2{font-size:clamp(24px,3.7vw,34px);font-weight:900;margin:8px 0 4px}
   .profile-name{font-size:18px;color:#fff;font-weight:900;letter-spacing:.02em}
-  .profile-role{font-size:13px;color:var(--green);font-weight:800;margin:2px 0 12px}
+  .profile-role{font-size:13px;color:var(--green);font-weight:800;line-height:1.5;margin:2px 0 12px}
   .profile-copy p{font-size:15px;color:var(--muted);font-weight:600;max-width:570px}
   .profile-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
-  .profile-meta span{font-size:12px;color:#dfffee;border:1px solid rgba(0,230,118,.32);background:linear-gradient(135deg,rgba(0,230,118,.18),rgba(34,211,238,.10));border-radius:999px;padding:6px 12px;font-weight:800;box-shadow:inset 0 0 16px rgba(0,230,118,.05)}
+  .profile-meta span{font-size:12px;border-radius:999px;padding:6px 12px;font-weight:800;box-shadow:inset 0 0 16px rgba(255,255,255,.04);transition:transform .18s ease,filter .18s ease}
+  .profile-meta span:hover{transform:translateY(-2px);filter:brightness(1.15)}
+  .role-research{color:#dfffee;border:1px solid rgba(0,230,118,.42);background:linear-gradient(135deg,rgba(0,230,118,.24),rgba(0,95,70,.28))}
+  .role-dev{color:#e8fbff;border:1px solid rgba(34,211,238,.42);background:linear-gradient(135deg,rgba(34,211,238,.24),rgba(20,78,100,.3))}
+  .role-web{color:#f2eaff;border:1px solid rgba(167,139,250,.45);background:linear-gradient(135deg,rgba(167,139,250,.25),rgba(75,44,125,.3))}
 
   .notice{border:1px solid rgba(255,82,82,.35);border-radius:14px;padding:20px 22px;background:rgba(255,82,82,.05);display:flex;gap:14px;align-items:flex-start}
   .notice .nicon{flex-shrink:0;width:38px;height:38px;border-radius:9px;background:rgba(255,82,82,.12);color:var(--red);display:flex;align-items:center;justify-content:center}
@@ -149,11 +156,15 @@
   @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
   @keyframes sweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
   @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  @keyframes profileOrbit{to{transform:rotate(360deg)}}
+  @keyframes profileSweep{to{transform:rotate(360deg)}}
   .anim{animation:fadeUp .6s ease both}
   .float{animation:float 5s ease-in-out infinite}
   .sweep{transform-origin:260px 215px;animation:sweep 6s linear infinite}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-  @media(max-width:900px){.hero{flex-direction:column;text-align:center}.hero-desc{margin-left:auto;margin-right:auto}.cta,.stats{justify-content:center}.specs-wrap{grid-template-columns:1fr}.profile-card{grid-template-columns:1fr;text-align:center}.profile-copy .kicker{text-align:center}.profile-copy p{margin:0 auto}.profile-meta{justify-content:center}.faq{grid-template-columns:1fr}}
+  @media(max-width:900px){.hero{flex-direction:column;text-align:center}.hero-desc{margin-left:auto;margin-right:auto}.cta,.stats{justify-content:center}.specs-wrap{grid-template-columns:1fr}.profile-card{grid-template-columns:1fr;text-align:center;gap:20px;padding:22px}.profile-photo-wrap{min-height:270px}.profile-copy .kicker{text-align:center}.profile-copy p{margin:0 auto}.profile-meta{justify-content:center}.faq{grid-template-columns:1fr}}
+  @media(max-width:480px){.profile-card{padding:18px;border-radius:16px}.profile-photo-wrap{min-height:230px}.profile-orbit{width:236px;height:236px}.profile-photo{width:196px;height:196px;border-radius:18px}.profile-role{font-size:12.5px}.profile-meta{gap:6px}.profile-meta span{font-size:11px;padding:5px 9px}.profile-copy h2{font-size:25px}}
+
   @media(max-width:640px){header{padding:48px 0 28px}.cta .btn{width:100%;justify-content:center}}
 </style>
 </head>
@@ -329,6 +340,13 @@
   <div class="wrap">
     <div class="profile-card anim">
       <div class="profile-photo-wrap">
+        <svg class="profile-orbit" viewBox="0 0 286 286" fill="none" aria-hidden="true">
+          <circle cx="143" cy="143" r="132" stroke="rgba(0,230,118,.22)" stroke-width="1" stroke-dasharray="3 8"/>
+          <circle cx="143" cy="143" r="119" stroke="rgba(34,211,238,.18)" stroke-width="1"/>
+          <path d="M143 11 A132 132 0 0 1 260 82" stroke="#00e676" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="260" cy="82" r="4" fill="#22d3ee"><animate attributeName="r" values="3;6;3" dur="1.8s" repeatCount="indefinite"/></circle>
+          <circle cx="44" cy="206" r="3" fill="#a78bfa"><animate attributeName="opacity" values=".3;1;.3" dur="2.2s" repeatCount="indefinite"/></circle>
+        </svg>
         <img class="profile-photo" src="assets/profile-niskala-binary.png" alt="Binary art profil Adhe Putra, pendiri dan pengembang NISKALA" loading="lazy">
       </div>
       <div class="profile-copy">
@@ -337,7 +355,7 @@
         <div class="profile-role">Founder NISKALA · Embedded Security Engineer</div>
         <h2>Eksplorasi untuk keamanan</h2>
         <p>NISKALA lahir dari eksplorasi terhadap keamanan jaringan nirkabel, perangkat embedded, dan pembelajaran keamanan siber yang bertanggung jawab.</p>
-        <div class="profile-meta"><span>Wireless Security Researcher</span><span>Developer</span><span>WebDesign &amp; Web Apps</span></div>
+        <div class="profile-meta"><span class="role-research">Wireless Security Researcher</span><span class="role-dev">Developer</span><span class="role-web">WebDesign &amp; Web Apps</span></div>
       </div>
     </div>
   </div>
