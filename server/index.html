@@ -110,12 +110,13 @@
   .cta-panel p{color:var(--muted);max-width:520px;margin:12px auto 24px;font-size:15px;font-weight:600}
 
   /* faq */
-  .faq{max-width:820px;margin:0 auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-  details{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:14px;padding:0;overflow:hidden;transition:border-color .2s,box-shadow .2s,transform .2s}
+  .faq{max-width:820px;margin:0 auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;counter-reset:faq}
+  details{counter-increment:faq;background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:14px;padding:0;overflow:hidden;transition:border-color .2s,box-shadow .2s,transform .2s}
   details:hover{border-color:rgba(0,230,118,.28);transform:translateY(-2px)}
   details[open]{border-color:rgba(0,230,118,.36);box-shadow:0 12px 28px rgba(0,0,0,.24)}
   summary{cursor:pointer;padding:17px 18px;font-weight:900;font-size:15px;color:#fff;list-style:none;display:flex;gap:12px;justify-content:space-between;align-items:center;min-height:64px}
   summary::-webkit-details-marker{display:none}
+  summary::before{content:counter(faq, decimal-leading-zero);flex:0 0 auto;color:var(--green);font-size:12px;letter-spacing:.08em;font-weight:900}
   summary::after{content:"+";flex:0 0 auto;width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--green);background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.2);font-size:18px;font-weight:900;line-height:1;transition:transform .2s,background .2s}
   details[open] summary::after{transform:rotate(45deg);background:rgba(0,230,118,.18)}
   details .ans{border-top:1px solid var(--line);padding:15px 18px 18px;font-size:14px;line-height:1.7;color:var(--muted);font-weight:600;background:rgba(0,0,0,.08)}
@@ -123,8 +124,8 @@
   .profile-section{padding-top:20px}
   .profile-card{display:grid;grid-template-columns:280px 1fr;gap:32px;align-items:center;background:linear-gradient(135deg,rgba(255,255,255,.035),rgba(0,230,118,.055));border:1px solid var(--line-2);border-radius:20px;padding:24px;overflow:hidden}
   .profile-photo-wrap{position:relative;min-height:280px;display:flex;align-items:center;justify-content:center}
-  .profile-photo-wrap::before{content:"";position:absolute;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(0,230,118,.18),transparent 68%);filter:blur(4px)}
-  .profile-photo{position:relative;width:240px;height:240px;object-fit:cover;object-position:center 28%;border-radius:50%;border:1px solid rgba(0,230,118,.4);filter:grayscale(100%) contrast(1.08);box-shadow:0 18px 50px rgba(0,0,0,.45),0 0 0 8px rgba(0,230,118,.04)}
+  .profile-photo-wrap::before{content:"";position:absolute;width:250px;height:250px;border-radius:24px;background:radial-gradient(circle,rgba(0,230,118,.2),transparent 68%);filter:blur(8px)}
+  .profile-photo{position:relative;width:240px;height:240px;display:block;object-fit:cover;border-radius:22px;border:1px solid rgba(0,230,118,.45);background:#03080a;image-rendering:pixelated;box-shadow:0 18px 50px rgba(0,0,0,.48),0 0 0 8px rgba(0,230,118,.04),inset 0 0 0 1px rgba(255,255,255,.06)}
   .profile-copy .kicker{text-align:left}
   .profile-copy h2{font-size:clamp(24px,3.7vw,34px);font-weight:900;margin:8px 0 4px}
   .profile-name{font-size:18px;color:#fff;font-weight:900;letter-spacing:.02em}
@@ -328,15 +329,15 @@
   <div class="wrap">
     <div class="profile-card anim">
       <div class="profile-photo-wrap">
-        <img class="profile-photo" src="assets/profile-niskala.jpg" alt="Profil pendiri dan pengembang NISKALA" loading="lazy">
+        <img class="profile-photo" src="assets/profile-niskala-pixel.png" alt="Pixel art profil Adhe Putra, pendiri dan pengembang NISKALA" loading="lazy">
       </div>
       <div class="profile-copy">
         <div class="kicker">Di balik NISKALA</div>
         <div class="profile-name">Adhe Putra</div>
-        <div class="profile-role">Founder NISKALA · Embedded Security Engineer · Wireless Security Researcher · Developer · WebDesign &amp; Web Apps</div>
+        <div class="profile-role">Founder NISKALA · Embedded Security Engineer</div>
         <h2>Teknologi yang dibangun dengan rasa ingin tahu</h2>
         <p>NISKALA lahir dari eksplorasi terhadap keamanan jaringan nirkabel, perangkat embedded, dan pembelajaran keamanan siber yang bertanggung jawab.</p>
-        <div class="profile-meta"><span>Embedded Security</span><span>ESP32</span><span>Wireless Research</span><span>Web Apps</span></div>
+        <div class="profile-meta"><span>Wireless Security Researcher</span><span>Developer</span><span>WebDesign &amp; Web Apps</span></div>
       </div>
     </div>
   </div>
