@@ -10,6 +10,7 @@
 #include "macro.h"
 #include "telemetry.h"
 #include "wifi_state.h"
+#include "allowlist.h"
 
 static String cliBuf = "";
 int hexNibble(char c) {
@@ -230,6 +231,29 @@ void processCliCommand(String line) {
       } else {
         Serial.println("[CLI] Gunakan: config set <ssid|pass|url|tpl> <nilai>");
       }
+    }
+  }
+  else if (cmd == "allow") {
+    arg.trim();
+    int s = arg.indexOf(' ');
+    String sub = (s > 0) ? arg.substring(0, s) : arg;
+    String rest = (s > 0) ? arg.substring(s + 1) : "";
+    sub.toLowerCase();
+    if (sub == "add" || sub == "set") {
+      uint8_t mac[6];
+      if (macFromString(rest.c_str(), mac)) {
+        if (allowlistAdd(mac)) Serial.println("[ALLOW] Ditambahkan");
+        else Serial.println("[ALLOW] Gagal/penuh");
+      } else {
+        Serial.println("[ALLOW] MAC tidak valid");
+      }
+    } else if (sub == "list") {
+      allowlistPrint();
+    } else if (sub == "del" || sub == "delete") {
+      if (allowlistDelete(rest.toInt())) Serial.println("[ALLOW] Dihapus");
+      else Serial.println("[ALLOW] Index tidak valid");
+    } else {
+      Serial.println("[ALLOW] allow add <MAC> | list | del <idx>");
     }
   }
   else if (cmd == "apwifi") {

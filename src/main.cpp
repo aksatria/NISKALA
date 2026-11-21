@@ -64,6 +64,7 @@ State currentState = MAIN_MENU;
 #include "cli.h"
 #include "eapol.h"
 #include "smart_attack.h"
+#include "allowlist.h"
 #include "ui_screens.h"
 #include "telemetry.h"
 
@@ -1814,16 +1815,26 @@ void loop() {
         drawMainMenu();
       } else if (g_clientCount > 0 && clientSelection < g_clientCount) {
         uint8_t* cmac = g_clients[clientSelection].mac;
-        for (int i = 0; i < cfg_deauth_burst; i++) {
-          sendDeauthFrame(cmac, g_targetBSSID, 0x07);
+        if (clientAllowed(cmac)) {
+          Serial.printf("[CLIENT] Skip allowed %02X:%02X:%02X:%02X:%02X:%02X\n",
+            cmac[0], cmac[1], cmac[2], cmac[3], cmac[4], cmac[5]);
+          tft.fillRect(0, 104, 240, 10, TFT_BLACK);
+          tft.setTextFont(1);
+          tft.setTextColor(TFT_GREEN, TFT_BLACK);
+          tft.setCursor(4, 104);
+          tft.print("ALLOWED");
+        } else {
+          for (int i = 0; i < cfg_deauth_burst; i++) {
+            sendDeauthFrame(cmac, g_targetBSSID, 0x07);
+          }
+          Serial.printf("[CLIENT] Deauth %02X:%02X:%02X:%02X:%02X:%02X\n",
+            cmac[0], cmac[1], cmac[2], cmac[3], cmac[4], cmac[5]);
+          tft.fillRect(0, 104, 240, 10, TFT_BLACK);
+          tft.setTextFont(1);
+          tft.setTextColor(TFT_RED, TFT_BLACK);
+          tft.setCursor(4, 104);
+          tft.print("DEAUTH OK");
         }
-        Serial.printf("[CLIENT] Deauth %02X:%02X:%02X:%02X:%02X:%02X\n",
-          cmac[0], cmac[1], cmac[2], cmac[3], cmac[4], cmac[5]);
-        tft.fillRect(0, 104, 240, 10, TFT_BLACK);
-        tft.setTextFont(1);
-        tft.setTextColor(TFT_RED, TFT_BLACK);
-        tft.setCursor(4, 104);
-        tft.print("DEAUTH OK");
       }
     }
   }
