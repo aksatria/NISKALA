@@ -365,9 +365,10 @@ void packetSniffer_cb(void* buf, wifi_promiscuous_pkt_type_t type) {
   }
 
   // Victim tracking untuk DEAUTH, EVIL_TWIN, dan CSA
-  if (getAttackMode() == ATK_DEAUTH_TARGET ||
-      g_attackMode == ATK_EVIL_TWIN ||
-      g_attackMode == ATK_CSA) {
+  AttackMode am = getAttackMode();
+  if (am == ATK_DEAUTH_TARGET ||
+      am == ATK_EVIL_TWIN ||
+      am == ATK_CSA) {
     uint8_t* addr1 = &p[4];
     uint8_t* addr2 = &p[10];
     uint8_t* addr3 = &p[16];

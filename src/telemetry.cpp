@@ -72,8 +72,8 @@ String buildSystemStatusLine() {
            "State=%d Mode=%d PKT=%u ERR=%u Heap=%u Min=%u Bat=%d Temp=%.0f Stack=%u Ch=%d Up=%lus",
            (int)currentState,
            (int)getAttackMode(),
-           (unsigned)g_packetsSent,
-           (unsigned)g_txErrors,
+           (unsigned)getPacketsSent(),
+           (unsigned)getTxErrors(),
            (unsigned)ESP.getFreeHeap(),
            (unsigned)ESP.getMinFreeHeap(),
            readBatteryPercent(),
@@ -92,8 +92,8 @@ String buildTelemetryJson() {
   String j = "{";
   j += "\"state\":" + String((int)currentState);
   j += ",\"mode\":" + String((int)getAttackMode());
-  j += ",\"packets\":" + String((uint32_t)g_packetsSent);
-  j += ",\"tx_errors\":" + String((uint32_t)g_txErrors);
+  j += ",\"packets\":" + String((uint32_t)getPacketsSent());
+  j += ",\"tx_errors\":" + String((uint32_t)getTxErrors());
   j += ",\"heap\":" + String((uint32_t)ESP.getFreeHeap());
   j += ",\"heap_min\":" + String((uint32_t)ESP.getMinFreeHeap());
   j += ",\"battery\":" + String(readBatteryPercent());

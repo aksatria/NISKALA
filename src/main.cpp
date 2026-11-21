@@ -481,8 +481,7 @@ void startDeauthEngine() {
   esp_wifi_set_promiscuous(true);
   esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
   delay(100);
-  g_packetsSent = 0;
-  g_txErrors = 0;
+  resetPacketCounters();
   setVictimFound(false);
   isDeauthRunning = true;
   setAttackMode(ATK_DEAUTH_TARGET);
@@ -512,8 +511,7 @@ void startAuthFlood() {
   esp_wifi_set_promiscuous(false);
   esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
   delay(100);
-  g_packetsSent = 0;
-  g_txErrors = 0;
+  resetPacketCounters();
   isAuthFloodRunning = true;
   setAttackMode(ATK_AUTH_FLOOD);
 }
@@ -531,8 +529,7 @@ void startGlobalDeauth() {
     WiFi.softAP("Global_Deauth", "12345678", 1, 1); delay(300);
   }
   esp_wifi_set_promiscuous(false);
-  g_packetsSent = 0;
-  g_txErrors = 0;
+  resetPacketCounters();
   isGlobalDeauthRunning = true;
   setAttackMode(ATK_DEAUTH_GLOBAL);
 }
@@ -553,8 +550,7 @@ void startBeaconSpam() {
   }
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
   esp_wifi_set_promiscuous(false);
-  g_packetsSent = 0;
-  g_txErrors = 0;
+  resetPacketCounters();
   isBeaconRunning = true;
   setAttackMode(ATK_BEACON);
 }
@@ -626,8 +622,7 @@ void startCSAAttack() {
   strncpy(g_csaTargetSSID, targetSSID.c_str(), 32);
   g_csaTargetSSID[32] = 0;
 
-  g_packetsSent = 0;
-  g_txErrors = 0;
+  resetPacketCounters();
   setVictimFound(false);
   isCSARunning = true;
   setAttackMode(ATK_CSA);
@@ -837,8 +832,7 @@ void startEvilTwinWithDeauth() {
   esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
   esp_wifi_set_promiscuous(true);
 
-  g_packetsSent = 0;
-  g_txErrors = 0;
+  resetPacketCounters();
   setVictimFound(false);
   isReleasing = false;
   isVerifying = false;

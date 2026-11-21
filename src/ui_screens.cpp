@@ -274,11 +274,11 @@ void drawDeauthMenu() {
   else { tft.setTextColor(TFT_RED, TFT_BLACK); tft.println("BERHENTI"); }
 
   tft.setCursor(10, 66); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Paket: ");
-  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println(g_packetsSent);
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println(getPacketsSent());
 
   tft.setCursor(10, 86); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Error: ");
-  tft.setTextColor(g_txErrors > 0 ? TFT_RED : TFT_DARKGREY, TFT_BLACK);
-  tft.println(g_txErrors);
+  tft.setTextColor(getTxErrors() > 0 ? TFT_RED : TFT_DARKGREY, TFT_BLACK);
+  tft.println(getTxErrors());
 
   drawFooter("BAWAH: Start/Stop | ATAS: Keluar");
 }
@@ -292,7 +292,7 @@ void drawAuthFlood(int frame) {
   String s = targetSSID; if (s.length() > 16) s = s.substring(0, 16);
   tft.println(s);
   tft.setCursor(10, 48); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Paket: ");
-  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println(g_packetsSent);
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println(getPacketsSent());
   tft.setCursor(10, 70); tft.setTextColor(TFT_RED, TFT_BLACK);
   tft.print("Flooding auth request");
   for (int i = 0; i < (frame % 4); i++) tft.print(".");
@@ -311,7 +311,7 @@ void drawGlobalDeauth(int frame) {
   tft.setCursor(10, 30); tft.print("Mode: ");
   tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println("CHANNEL HOP");
   tft.setCursor(10, 52); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Paket: ");
-  tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println(g_packetsSent);
+  tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println(getPacketsSent());
   int cx = 120, cy = 88;
   for (int i = 0; i < 3; i++) {
     int r = (frame * 4 + i * 15) % 30;
@@ -328,7 +328,7 @@ void drawBeaconSpam(int frame) {
   tft.setCursor(10, 30); tft.print("SSID pool: ");
   tft.setTextColor(TFT_CYAN, TFT_BLACK); tft.println(SPAM_COUNT);
   tft.setCursor(10, 52); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Beacon: ");
-  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println(g_packetsSent);
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.println(getPacketsSent());
   tft.setCursor(10, 74); tft.setTextColor(TFT_GREEN, TFT_BLACK);
   tft.print("Broadcasting");
   for (int i = 0; i < (frame % 4); i++) tft.print(".");
@@ -460,7 +460,7 @@ void drawCSARunning(int frame) {
   tft.setTextColor(TFT_YELLOW, TFT_BLACK); tft.print(g_targetChannel);
 
   tft.setCursor(10, 66); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Paket: ");
-  tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println(g_packetsSent);
+  tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println(getPacketsSent());
 
   tft.setCursor(10, 86); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Korban: ");
   if (isVictimFound()) {
@@ -591,7 +591,7 @@ void drawEvilTwinRunning(int frame) {
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.setTextFont(1);
   tft.setCursor(150, 30);
-  tft.print("P:" + String((uint32_t)g_packetsSent) + " E:" + String((uint32_t)g_txErrors));
+  tft.print("P:" + String((uint32_t)getPacketsSent()) + " E:" + String((uint32_t)getTxErrors()));
   tft.setTextFont(2);
   drawFooter("TEKAN TOMBOL = STOP");
 }

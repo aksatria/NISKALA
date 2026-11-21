@@ -61,7 +61,7 @@ void drawMacroRunning(int frame) {
 
   tft.setCursor(10, 102);
   tft.setTextColor(TFT_CYAN, TFT_BLACK);
-  tft.print("PKT: "); tft.print(g_packetsSent);
+  tft.print("PKT: "); tft.print(getPacketsSent());
   tft.print("  H:"); tft.print(ESP.getFreeHeap());
   drawFooter("TOMBOL = HENTIKAN MACRO");
 }

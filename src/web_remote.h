@@ -77,8 +77,8 @@ inline void setupWebRemote() {
     REQUIRE_WEB_AUTH();
     String json = "{\"uptime\":" + String(millis() / 1000UL) +
                   ",\"heap\":" + String(ESP.getFreeHeap()) +
-                  ",\"packets\":" + String((uint32_t)g_packetsSent) +
-                  ",\"txerrors\":" + String((uint32_t)g_txErrors) +
+                  ",\"packets\":" + String((uint32_t)getPacketsSent()) +
+                  ",\"txerrors\":" + String((uint32_t)getTxErrors()) +
                   ",\"mode\":" + String((int)currentState) +
                   ",\"battery\":" + String(readBatteryPercent()) +
                   ",\"temp\":" + String((int)temperatureRead()) +

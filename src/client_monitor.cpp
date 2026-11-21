@@ -72,8 +72,7 @@ void startClientMonitor() {
   applyPromiscuousFilter(false);
   esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
   esp_wifi_set_promiscuous(true);
-  g_packetsSent = 0;
-  g_txErrors = 0;
+  resetPacketCounters();
   isClientMonitorRunning = true;
   setAttackMode(ATK_CLIENT_MONITOR);
   Serial.printf("[CLIENT] Monitor %02X:%02X:%02X:%02X:%02X:%02X ch=%d SSID=%s\n",

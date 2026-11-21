@@ -240,7 +240,6 @@ function saveConfig() {
   }).then(() => alert('Config tersimpan'));
 }
 setMode('deauth');
-document.getElementById('web_token').value = WEB_TOKEN;
 loadConfig();
 setInterval(poll, 2000);
 </script>

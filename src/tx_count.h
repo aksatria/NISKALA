@@ -12,5 +12,8 @@ extern portMUX_TYPE g_txMux;
 
 void countTxResult(esp_err_t err);
 esp_err_t sendWifiFrameAndCount(const uint8_t* frame, int len, bool enSys);
+uint32_t getPacketsSent();
+uint32_t getTxErrors();
+void resetPacketCounters();
 
 #endif
