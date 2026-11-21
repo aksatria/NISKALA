@@ -133,6 +133,7 @@ int g_karmaSSIDCount = 0;
 KarmaClientEntry g_karmaClients[KARMA_MAX_CLIENTS];
 int g_karmaClientCount = 0;
 volatile uint32_t g_karmaResponses = 0;
+portMUX_TYPE g_karmaMux = portMUX_INITIALIZER_UNLOCKED;
 volatile bool g_karmaActiveMode = true;
 
 // Karma UI state
