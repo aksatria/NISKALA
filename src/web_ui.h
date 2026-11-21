@@ -45,6 +45,11 @@ h2{color:#00ff00;margin:0 0 8px}
 <button class="btn" onclick="start('karma')">START KARMA</button>
 </div>
 <div style="text-align:left;margin-top:14px;background:#1e1e1e;border-radius:8px;padding:12px">
+<p style="color:#00ff00;font-weight:bold;margin:0 0 8px">TELEMETRI</p>
+<button class="btn" onclick="loadTelemetry()">REFRESH TELEMETRI</button>
+<div id="telemetryPanel" style="font-size:13px;color:#aaa;margin-top:8px;white-space:pre-wrap"></div>
+</div>
+<div style="text-align:left;margin-top:14px;background:#1e1e1e;border-radius:8px;padding:12px">
 <p style="color:#00ff00;font-weight:bold;margin:0 0 8px">EAPOL CAPTURE</p>
 <button class="btn" onclick="loadEapol()">REFRESH EAPOL</button>
 <div id="eapolPanel" style="font-size:13px;color:#aaa;margin-top:8px;white-space:pre-wrap"></div>
@@ -133,6 +138,16 @@ function drawChart(data) {
   }
   ctx.stroke();
 }
+function loadTelemetry() {
+  fetch('/api/telemetry').then(r => r.json()).then(t => {
+    document.getElementById('telemetryPanel').innerText =
+      'State: ' + (t.state ?? '-') + '  Mode: ' + (t.mode ?? '-') +
+      '\nPackets: ' + (t.packets ?? 0) + '  Errors: ' + (t.tx_errors ?? 0) +
+      '\nHeap: ' + (t.heap ?? 0) + ' B  Stack: ' + (t.stack ?? 0) + ' B' +
+      '\nBattery: ' + (t.battery ?? 0) + '%  Voltage: ' + (t.battery_v ?? 0) + ' V' +
+      '\nTemp: ' + (t.temp ?? 0) + ' C  Uptime: ' + (t.uptime_s ?? 0) + ' s';
+  }).catch(() => { document.getElementById('telemetryPanel').innerText = 'Gagal ambil telemetri'; });
+}
 function loadEapol() {
   fetch('/api/eapol').then(r => r.json()).then(e => {
     document.getElementById('eapolPanel').innerText =
@@ -151,6 +166,7 @@ function poll() {
     if (pktSamples.length > 60) pktSamples.shift();
     drawChart(pktSamples);
     loadEapol();
+    loadTelemetry();
   }).catch(() => {});
 }
 document.getElementById('scanResult').addEventListener('click', function(e) {

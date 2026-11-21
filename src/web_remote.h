@@ -44,6 +44,7 @@ extern int readBatteryPercent();
 extern TaskHandle_t attackTaskHandle;
 extern String cfg_template_url;
 extern String buildEapolJson();
+extern String buildTelemetryJson();
 extern bool isEapolRunning;
 
 // HTML UI
@@ -188,6 +189,11 @@ inline void setupWebRemote() {
     stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
     startKarmaScan();
+  });
+
+  // Telemetry lengkap
+  server.on("/api/telemetry", []() {
+    server.send(200, "application/json", buildTelemetryJson());
   });
 
   // EAPOL status/export
