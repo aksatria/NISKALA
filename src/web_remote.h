@@ -58,6 +58,7 @@ extern TaskHandle_t attackTaskHandle;
 extern String cfg_template_url;
 extern String buildEapolJson();
 extern String buildTelemetryJson();
+extern String buildSyncJson();
 extern String buildBleJson();
 extern bool isEapolRunning;
 
@@ -232,6 +233,12 @@ inline void setupWebRemote() {
   server.on("/api/eapol", []() {
     REQUIRE_WEB_AUTH();
     server.send(200, "application/json", buildEapolJson());
+  });
+
+  // Export semua log sebagai JSON
+  server.on("/api/export/logs.json", []() {
+    REQUIRE_WEB_AUTH();
+    server.send(200, "application/json", buildSyncJson());
   });
 
   // Export Probe Sniff CSV

@@ -288,6 +288,9 @@ void processCliCommand(String line) {
     Serial.println("[CLI] Mulai Cloud Sync...");
     startCloudSync();
   }
+  else if (cmd == "export") {
+    Serial.println(buildSyncJson());
+  }
   else if (cmd == "reboot") {
     Serial.println("[CLI] Reboot...");
     delay(200);
