@@ -3,9 +3,12 @@
 
 #include <Arduino.h>
 #include <esp_wifi.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/portmacro.h"
 
 extern volatile uint32_t g_packetsSent;
 extern volatile uint32_t g_txErrors;
+extern portMUX_TYPE g_txMux;
 
 inline void countTxResult(esp_err_t err) {
   g_packetsSent++;

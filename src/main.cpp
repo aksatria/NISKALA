@@ -96,6 +96,7 @@ const char* menuItems[] = {
 volatile AttackMode g_attackMode = ATK_IDLE;
 volatile uint32_t g_packetsSent = 0;
 volatile uint32_t g_txErrors = 0;
+portMUX_TYPE g_txMux = portMUX_INITIALIZER_UNLOCKED;
 uint8_t g_originalApMac[6] = {0,0,0,0,0,0};
 volatile bool g_victimFound = false;
 uint8_t g_victimMAC[6] = {0};
