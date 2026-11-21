@@ -62,12 +62,13 @@ State currentState = MAIN_MENU;
 #include "macro.h"
 #include "client_monitor.h"
 #include "cli.h"
+#include "eapol.h"
 #include "ui_screens.h"
 #include "telemetry.h"
 
 int menuSelection = 0;
 int menuScrollPos = 0;
-extern const int MENU_COUNT = 18;
+extern const int MENU_COUNT = 19;
 const char* menuItems[] = {
   "DEAUTH MANUAL",
   "EVIL TWIN",
@@ -86,7 +87,8 @@ const char* menuItems[] = {
   "MACRO",
   "CLIENT MONITOR",
   "NETWORK RECON",
-  "AP WIFI"
+  "AP WIFI",
+  "EAPOL CAPTURE"
 };
 
 volatile AttackMode g_attackMode = ATK_IDLE;
@@ -1070,6 +1072,13 @@ void handleAPListNavigation() {
         while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
         return;
       }
+      if (currentState == AP_LIST_EAPOL) {
+        currentState = EAPOL_CAPTURE_RUNNING;
+        startEapolCapture();
+        while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+        return;
+      }
+
       // [PATCH 2] PMF terdeteksi → tawarkan CSA
       if (detectPMF(selectedIdx)) {
         tft.fillScreen(TFT_BLACK);
@@ -1247,6 +1256,7 @@ void apScanTick() {
     else if (menu == 9) { currentState = AP_LIST_CSA; }
     else if (menu == 15) { currentState = AP_LIST_CLIENT; }
     else if (menu == 16) { currentState = RECON_AP_SELECT; }
+    else if (menu == 18) { currentState = AP_LIST_EAPOL; }
     else { currentState = MAIN_MENU; }
     selectedIdx = 0; apScrollPos = 0;
     if (apCount > 0) drawAPList();
@@ -1628,6 +1638,9 @@ void loop() {
         case 16:
           startApScan(16);
           break;
+        case 18:
+          startApScan(18);
+          break;
         case 17:
           currentState = APWIFI_VIEW;
           apWifiSelection = 0;
@@ -1646,6 +1659,7 @@ void loop() {
            currentState == AP_LIST_AUTH_FLOOD ||
            currentState == AP_LIST_CSA ||
            currentState == AP_LIST_CLIENT ||
+           currentState == AP_LIST_EAPOL ||
            currentState == RECON_AP_SELECT) {
     handleAPListNavigation();
   }
@@ -1811,6 +1825,15 @@ void loop() {
         tft.setCursor(4, 104);
         tft.print("DEAUTH OK");
       }
+    }
+  }
+  else if (currentState == EAPOL_CAPTURE_RUNNING) {
+    eapolCaptureTick();
+    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      delay(200);
+      stopEapolCapture();
+      currentState = MAIN_MENU;
+      drawMainMenu();
     }
   }
   else if (currentState == RECON) {
