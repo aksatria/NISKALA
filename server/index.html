@@ -180,10 +180,88 @@
   .float{animation:float 5s ease-in-out infinite}
   .sweep{transform-origin:260px 215px;animation:sweep 6s linear infinite}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-  @media(max-width:900px){.hero{flex-direction:column;text-align:center}.hero-desc{margin-left:auto;margin-right:auto}.cta,.stats{justify-content:center}.specs-wrap{grid-template-columns:1fr}.profile-card{grid-template-columns:1fr;text-align:center;gap:20px;padding:22px}.profile-photo-wrap{min-height:270px}.profile-copy .kicker{text-align:center}.profile-copy p{margin:0 auto}.profile-meta{justify-content:center}.faq{grid-template-columns:1fr}}
-  @media(max-width:480px){.profile-card{padding:18px;border-radius:16px}.profile-photo-wrap{min-height:230px}.profile-orbit{width:236px;height:236px}.profile-photo{width:196px;height:196px;border-radius:18px}.profile-role{font-size:12.5px}.profile-meta{gap:6px}.profile-meta span{font-size:11px;padding:5px 9px}.profile-copy h2{font-size:25px}}
-
-  @media(max-width:640px){header{padding:48px 0 28px}.cta .btn{width:100%;justify-content:center}.nav-inner{align-items:flex-start;flex-direction:column;padding-top:12px;padding-bottom:12px;gap:8px}.nav-links{justify-content:flex-start;width:100%;gap:2px}.nav-links a{padding:6px 8px;font-size:11.5px}.back-top{right:14px;bottom:14px}}
+  @media(max-width:900px){
+    .hero{flex-direction:column;text-align:center;gap:24px}
+    .hero-text{width:100%}
+    .hero-desc{margin-left:auto;margin-right:auto}
+    .hero-art{width:100%;order:2}
+    .hero-art svg{max-width:330px}
+    .cta,.stats{justify-content:center}
+    .specs-wrap{grid-template-columns:1fr}
+    .profile-card{grid-template-columns:1fr;text-align:center;gap:20px;padding:22px}
+    .profile-photo-wrap{min-height:270px}
+    .profile-copy .kicker{text-align:center}
+    .profile-copy p{margin:0 auto}
+    .profile-meta{justify-content:center}
+    .faq{grid-template-columns:1fr}
+  }
+  @media(max-width:640px){
+    .wrap{padding-left:16px;padding-right:16px}
+    .grid-bg{opacity:.45;background-size:32px 32px}
+    .glow{opacity:.28;filter:blur(70px)}
+    .site-nav{position:sticky}
+    .nav-inner{display:block;min-height:0;padding:10px 16px}
+    .nav-brand{display:block;margin-bottom:6px;font-size:17px}
+    .nav-links{display:flex;width:100%;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;justify-content:flex-start;gap:4px;padding-bottom:2px;scrollbar-width:none;-ms-overflow-style:none}
+    .nav-links::-webkit-scrollbar{display:none}
+    .nav-links a{flex:0 0 auto;padding:6px 9px;font-size:11.5px;white-space:nowrap}
+    header{padding:42px 0 30px}
+    .badge{font-size:11px;padding:5px 10px}
+    .logo{font-size:48px;margin-top:18px}
+    .tagline{font-size:11.5px;letter-spacing:.06em}
+    .hero-desc{font-size:15px;line-height:1.55;margin-top:16px}
+    .hero-art svg{max-width:285px}
+    .cta{display:grid;grid-template-columns:1fr;width:100%;margin-top:24px;gap:10px}
+    .cta .btn{width:100%;justify-content:center;padding:12px 16px}
+    .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%;margin-top:24px}
+    .stat{min-width:0;padding:11px 8px}
+    .stat b{font-size:19px}
+    .stat span{font-size:10px}
+    section{padding:44px 0}
+    .sec-head{margin-bottom:24px}
+    .kicker{font-size:11px;letter-spacing:.13em}
+    .sec-head h2{font-size:26px;line-height:1.2}
+    .sec-head p{font-size:14px;line-height:1.55}
+    .grid,.values,.steps{grid-template-columns:1fr;gap:12px}
+    .card,.value,.step{padding:18px}
+    .card h3,.value h3,.step h3{font-size:15px}
+    .card p,.value p,.step p{font-size:13px;line-height:1.55}
+    .step .art{height:90px;margin-bottom:8px}
+    .step .art svg{width:90px;height:90px}
+    .spec{padding:12px 14px;gap:11px}
+    .spec b{font-size:13px}
+    .spec span{font-size:12px;line-height:1.4}
+    .specs-art{margin-top:12px}
+    .specs-art svg{max-width:290px}
+    .profile-section{padding-top:8px}
+    .profile-card{padding:18px;border-radius:16px;gap:12px}
+    .profile-photo-wrap{min-height:230px}
+    .profile-orbit{width:236px;height:236px}
+    .profile-photo{width:196px;height:196px;border-radius:18px}
+    .profile-role{font-size:12.5px;line-height:1.45}
+    .profile-meta{gap:6px;margin-top:14px}
+    .profile-meta span{font-size:11px;padding:5px 9px}
+    .profile-copy h2{font-size:25px;line-height:1.2}
+    .profile-copy p{font-size:14px;line-height:1.55}
+    .faq{gap:10px}
+    summary{padding:14px;font-size:14px;min-height:58px;gap:8px}
+    summary::before{font-size:11px}
+    details .ans{padding:13px 14px 15px;font-size:13px;line-height:1.6}
+    .cta-panel{padding:28px 18px;border-radius:16px}
+    .cta-panel h3{font-size:24px;line-height:1.25}
+    .cta-panel p{font-size:14px;line-height:1.55}
+    .notice{flex-direction:column;padding:16px;gap:10px}
+    .notice p{font-size:13px;line-height:1.55}
+    footer{padding:30px 0 38px}
+    .back-top{right:14px;bottom:14px}
+  }
+  @media(max-width:360px){
+    .logo{font-size:43px}
+    .nav-links a{font-size:11px;padding-left:8px;padding-right:8px}
+    .profile-photo-wrap{min-height:210px}
+    .profile-orbit{width:214px;height:214px}
+    .profile-photo{width:178px;height:178px}
+  }
 </style>
 </head>
 <body>
