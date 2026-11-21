@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NISKALA — Network Intrusion & Security Kit</title>
+<meta name="description" content="NISKALA adalah alat belajar keamanan WiFi & Bluetooth berbasis ESP32 untuk lab, edukasi, dan pengujian berizin.">
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1b1e24; --panel2:#22262e; --line:#2a2f38;
+    --text:#e6e6e6; --muted:#9aa0a6; --green:#00e676; --blue:#4da3ff; --red:#ff5252;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+  a{color:var(--blue);text-decoration:none}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header{padding:64px 0 32px;text-align:center}
+  .logo{display:inline-block;font-weight:800;font-size:42px;letter-spacing:2px;color:var(--green)}
+  .logo span{color:var(--blue)}
+  .tagline{color:var(--muted);font-size:16px;margin-top:8px}
+  .hero{margin-top:24px}
+  .hero p{max-width:640px;margin:0 auto;color:var(--text);font-size:17px}
+  .cta{margin-top:28px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{display:inline-block;padding:12px 22px;border-radius:8px;font-weight:700;font-size:15px;transition:.15s}
+  .btn-primary{background:var(--green);color:#0b0f0c}
+  .btn-primary:hover{background:#00ff84}
+  .btn-ghost{border:1px solid var(--line);color:var(--text);background:transparent}
+  .btn-ghost:hover{border-color:var(--blue);color:var(--blue)}
+  section{padding:40px 0;border-top:1px solid var(--line)}
+  h2{font-size:22px;margin-bottom:20px;color:var(--green)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .card h3{font-size:15px;color:var(--blue);margin-bottom:6px}
+  .card p{font-size:13px;color:var(--muted)}
+  .note{background:var(--panel);border-left:4px solid var(--red);border-radius:8px;padding:14px 16px;color:var(--muted);font-size:13px}
+  .dashboard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;text-align:center}
+  .dashboard h3{color:var(--green);font-size:18px;margin-bottom:8px}
+  .dashboard p{color:var(--muted);font-size:14px;margin-bottom:16px}
+  footer{padding:32px 0;border-top:1px solid var(--line);text-align:center;color:var(--muted);font-size:12px}
+  .badge{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--muted);margin:4px}
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <div class="logo">NIS<span>KALA</span></div>
+  <div class="tagline">Network Intrusion &amp; Security Kit for Analysis, Learning &amp; Assessment</div>
+  <div class="hero">
+    <p>Alat belajar keamanan WiFi &amp; Bluetooth berbasis ESP32. Dirancang untuk laboratorium, edukasi, dan pengujian keamanan pada jaringan milik sendiri atau yang memiliki izin resmi.</p>
+  </div>
+  <div class="cta">
+    <a class="btn btn-primary" href="view.php">Buka Dashboard Data</a>
+    <a class="btn btn-ghost" href="https://github.com/aksatria/NISKALA" target="_blank" rel="noopener">Lihat di GitHub</a>
+  </div>
+</header>
+
+<section class="wrap">
+  <h2>Kemampuan</h2>
+  <div class="grid">
+    <div class="card"><h3>WiFi Scan</h3><p>Memindai jaringan WiFi di sekitar beserta channel, RSSI, dan vendor.</p></div>
+    <div class="card"><h3>Deauth &amp; Management Frame</h3><p>Pengujian ketahanan jaringan terhadap frame deautentikasi.</p></div>
+    <div class="card"><h3>Evil Twin &amp; Captive Portal</h3><p>Simulasi AP palsu untuk pelatihan security awareness.</p></div>
+    <div class="card"><h3>BLE Scan &amp; Spam</h3><p>Memetakan perangkat Bluetooth dan menguji iklan BLE.</p></div>
+    <div class="card"><h3>EAPOL Capture</h3><p>Menangkap handshake WPA2 (M1–M4) untuk audit.</p></div>
+    <div class="card"><h3>Cloud Sync</h3><p>Kirim hasil pengujian ke dashboard web ini.</p></div>
+    <div class="card"><h3>Web Remote</h3><p>Kendalikan perangkat dari browser HP/laptop.</p></div>
+    <div class="card"><h3>Telemetri</h3><p>Pantau heap, baterai, suhu, dan event log.</p></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>Cloud Dashboard</h2>
+  <div class="dashboard">
+    <h3>NISKALA Cloud Data</h3>
+    <p>Lihat hasil Probe Sniff, Karma, Password, dan BLE yang dikirim dari perangkat NISKALA secara real-time.</p>
+    <a class="btn btn-primary" href="view.php">Masuk ke Dashboard</a>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>Catatan Etis</h2>
+  <div class="note">
+    <strong>Gunakan hanya pada perangkat dan jaringan milik sendiri atau dengan izin tertulis.</strong><br>
+    Jangan gunakan untuk mengganggu jaringan publik, mencuri data, atau menguji target tanpa otorisasi. Pengguna bertanggung jawab penuh atas penggunaan proyek ini.
+  </div>
+</section>
+
+<footer class="wrap">
+  <div>
+    <span class="badge">NISKALA v3.1</span>
+    <span class="badge">ESP32</span>
+    <span class="badge">Educational Use Only</span>
+  </div>
+  <p style="margin-top:12px">&copy; 2024 NISKALA — Dibuat untuk belajar, bukan untuk menyakiti.</p>
+</footer>
+
+</body>
+</html>
