@@ -11,6 +11,7 @@
 #include "telemetry.h"
 #include "wifi_state.h"
 #include "allowlist.h"
+#include "client_monitor.h"
 
 static String cliBuf = "";
 int hexNibble(char c) {
@@ -157,6 +158,32 @@ void processCliCommand(String line) {
     startDeauthEngine();
     drawDeauthMenu();
     Serial.printf("[CLI] Deauth target %02X:%02X:%02X:%02X:%02X:%02X ch=%d\n",
+      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], g_targetChannel);
+  }
+  else if (cmd == "client") {
+    uint8_t mac[6];
+    if (!macFromString(arg.c_str(), mac)) {
+      Serial.println("[CLI] MAC tidak valid. Contoh: client AA:BB:CC:DD:EE:FF");
+      return;
+    }
+    memcpy(g_targetBSSID, mac, 6);
+    g_targetChannel = 1;
+    targetSSID = "CLI_Client";
+    radioSetMode(RADIO_STA);
+    int n = WiFi.scanNetworks(false, true);
+    for (int i = 0; i < n; i++) {
+      if (memcmp(WiFi.BSSID(i), mac, 6) == 0) {
+        g_targetChannel = WiFi.channel(i);
+        targetSSID = WiFi.SSID(i);
+        break;
+      }
+    }
+    WiFi.scanDelete();
+    stopAllAttacks();
+    currentState = CLIENT_MONITOR_RUNNING;
+    startClientMonitor();
+    drawClientMonitor();
+    Serial.printf("[CLI] Client monitor %02X:%02X:%02X:%02X:%02X:%02X ch=%d\\n",
       mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], g_targetChannel);
   }
   else if (cmd == "ble-raw") {

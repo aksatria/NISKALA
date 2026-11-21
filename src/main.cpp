@@ -1799,6 +1799,17 @@ void loop() {
   }
   else if (currentState == CLIENT_MONITOR_RUNNING) {
     if (millis() - lastUI > 500) { drawClientMonitor(); lastUI = millis(); }
+    static unsigned long lastClientDump = 0;
+    if (millis() - lastClientDump > 2000) {
+      lastClientDump = millis();
+      Serial.printf("[CLIENTS] count=%d\n", g_clientCount);
+      for (int ci = 0; ci < g_clientCount; ci++) {
+        Serial.printf("  %02X:%02X:%02X:%02X:%02X:%02X rssi=%d pkts=%u\n",
+          g_clients[ci].mac[0], g_clients[ci].mac[1], g_clients[ci].mac[2],
+          g_clients[ci].mac[3], g_clients[ci].mac[4], g_clients[ci].mac[5],
+          g_clients[ci].rssi, (unsigned)g_clients[ci].packets);
+      }
+    }
     if (digitalRead(BTN_TOP) == LOW) {
       delay(200);
       clientSelection++;
