@@ -56,7 +56,13 @@ h2{color:#00ff00;margin:0 0 8px}
 <p style="color:#00ff00;font-weight:bold;margin:0 0 8px">EAPOL CAPTURE</p>
 <button class="btn" onclick="loadEapol()">REFRESH EAPOL</button>
 <div id="eapolPanel" style="font-size:13px;color:#aaa;margin-top:8px;white-space:pre-wrap"></div>
-</div><div style="text-align:left;margin-top:6px">
+</div>
+<div style="text-align:left;margin-top:14px;background:#1e1e1e;border-radius:8px;padding:12px">
+<p style="color:#00ff00;font-weight:bold;margin:0 0 8px">EVENT LOG</p>
+<button class="btn" onclick="loadLog()">REFRESH LOG</button>
+<div id="logPanel" style="font-size:12px;color:#0f0;margin-top:8px;white-space:pre-wrap;max-height:160px;overflow-y:auto"></div>
+</div>
+<div style="text-align:left;margin-top:6px">
 <p style="color:#aaa;font-size:13px;margin:0 0 4px">EXPORT DATA:</p>
 <a class="btn" href="/api/export/probe" download>Download Probe CSV</a>
 <a class="btn" href="/api/export/karma" download>Download Karma CSV</a>
@@ -172,6 +178,11 @@ function loadEapol() {
       '\nFULL: ' + (e.full || 0) + ' | EAPOL: ' + (e.packets || 0) +
       '\nUptime: ' + (e.uptime_s || 0) + 's';
   }).catch(() => { document.getElementById('eapolPanel').innerText = 'Gagal ambil data EAPOL'; });
+}
+function loadLog() {
+  apiFetch('/api/log').then(r => r.text()).then(t => {
+    document.getElementById('logPanel').innerText = t || '(kosong)';
+  }).catch(() => { document.getElementById('logPanel').innerText = 'Gagal ambil log'; });
 }
 function poll() {
   apiFetch('/api/status').then(r => r.json()).then(s => {

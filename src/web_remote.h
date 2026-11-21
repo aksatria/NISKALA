@@ -58,6 +58,7 @@ extern TaskHandle_t attackTaskHandle;
 extern String cfg_template_url;
 extern String buildEapolJson();
 extern String buildTelemetryJson();
+extern String dumpEventLog();
 extern String buildSyncJson();
 extern String buildBleJson();
 extern bool isEapolRunning;
@@ -227,6 +228,12 @@ inline void setupWebRemote() {
   server.on("/api/telemetry", []() {
     REQUIRE_WEB_AUTH();
     server.send(200, "application/json", buildTelemetryJson());
+  });
+
+  // Event log (observability)
+  server.on("/api/log", []() {
+    REQUIRE_WEB_AUTH();
+    server.send(200, "text/plain", dumpEventLog());
   });
 
   // EAPOL status/export
