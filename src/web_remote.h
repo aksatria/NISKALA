@@ -139,12 +139,17 @@ inline void setupWebRemote() {
     if (server.hasArg("mac") && server.hasArg("ch") && server.hasArg("ssid")) {
       String macStr = server.arg("mac");
       String ssid = server.arg("ssid");
-      g_targetChannel = server.arg("ch").toInt();
-      targetSSID = ssid;
 
       int values[6];
-      sscanf(macStr.c_str(), "%x:%x:%x:%x:%x:%x",
+      int parsed = sscanf(macStr.c_str(), "%x:%x:%x:%x:%x:%x",
              &values[0], &values[1], &values[2], &values[3], &values[4], &values[5]);
+      if (parsed != 6) {
+        server.send(400, "text/plain", "Invalid MAC");
+        return;
+      }
+
+      g_targetChannel = constrain(server.arg("ch").toInt(), 1, 14);
+      targetSSID = ssid.substring(0, 32);
       for (int i = 0; i < 6; i++) g_targetBSSID[i] = (uint8_t)values[i];
 
       String mode = server.hasArg("mode") ? server.arg("mode") : "deauth";
