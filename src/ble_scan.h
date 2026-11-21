@@ -9,6 +9,8 @@ struct BleScanEntry {
   char mac[18];
   char name[33];
   int8_t rssi;
+  unsigned long firstSeen;
+  uint16_t seenCount;
   unsigned long lastSeen;
   bool used;
 };
@@ -22,5 +24,6 @@ const char* vendorFromMacStr(const char* macStr);
 void drawBleScan();
 void startBLEScan();
 void stopBLEScan();
+String buildBleJson();
 
 #endif

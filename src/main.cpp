@@ -715,7 +715,7 @@ String buildSyncJson() {
   j += "],\"eapol\":" + buildEapolJson() + ",\"ble\":[\n";
   for (int i = 0; i < g_bleScanCount; i++) {
     if (i) j += ",";
-    j += "{\"mac\":\"" + String(g_bleScanLog[i].mac) + "\",\"name\":\"" + jsonEscape(String(g_bleScanLog[i].name)) + "\",\"rssi\":" + String(g_bleScanLog[i].rssi) + "}";
+    j += "{\"mac\":\"" + String(g_bleScanLog[i].mac) + "\",\"name\":\"" + jsonEscape(String(g_bleScanLog[i].name)) + "\",\"rssi\":" + String(g_bleScanLog[i].rssi) + ",\"seen_count\":" + String(g_bleScanLog[i].seenCount) + "}";
   }
   j += "]}";
   return j;

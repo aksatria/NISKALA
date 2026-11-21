@@ -45,6 +45,7 @@ extern TaskHandle_t attackTaskHandle;
 extern String cfg_template_url;
 extern String buildEapolJson();
 extern String buildTelemetryJson();
+extern String buildBleJson();
 extern bool isEapolRunning;
 
 // HTML UI
@@ -189,6 +190,11 @@ inline void setupWebRemote() {
     stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
     startKarmaScan();
+  });
+
+  // BLE scan JSON
+  server.on("/api/ble", []() {
+    server.send(200, "application/json", buildBleJson());
   });
 
   // Telemetry lengkap

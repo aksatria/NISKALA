@@ -19,6 +19,7 @@ class BleScanCallbacks : public BLEAdvertisedDeviceCallbacks {
       if (strcmp(g_bleScanLog[i].mac, mac.c_str()) == 0) {
         g_bleScanLog[i].rssi = rssi;
         g_bleScanLog[i].lastSeen = millis();
+        g_bleScanLog[i].seenCount++;
         if (name.length() > 0) {
           strncpy(g_bleScanLog[i].name, name.c_str(), 32);
           g_bleScanLog[i].name[32] = 0;
@@ -34,6 +35,8 @@ class BleScanCallbacks : public BLEAdvertisedDeviceCallbacks {
       e->name[32] = 0;
       e->rssi = rssi;
       e->lastSeen = millis();
+      e->firstSeen = millis();
+      e->seenCount = 1;
       e->used = true;
       g_bleScanCount++;
     }
@@ -48,7 +51,7 @@ void drawBleScan() {
   tft.setTextFont(1);
   tft.setTextColor(TFT_CYAN, TFT_BLACK);
   tft.setCursor(4, 28);
-  tft.print("MAC               RSSI  NAME");
+  tft.print("MAC               RSSI CNT  NAME");
 
   int shown = 0;
   for (int i = 0; i < g_bleScanCount && shown < 4; i++) {
@@ -56,8 +59,8 @@ void drawBleScan() {
     tft.setCursor(4, 40 + shown * 18);
     char buf[64];
     const char* bname = g_bleScanLog[i].name[0] ? g_bleScanLog[i].name : vendorFromMacStr(g_bleScanLog[i].mac);
-    snprintf(buf, sizeof(buf), "%s  %4d  %s",
-             g_bleScanLog[i].mac, g_bleScanLog[i].rssi, bname);
+    snprintf(buf, sizeof(buf), "%-17s %4d %3u %s",
+             g_bleScanLog[i].mac, g_bleScanLog[i].rssi, g_bleScanLog[i].seenCount, bname);
     tft.print(buf);
     shown++;
   }
@@ -94,4 +97,19 @@ void stopBLEScan() {
   BLEDevice::deinit(true);
   resetWifiStateAfterAttack();
   Serial.println("[BLE] Scanner berhenti");
+}
+
+String buildBleJson() {
+  String j = "[";
+  for (int i = 0; i < g_bleScanCount; i++) {
+    if (i) j += ",";
+    j += "{\"mac\":\"" + String(g_bleScanLog[i].mac) + "\",";
+    j += "\"name\":\"" + String(g_bleScanLog[i].name) + "\",";
+    j += "\"rssi\":" + String(g_bleScanLog[i].rssi) + ",";
+    j += "\"first_seen\":" + String((unsigned long)g_bleScanLog[i].firstSeen) + ",";
+    j += "\"last_seen\":" + String((unsigned long)g_bleScanLog[i].lastSeen) + ",";
+    j += "\"seen_count\":" + String((uint16_t)g_bleScanLog[i].seenCount) + "}";
+  }
+  j += "]";
+  return j;
 }
