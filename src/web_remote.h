@@ -43,6 +43,8 @@ extern int cfg_autosync_min;
 extern int readBatteryPercent();
 extern TaskHandle_t attackTaskHandle;
 extern String cfg_template_url;
+extern String buildEapolJson();
+extern bool isEapolRunning;
 
 // HTML UI
 
@@ -186,6 +188,11 @@ inline void setupWebRemote() {
     stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
     startKarmaScan();
+  });
+
+  // EAPOL status/export
+  server.on("/api/eapol", []() {
+    server.send(200, "application/json", buildEapolJson());
   });
 
   // Export Probe Sniff CSV

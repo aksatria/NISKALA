@@ -712,7 +712,7 @@ String buildSyncJson() {
     if (i) j += ",";
     j += "{\"email\":\"" + jsonEscape(email) + "\",\"password\":\"" + jsonEscape(pass) + "\",\"verified\":\"" + ver + "\"}";
   }
-  j += "],\"ble\":[\n";
+  j += "],\"eapol\":" + buildEapolJson() + ",\"ble\":[\n";
   for (int i = 0; i < g_bleScanCount; i++) {
     if (i) j += ",";
     j += "{\"mac\":\"" + String(g_bleScanLog[i].mac) + "\",\"name\":\"" + jsonEscape(String(g_bleScanLog[i].name)) + "\",\"rssi\":" + String(g_bleScanLog[i].rssi) + "}";
