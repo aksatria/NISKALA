@@ -9,346 +9,432 @@
 ![Framework](https://img.shields.io/badge/framework-Arduino-00979D)
 ![License](https://img.shields.io/badge/license-Educational-red)
 
-**Firmware audit keamanan wireless berbasis ESP32 untuk lab, edukasi, dan pengujian berizin.**
+**Alat belajar keamanan WiFi & Bluetooth berbasis ESP32 untuk lab, edukasi, dan pengujian berizin.**
 
 </div>
 
 > [!CAUTION]
 > **Gunakan hanya pada perangkat dan jaringan milik sendiri atau dengan izin tertulis.**
-> Jangan gunakan untuk mengganggu jaringan publik, mencuri data, atau menguji target tanpa otorisasi. Pengguna bertanggung jawab penuh atas penggunaan project ini.
+> Jangan mengganggu jaringan publik, mencuri data, atau menguji target tanpa izin. Pengguna bertanggung jawab penuh atas penggunaannya.
 
 ---
 
-## Daftar Isi
+# Daftar Isi
 
-- [Apa itu NISKALA?](#apa-itu-niskala)
-- [Panduan Cepat untuk Pemula](#panduan-cepat-untuk-pemula)
-- [Daftar Fitur](#daftar-fitur)
-- [Hardware yang Dibutuhkan](#hardware-yang-dibutuhkan)
-- [Instalasi & Upload](#instalasi--upload)
-- [Cara Pakai Lengkap](#cara-pakai-lengkap)
-- [Contoh Kasus Nyata](#contoh-kasus-nyata)
-- [Serial CLI Lengkap](#serial-cli-lengkap)
-- [Web Remote Lengkap](#web-remote-lengkap)
-- [Struktur Project](#struktur-project)
-- [Konfigurasi & Secrets](#konfigurasi--secrets)
-- [Glosarium (Istilah Awam)](#glosarium-istilah-awam)
-- [Troubleshooting / FAQ](#troubleshooting--faq)
-- [Batasan Teknis](#batasan-teknis)
-- [Arsitektur](#arsitektur)
-- [Roadmap](#roadmap)
-- [Lisensi](#lisensi)
-
----
-
-## Apa itu NISKALA?
-
-**NISKALA** adalah firmware untuk board **ESP32 + layar TFT** (seperti TTGO T-Display) yang berisi berbagai alat pengujian keamanan **WiFi dan Bluetooth (BLE)**.
-
-Bayangkan ini seperti "pisau Swiss Army" untuk belajar keamanan jaringan nirkabel:
-
-- Bisa **memindai** WiFi/BLE di sekitar.
-- Bisa **memutuskan koneksi** perangkat (deauth) di jaringan milik sendiri.
-- Bisa membuat **AP palsu** (Evil Twin) untuk simulasi phishing.
-- Bisa **menangkap** data frame (probe, handshake EAPOL).
-- Bisa **dikendalikan dari HP/browser** lewat WiFi.
-
-Tujuannya **edukasi dan pengujian keamanan yang sah** — bukan untuk merugikan orang lain.
+1. [Apa itu NISKALA? (Bahasa Sederhana)](#1-apa-itu-niskala-bahasa-sederhana)
+2. [Konsep Dasar dalam 1 Menit](#2-konsep-dasar-dalam-1-menit)
+3. [Checklist: Apa yang Kamu Butuhkan](#3-checklist-apa-yang-kamu-butuhkan)
+4. [Instalasi dari Nol (Langkah demi Langkah)](#4-instalasi-dari-nol-langkah-demi-langkah)
+5. [Penggunaan Pertama Kali di Board](#5-penggunaan-pertama-kali-di-board)
+6. [Peta Menu (20 Modul)](#6-peta-menu-20-modul)
+7. [Detail Lengkap Setiap Modul](#7-detail-lengkap-setiap-modul)
+8. [Contoh Kasus Nyata](#8-contoh-kasus-nyata)
+9. [Serial CLI (Lengkap)](#9-serial-cli-lengkap)
+10. [Web Remote (Lengkap)](#10-web-remote-lengkap)
+11. [Cheat Sheet](#11-cheat-sheet)
+12. [Struktur Project](#12-struktur-project)
+13. [Konfigurasi & Secrets](#13-konfigurasi--secrets)
+14. [Troubleshooting / FAQ](#14-troubleshooting--faq)
+15. [Batasan Teknis](#15-batasan-teknis)
+16. [Arsitektur](#16-arsitektur)
+17. [Roadmap](#17-roadmap)
+18. [Lisensi](#18-lisensi)
 
 ---
 
-## Panduan Cepat untuk Pemula
+# 1. Apa itu NISKALA? (Bahasa Sederhana)
 
-Jika ini pertama kalinya kamu memakai NISKALA, ikuti langkah berikut secara berurutan.
+**NISKALA** adalah program (firmware) yang kamu masukkan ke sebuah papan elektronik kecil bernama **ESP32** (contohnya TTGO T-Display) yang punya **layar kecil** dan **2 tombol**.
 
-### Langkah 1 — Siapkan board
+Ibaratnya ini **"pisau serbaguna"** untuk belajar keamanan jaringan WiFi dan Bluetooth:
 
-1. Colokkan board TTGO T-Display ke laptop/PC pakai kabel **USB-C/Data** (bukan kabel charge-only).
-2. Layar akan menyala menampilkan logo **NISKALA**.
-3. Akan muncul layar **Disclaimer**. Tekan **tombol bawah** dua kali untuk menyetujui dan masuk menu utama.
+- **Melihat** WiFi/Bluetooth di sekitar (seperti radar).
+- **Memutus koneksi** perangkat WiFi milikmu sendiri (untuk menguji keamanan).
+- **Membuat WiFi palsu** untuk simulasi penipuan (agar orang belajar waspada).
+- **Merekam** data jaringan untuk dianalisis.
 
-> **Tombol pada board:**
-> - **Tombol atas** (dekat logo/atas board) = pilih/geser ke atas.
-> - **Tombol bawah** = konfirmasi / mulai / berhenti / pilih ke bawah.
-
-### Langkah 2 — Install software di laptop
-
-1. Install **VS Code** + ekstensi **PlatformIO**.
-2. Download/clone project ini.
-3. Buka folder project di VS Code.
-4. Tunggu PlatformIO selesai memuat, lalu klik **Build** (atau jalankan `pio run`).
-5. Klik **Upload** (atau `pio run -t upload`) untuk memasukkan firmware ke board.
-
-### Langkah 3 — Uji coba pertama (paling aman)
-
-1. Di menu utama, pilih **BLE SCAN** lalu tekan tombol bawah.
-2. Layar akan menampilkan perangkat BLE di sekitar (mis. smartwatch, HP, earphone).
-3. Tekan tombol bawah lagi untuk berhenti.
-
-Ini membuktikan board, layar, tombol, dan radio berfungsi.
-
-### Langkah 4 — Uji scan WiFi
-
-1. Kembali ke menu utama.
-2. Pilih **DEAUTH MANUAL** → akan otomatis scan WiFi.
-3. Lihat daftar WiFi di sekitar lengkap dengan RSSI dan channel.
-
-Sampai di sini kamu sudah paham dasar navigasi NISKALA.
+> Tujuannya **belajar & menguji keamanan milik sendiri**, bukan merugikan orang lain.
 
 ---
 
-## Daftar Fitur
+# 2. Konsep Dasar dalam 1 Menit
 
+Sebelum lanjut, pahami istilah-istilah ini dengan analogi sederhana:
+
+| Istilah | Arti seperti... |
+|---|---|
+| **WiFi** | Jaringan internet tanpa kabel. |
+| **SSID** | "Nama" WiFi yang kamu lihat di daftar (mis. "WiFi Rumah"). |
+| **Password WiFi** | Kunci untuk masuk ke WiFi. |
+| **AP (Access Point)** | Alat pemancar WiFi (router). |
+| **MAC Address** | "Nomor identitas" unik tiap perangkat (seperti KTP). |
+| **Deauth** | Sinyal untuk "mengusir" perangkat dari WiFi. |
+| **Beacon** | "Iklan" yang dipancarkan router agar namanya terlihat. |
+| **Probe Request** | "Panggilan" perangkat mencari WiFi yang pernah disimpan. |
+| **Evil Twin** | WiFi palsu yang meniru nama WiFi asli. |
+| **Captive Portal** | Halaman login palsu yang muncul saat terhubung. |
+| **BLE (Bluetooth)** | Bluetooth hemat daya untuk perangkat pintar (earphone, smartwatch). |
+| **Channel** | "Jalur" frekuensi WiFi (seperti jalur jalan). |
+| **2.4 GHz vs 5 GHz** | Dua jenis pita frekuensi WiFi. **ESP32 hanya bisa 2.4 GHz.** |
+| **PMF** | Fitur keamanan WiFi yang memblokir deauth. |
+| **WPA2 / WPA3** | Jenis kunci/pengaman WiFi. |
+
+> **Kunci penting:** ESP32 NISKALA **hanya bekerja di WiFi 2.4 GHz**, tidak bisa menyentuh WiFi 5 GHz.
+
+---
+
+# 3. Checklist: Apa yang Kamu Butuhkan
+
+### Perangkat keras
+- [ ] 1 buah board **TTGO T-Display** (ESP32) — atau ESP32 + layar ST7789 135x240.
+- [ ] 1 kabel **USB data** (bisa transfer data, bukan cuma isi daya).
+- [ ] (Opsional) Baterai Li-Po 3.7V.
+
+### Perangkat lunak (di laptop/PC)
+- [ ] **VS Code** (editor teks gratis dari Microsoft).
+- [ ] Ekstensi **PlatformIO** (untuk menulis & meng-upload program ke ESP32).
+- [ ] **Driver USB** (CH340 atau CP210x) — biasanya otomatis terpasang.
+- [ ] File project **NISKALA** (di-download dari GitHub).
+
+### Pengetahuan minimum
+- [ ] Bisa menyalakan komputer, install aplikasi, dan buka folder.
+- [ ] Itu saja. Sisanya dijelaskan di bawah.
+
+---
+
+# 4. Instalasi dari Nol (Langkah demi Langkah)
+
+Ini panduan **paling detail** untuk orang yang belum pernah pakai ESP32 sama sekali.
+
+### 4.1 Install VS Code
+1. Buka browser, kunjungi `https://code.visualstudio.com`.
+2. Klik **Download**, pilih sesuai OS (Windows/Mac/Linux).
+3. Buka file hasil download, ikuti petunjuk instalasi (Next → Install → Finish).
+4. Buka VS Code setelah selesai.
+
+### 4.2 Install PlatformIO
+1. Di VS Code, klik ikon **Extensions** (kotak-kotak di sisi kiri).
+2. Ketik `PlatformIO` di kotak pencarian.
+3. Klik **Install** pada hasil "PlatformIO IDE".
+4. Tunggu sampai selesai (beberapa menit). VS Code akan restart/memuat ulang.
+
+### 4.3 Download Project NISKALA
+1. Buka `https://github.com/aksatria/NISKALA`.
+2. Klik tombol hijau **Code** → **Download ZIP**.
+3. Ekstrak (unzip) file tersebut ke folder yang mudah diingat (mis. `C:\NISKALA`).
+
+> Alternatif (kalau sudah terbiasa): `git clone https://github.com/aksatria/NISKALA.git`
+
+### 4.4 Buka Project di VS Code
+1. Buka VS Code.
+2. Klik **File → Open Folder**.
+3. Pilih folder NISKALA tadi (folder yang berisi `platformio.ini`).
+4. Tunggu PlatformIO memuat project (muncul tulisan "Loading..." di bawah).
+
+### 4.5 Sambungkan Board
+1. Colokkan kabel USB dari board ke laptop.
+2. **Layar board akan menyala** menampilkan logo NISKALA.
+3. Kalau layar tidak menyala, cek kabel (harus kabel data) atau cek FAQ.
+
+### 4.6 Build (Kompilasi)
+1. Di VS Code, klik ikon **PlatformIO** (logo alien/kepala) di sisi kiri.
+2. Pada bagian **PROJECT TASKS** → klik `ttgo-t-display` → **General → Build**.
+3. Tunggu sampai muncul tulisan **SUCCESS** di bawah.
+
+> Atau lewat terminal: `pio run`
+
+### 4.7 Upload (Masukkan program ke board)
+1. Masih di PlatformIO, klik **General → Upload** (atau `pio run -t upload`).
+2. Tunggu sampai muncul **SUCCESS** dan board restart sendiri.
+3. Board akan menampilkan logo NISKALA lalu layar **Disclaimer**.
+
+### 4.8 Buka Serial Monitor (untuk melihat log & perintah)
+1. Klik **General → Monitor** (atau `pio device monitor -p COM4 -b 115200`).
+2. Pilih baudrate **115200** jika diminta.
+3. Kamu akan melihat teks dari board di terminal.
+
+> **Apa itu COM4?** Itu "alamat" kabel USB di laptop. Di Windows, cek di **Device Manager → Ports (COM & LPT)**. Di Linux biasanya `/dev/ttyUSB0`.
+
+---
+
+# 5. Penggunaan Pertama Kali di Board
+
+Board punya **2 tombol**:
+
+```
+  [Tombol ATAS]  = GPIO 0  -> pilih ke ATAS / ganti pilihan
+  [Tombol BAWAH] = GPIO 35 -> KONFIRMASI / MULAI / BERHENTI
+```
+
+### Urutan saat pertama dinyalakan
+1. **Layar splash** → logo NISKALA muncul sebentar.
+2. **Layar Disclaimer** → peringatan hukum.
+3. Tekan **tombol bawah** → muncul layar konfirmasi.
+4. Tekan **tombol bawah** lagi → masuk **Menu Utama**.
+
+### Cara navigasi menu
+- Tekan **tombol atas/bawah** untuk naik-turun memilih menu.
+- Tekan **tombol bawah** (lama) pada item yang dipilih untuk **menjalankan** modul itu.
+- Saat modul berjalan, tekan **tombol bawah** untuk **berhenti**.
+
+> **Tes pertama yang aman:** pilih `BLE SCAN` lalu tekan tombol bawah. Layar akan menampilkan perangkat Bluetooth di sekitar. Tekan tombol bawah lagi untuk berhenti.
+
+---
+
+# 6. Peta Menu (20 Modul)
+
+Menu utama NISKALA berisi 20 modul. Berikut pengelompokannya agar mudah dipahami:
+
+### 🔍 Pemantauan & Intelijen (aman, hanya melihat)
 | Modul | Fungsi singkat |
 |---|---|
-| Deauth Manual | Memutus satu AP target. |
-| Evil Twin | AP palsu + captive portal (simulasi phishing). |
-| Beacon Spam | Menyiarkan banyak SSID palsu. |
-| Probe Sniff | Menangkap "panggilan" perangkat mencari WiFi. |
-| Global Deauth | Memutus semua AP di semua channel. |
-| Auth Flood | Membanjiri tabel autentikasi AP. |
-| Bluetooth Spam | Mengirim iklan BLE palsu (Apple/Google/Samsung, dll). |
-| Password Vault | Menyimpan kredensial hasil Evil Twin. |
-| Karma Attack | Menjawab probe request agar perangkat terkoneksi. |
-| CSA Attack | Memaksa klien pindah channel. |
-| Web Remote | Kendali dari browser HP. |
-| BLE Scan | Memetakan perangkat BLE di sekitar. |
-| OTA Update | Update firmware via WiFi. |
-| Cloud Sync | Kirim hasil ke hosting. |
-| Client Monitor | Lihat klien yang terhubung ke AP + deauth presisi. |
-| EAPOL Capture | Menangkap handshake WPA2 (M1-M4). |
-| Smart Attack | Profil target + rekomendasi serangan otomatis. |
-| Network Recon | Ping sweep + port scan + banner grab. |
-| AP WiFi | Menyimpan password AP untuk recon. |
-| Macro | Rangkaian serangan otomatis (RECON/ASSAULT/HANDSHAKE). |
+| PROBE SNIFF | Melihat "panggilan" perangkat mencari WiFi. |
+| BLE SCAN | Melihat perangkat Bluetooth di sekitar. |
+| CLIENT MONITOR | Melihat siapa saja yang terhubung ke WiFi tertentu. |
+| NETWORK RECON | Memetakan perangkat di jaringan (setelah terhubung). |
+| SMART ATTACK | Menganalisis target & memberi saran serangan. |
 
-**Fitur pendukung:**
-- Serial CLI (ketik perintah di Serial Monitor 115200).
-- Event log ring-buffer (riwayat kejadian, lihat via `log` atau Web UI).
-- Telemetri: heap, heap watermark, suhu, baterai, uptime, channel WiFi.
-- Deteksi PMF/WPA3 presisi (sebelum deauth).
-- Persistent storage (NVS).
-- Allowlist (daftar perangkat sendiri agar tidak ikut terputus).
-
----
-
-## Hardware yang Dibutuhkan
-
-| Komponen | Spesifikasi |
+### ⚔️ Serangan WiFi (uji keamanan jaringan sendiri)
+| Modul | Fungsi singkat |
 |---|---|
-| Board | TTGO T-Display (ESP32) atau ESP32 + TFT ST7789 135x240 |
-| Tombol atas | GPIO 0 |
-| Tombol bawah | GPIO 35 |
-| Baterai (opsional) | Li-Po sesuai board |
-| Daya | USB 5V |
+| DEAUTH MANUAL | Memutus satu WiFi target. |
+| GLOBAL DEAUTH | Memutus semua WiFi di semua channel. |
+| AUTH FLOOD | Membanjiri router dengan permintaan login. |
+| BEACON SPAM | Menyiarkan banyak nama WiFi palsu. |
+| CSA ATTACK | Memaksa perangkat pindah channel. |
+| KARMA ATTACK | Menjawab panggilan perangkat agar terkoneksi. |
 
-> Board TTGO T-Display sudah menyertakan layar + tombol, jadi tidak perlu wiring tambahan.
-
----
-
-## Instalasi & Upload
-
-### Prasyarat
-- VS Code + PlatformIO (atau Arduino IDE 2.x).
-- Driver USB CH340/CP210x (biasanya otomatis terpasang).
-- Library `TFT_eSPI` (otomatis diunduh PlatformIO lewat `platformio.ini`).
-
-### Langkah
-1. Clone repository: `git clone https://github.com/aksatria/NISKALA.git`
-2. Buka folder di VS Code.
-3. Pilih environment `ttgo-t-display`.
-4. Build: `pio run`
-5. Upload: `pio run -t upload`
-6. Buka monitor serial: `pio device monitor -p COM4 -b 115200`
-
-> Ganti `COM4` sesuai port board kamu (lihat di Device Manager Windows / `/dev/ttyUSB*` di Linux).
-
----
-
-## Cara Pakai Lengkap
-
-### Navigasi Dasar
-
-| Tombol | Fungsi |
+### 🎭 Social Engineering (simulasi penipuan)
+| Modul | Fungsi singkat |
 |---|---|
-| Tombol atas (GPIO 0) | Pilih item ke atas / pindah pilihan |
-| Tombol bawah (GPIO 35) | Konfirmasi / mulai / berhenti / pindah ke bawah |
+| EVIL TWIN | Membuat WiFi palsu + halaman login palsu. |
+| PASSWORD VAULT | Menyimpan hasil login yang tertangkap. |
 
-### Urutan Boot
-1. Splash screen.
-2. Disclaimer hukum.
-3. Konfirmasi tanggung jawab.
-4. Menu utama (20 modul).
+### 📡 Bluetooth
+| Modul | Fungsi singkat |
+|---|---|
+| BLUETOOTH SPAM | Mengirim iklan Bluetooth palsu. |
 
-### Detail 20 Modul
+### 🔗 Koneksi & Sinkronisasi
+| Modul | Fungsi singkat |
+|---|---|
+| WEB REMOTE | Kendali dari browser HP. |
+| OTA UPDATE | Update program lewat WiFi. |
+| CLOUD SYNC | Kirim hasil ke internet (hosting). |
+| AP WIFI | Menyimpan daftar password WiFi. |
+
+### 🤖 Otomasi
+| Modul | Fungsi singkat |
+|---|---|
+| MACRO | Menjalankan rangkaian serangan otomatis. |
+
+---
+
+# 7. Detail Lengkap Setiap Modul
 
 <details>
-<summary><strong>Klik untuk membuka detail tiap modul</strong></summary>
+<summary><strong>Klik untuk membuka penjelasan semua modul</strong></summary>
 
-#### 1. DEAUTH MANUAL
-Memutus koneksi klien dari satu AP target.
+### 7.1 DEAUTH MANUAL
+**Apa fungsinya (awam):** Memaksa perangkat putus dari WiFi target.
 
-- **Contoh kasus:** Menguji apakah router sendiri rentan deauth, atau memaksa satu HP tertentu putus lalu mengamati reconnect.
-- **Cara pakai:** Pilih `DEAUTH MANUAL` → scan → pilih AP → tombol bawah start/stop. Lihat `P:` (paket) dan `E:` (error) di layar.
-- **Catatan:** Target PMF/WPA3 akan ditolak otomatis karena deauth tidak efektif. Deauth hanya bekerja di 2.4 GHz.
+**Contoh kasus:** Kamu ingin tahu apakah router-mu sendiri rentan diserang, atau memaksa satu HP putus lalu melihatnya reconnect.
 
-#### 2. EVIL TWIN
-Membuat AP palsu dengan SSID sama seperti target + portal login palsu.
+**Cara pakai:**
+1. Pilih `DEAUTH MANUAL` → otomatis scan WiFi.
+2. Pilih SSID target dengan tombol.
+3. Tekan tombol bawah untuk mulai.
+4. Lihat `P:` (paket terkirim) dan `E:` (error) di layar.
+5. Tekan tombol bawah untuk berhenti.
 
-- **Contoh kasus:** Simulasi phishing WiFi untuk melatih karyawan agar tidak asal memasukkan password.
-- **Cara pakai:** Pilih `EVIL TWIN` → scan → pilih AP → pilih template → korban hubung ke AP palsu → password yang dimasukkan diverifikasi ke AP asli.
-- **Catatan:** Template default ada di `src/templates.h`; template kustom bisa diambil dari hosting (URL di konfigurasi).
+**Yang akan kamu lihat:** HP/laptop target terputus dari WiFi, lalu (biasanya) otomatis tersambung lagi.
 
-#### 3. BEACON SPAM
-Menyiarkan banyak SSID palsu bergantian.
+**Catatan:** Target 5 GHz atau PMF/WPA3 tidak bisa dideauth oleh ESP32.
 
-- **Contoh kasus:** Menguji ketahanan driver WiFi atau mengisi daftar WiFi dengan nama palsu di lab.
-- **Cara pakai:** Pilih `BEACON SPAM`. Tombol bawah untuk berhenti.
+### 7.2 EVIL TWIN
+**Apa fungsinya (awam):** Membuat WiFi palsu dengan nama sama seperti target, lalu menampilkan halaman login palsu.
 
-#### 4. PROBE SNIFF
-Menangkap probe request perangkat (MAC, vendor, SSID yang dicari, RSSI, jumlah).
+**Contoh kasus:** Melatih karyawan/keluarga agar tidak asal memasukkan password di halaman login mencurigakan.
 
-- **Contoh kasus:** Mengungkap SSID tersembunyi yang tersimpan di HP (HP otomatis mem-probe SSID tersimpan).
-- **Cara pakai:** Pilih `PROBE SNIFF`. SSID kosong ditampilkan `(hidden)`.
+**Cara pakai:**
+1. Pilih `EVIL TWIN` → scan → pilih AP target.
+2. Pilih template login (Generic, IndiHome, Facebook, dll.).
+3. Korban (dengan izin) menghubungkan ke WiFi palsu.
+4. Saat korban memasukkan password, NISKALA memverifikasi ke WiFi asli.
+5. Hasil tersimpan di `PASSWORD`.
 
-#### 5. GLOBAL DEAUTH
-Deauth broadcast ke semua channel berputar.
+**Yang akan kamu lihat:** Korban melihat halaman login; hasil (email/password, benar/salah) muncul di `PASSWORD`.
 
-- **Contoh kasus:** Uji ketahanan jaringan di lab terisolasi.
-- **Cara pakai:** Pilih `GLOBAL DEAUTH`. **Hanya di lingkungan terisolasi.**
+### 7.3 BEACON SPAM
+**Apa fungsinya (awam):** Menyiarkan banyak nama WiFi palsu sekaligus.
 
-#### 6. AUTH FLOOD
-Membanjiri tabel autentikasi AP dengan MAC acak.
+**Contoh kasus:** Menguji ketahanan driver WiFi atau mengisi daftar WiFi dengan nama palsu di lab.
 
-- **Contoh kasus:** Menguji ketahanan AP terhadap auth flood.
-- **Cara pakai:** Pilih `AUTH FLOOD` → scan → pilih AP.
+**Cara pakai:** Pilih `BEACON SPAM` → tombol bawah untuk berhenti.
 
-#### 7. BLUETOOTH SPAM
-Mengirim iklan BLE palsu (Apple Sour Apple/AirPods, Google Fast Pair, Microsoft Swift Pair, Samsung, Amazon, iBeacon, Eddystone).
+### 7.4 PROBE SNIFF
+**Apa fungsinya (awam):** Melihat perangkat yang sedang "mencari" WiFi (termasuk WiFi tersembunyi yang pernah disimpan).
 
-- **Contoh kasus:** Memunculkan popup pairing BLE di HP target.
-- **Cara pakai:** Pilih `BLUETOOTH SPAM`. WiFi mati sementara karena radio dipakai BLE.
+**Contoh kasus:** Mengungkap SSID tersembunyi yang tersimpan di HP — HP otomatis mem-probe SSID tersimpan.
 
-#### 8. PASSWORD VAULT
-Menyimpan kredensial hasil Evil Twin + status verifikasi (OK/XX/?).
+**Cara pakai:** Pilih `PROBE SNIFF`, biarkan berjalan. SSID kosong tampil sebagai `(hidden)`.
 
-- **Contoh kasus:** Review hasil simulasi phishing.
-- **Cara pakai:** Pilih `PASSWORD` → navigasi dengan tombol → hapus entri/hapus semua.
+### 7.5 GLOBAL DEAUTH
+**Apa fungsinya (awam):** Memutus semua WiFi di semua channel sekaligus.
 
-#### 9. KARMA ATTACK
-Menjawab probe request agar perangkat mengira SSID yang dicarinya tersedia.
+**Contoh kasus:** Uji ketahanan jaringan di lab **terisolasi**.
 
-- **Contoh kasus:** Memancing klien terhubung otomatis ke AP yang dikontrol.
-- **Cara pakai:** Pilih `KARMA ATTACK` → tunggu → pilih SSID → lanjut ke Evil Twin.
+**Cara pakai:** Pilih `GLOBAL DEAUTH` → tombol bawah berhenti. **Hanya di lingkungan terisolasi.**
 
-#### 10. CSA ATTACK
-Mengirim Channel Switch Announcement (beacon + action frame).
+### 7.6 AUTH FLOOD
+**Apa fungsinya (awam):** Membanjiri router dengan banyak permintaan login palsu.
 
-- **Contoh kasus:** Menguji ketahanan klien terhadap CSA, termasuk target PMF/WPA3 yang kebal deauth.
-- **Cara pakai:** Pilih `CSA ATTACK` → scan → pilih AP.
+**Contoh kasus:** Menguji apakah router tahan terhadap banjir permintaan login.
 
-#### 11. WEB REMOTE
-Mengendalikan NISKALA dari browser HP/laptop.
+**Cara pakai:** Pilih `AUTH FLOOD` → scan → pilih AP target.
 
-- **Contoh kasus:** Scan & serang dari jarak dekat tanpa menyentuh tombol board.
-- **Cara pakai:** Pilih `WEB REMOTE` → HP hubung ke WiFi `NISKALA_CTRL` (password `niskala123`) → buka `http://192.168.4.1/rc`.
+### 7.7 BLUETOOTH SPAM
+**Apa fungsinya (awam):** Mengirim iklan Bluetooth palsu (Apple, Google, Samsung, dll.) untuk memunculkan popup pairing.
 
-#### 12. OTA UPDATE
-Update firmware via WiFi.
+**Contoh kasus:** Memunculkan popup "Fast Pair"/"Swift Pair" di HP target.
 
-- **Contoh kasus:** Flashing firmware baru tanpa cabut USB.
-- **Cara pakai:** Pilih `OTA UPDATE` → hubung laptop ke `NISKALA_OTA` (password `niskala123`) → `pio run -e ota -t upload`.
+**Cara pakai:** Pilih `BLUETOOTH SPAM`. WiFi mati sementara (radio dipakai Bluetooth).
 
-#### 13. BLE SCAN
-Memindai perangkat BLE sekitar + MAC tracking.
+### 7.8 PASSWORD VAULT
+**Apa fungsinya (awam):** Tempat menyimpan hasil login yang tertangkap dari Evil Twin.
 
-- **Contoh kasus:** Memetakan AirTag/smartwatch di area lab.
-- **Cara pakai:** Pilih `BLE SCAN`. Tombol bawah untuk berhenti.
+**Contoh kasus:** Review hasil simulasi phishing (email, password, status benar/salah).
 
-#### 14. CLOUD SYNC
-Mengirim hasil (Probe/Karma/Password/BLE) ke hosting.
+**Cara pakai:** Pilih `PASSWORD` → navigasi → hapus entri/hapus semua.
 
-- **Contoh kasus:** Menyimpan hasil ke dashboard web agar bisa diakses dari mana saja.
-- **Cara pakai:** Isi WiFi & Server URL di `WEB REMOTE > Config`, lalu `CLOUD SYNC`. Upload `server/sync.php` + `server/config.php` ke hosting.
+### 7.9 KARMA ATTACK
+**Apa fungsinya (awam):** Menjawab "panggilan" perangkat agar mengira WiFi yang dicarinya tersedia.
 
-#### 15. MACRO
-Menjalankan rangkaian serangan otomatis.
+**Contoh kasus:** Memancing klien terhubung otomatis ke AP yang dikontrol.
+
+**Cara pakai:** Pilih `KARMA ATTACK` → tunggu → pilih SSID → lanjut ke Evil Twin.
+
+### 7.10 CSA ATTACK
+**Apa fungsinya (awam):** Memaksa perangkat pindah channel WiFi.
+
+**Contoh kasus:** Menguji ketahanan klien terhadap perpindahan channel, termasuk target PMF/WPA3 yang kebal deauth.
+
+**Cara pakai:** Pilih `CSA ATTACK` → scan → pilih AP target.
+
+### 7.11 WEB REMOTE
+**Apa fungsinya (awam):** Mengendalikan NISKALA dari browser HP/laptop lewat WiFi.
+
+**Cara pakai:**
+1. Pilih `WEB REMOTE`.
+2. Hubungkan HP ke WiFi `NISKALA_CTRL` (password `niskala123`).
+3. Buka `http://192.168.4.1/rc`.
+
+**Yang bisa dilakukan:** scan WiFi, mulai serangan, lihat telemetri, lihat event log, ubah konfigurasi, export CSV.
+
+### 7.12 OTA UPDATE
+**Apa fungsinya (awam):** Update program NISKALA lewat WiFi, tanpa cabut kabel USB.
+
+**Cara pakai:**
+1. Pilih `OTA UPDATE`.
+2. Hubungkan laptop ke WiFi `NISKALA_OTA` (password `niskala123`).
+3. Jalankan `pio run -e ota -t upload`.
+
+### 7.13 BLE SCAN
+**Apa fungsinya (awam):** Melihat & melacak perangkat Bluetooth di sekitar.
+
+**Contoh kasus:** Memetakan AirTag/smartwatch/earphone di area lab.
+
+**Cara pakai:** Pilih `BLE SCAN` → tombol bawah berhenti.
+
+### 7.14 CLOUD SYNC
+**Apa fungsinya (awam):** Mengirim hasil pengujian ke internet (hosting) sebagai pengganti SD card.
+
+**Cara pakai:**
+1. Isi WiFi & Server URL di `WEB REMOTE > Config`.
+2. Upload `server/sync.php` + `server/config.php` ke hosting.
+3. Jalankan `CLOUD SYNC`.
+
+### 7.15 MACRO
+**Apa fungsinya (awam):** Menjalankan beberapa serangan secara otomatis berurutan.
 
 - **RECON:** Probe Sniff → Karma (intelijen pasif).
 - **ASSAULT:** Beacon Spam → Global Deauth (tekanan aktif).
 - **HANDSHAKE:** EAPOL capture + deauth.
-- **Cara pakai:** Pilih `MACRO` → pilih jenis → tombol bawah jalankan.
 
-#### 16. CLIENT MONITOR
-Melihat klien yang terhubung ke AP target (MAC, RSSI, paket).
+**Cara pakai:** Pilih `MACRO` → pilih jenis → tombol bawah jalankan.
 
-- **Contoh kasus:** Mengetahui perangkat yang sedang online, lalu deauth presisi ke satu MAC.
-- **Cara pakai:** Pilih `CLIENT MONITOR` → scan → pilih AP → tombol atas pilih klien → tombol bawah deauth klien/kembali.
+### 7.16 CLIENT MONITOR
+**Apa fungsinya (awam):** Melihat siapa saja yang sedang terhubung ke WiFi target.
 
-#### 17. EAPOL CAPTURE
-Menangkap frame EAPOL M1-M4 saat klien reconnect.
+**Contoh kasus:** Mengetahui perangkat online di WiFi target, lalu deauth presisi ke satu MAC.
 
-- **Contoh kasus:** Audit handshake WPA2 di lab.
-- **Cara pakai:** Pilih `EAPOL CAPTURE` → scan → pilih AP. Hasil dilihat di layar, Web Remote `/api/eapol`, atau Cloud Sync.
+**Cara pakai:** Pilih `CLIENT MONITOR` → scan → pilih AP → tombol atas pilih klien → tombol bawah deauth klien/kembali.
 
-#### 18. SMART ATTACK
-Memprofil target otomatis (enkripsi, PMF, vendor) lalu merekomendasikan serangan.
+### 7.17 EAPOL CAPTURE
+**Apa fungsinya (awam):** Merekam "jabat tangan" keamanan WPA2 saat perangkat reconnect.
 
-- **Contoh kasus:** Mempercepat keputusan serangan terbaik.
-- **Cara pakai:** Pilih `SMART ATTACK` → scan → pilih target → lihat rekomendasi → tombol bawah jalankan.
+**Contoh kasus:** Audit handshake WPA2 di lab.
 
-#### 19. NETWORK RECON
-Setelah terhubung ke jaringan: ping sweep, port scan TCP, banner grab, info gateway/subnet.
+**Cara pakai:** Pilih `EAPOL CAPTURE` → scan → pilih AP. Hasil di layar, Web Remote `/api/eapol`, atau Cloud Sync.
 
-- **Contoh kasus:** Memetakan host aktif di lab internal.
-- **Cara pakai:** Pilih `NETWORK RECON` → scan → pilih AP. Set password dulu via `config set ssid=<SSID> pass=<PASS>` atau `AP WIFI`.
+### 7.18 SMART ATTACK
+**Apa fungsinya (awam):** Menganalisis target otomatis (enkripsi, PMF, vendor) lalu menyarankan serangan terbaik.
 
-#### 20. AP WIFI
-Menyimpan daftar password AP WiFi di NVS.
+**Cara pakai:** Pilih `SMART ATTACK` → scan → pilih target → lihat rekomendasi → tombol bawah jalankan.
 
-- **Contoh kasus:** Menyiapkan target lab sebelum recon/koneksi ulang.
-- **Cara pakai:** Pilih `AP WIFI` → tambah/hapus/list password.
+### 7.19 NETWORK RECON
+**Apa fungsinya (awam):** Setelah terhubung ke jaringan, memetakan perangkat & layanan di dalamnya (ping sweep, port scan, banner).
+
+**Cara pakai:** Pilih `NETWORK RECON` → scan → pilih AP. Set password dulu via `config set ssid=<SSID> pass=<PASS>` atau `AP WIFI`.
+
+### 7.20 AP WIFI
+**Apa fungsinya (awam):** Menyimpan daftar password WiFi untuk dipakai modul lain.
+
+**Cara pakai:** Pilih `AP WIFI` → tambah/hapus/list password.
 
 </details>
 
 ---
 
-## Contoh Kasus Nyata
+# 8. Contoh Kasus Nyata
 
 ### Kasus A — Menguji deauth pada router sendiri
-1. Pastikan router sendiri punya jaringan **2.4 GHz** (jangan 5 GHz).
-2. HP/laptop hubungkan ke WiFi router tersebut.
-3. Di NISKALA pilih `DEAUTH MANUAL` → scan → pilih SSID router.
-4. Amati HP/laptop: koneksinya akan terputus lalu reconnect.
-5. Kalau tidak putus, kemungkinan target di 5 GHz atau PMF aktif (lihat FAQ).
+1. Pastikan router memancarkan WiFi **2.4 GHz**.
+2. Hubungkan HP/laptop ke WiFi router tersebut.
+3. Pilih `DEAUTH MANUAL` → scan → pilih SSID router.
+4. Amati HP/laptop: koneksi putus lalu reconnect.
+5. Kalau tidak putus → target kemungkinan 5 GHz atau PMF aktif (lihat FAQ).
 
 ### Kasus B — Simulasi Evil Twin (phishing awareness)
 1. Pilih `EVIL TWIN` → scan → pilih SSID target.
 2. Pilih template login (mis. `Generic`).
-3. Minta "korban" (dengan izin) menghubungkan ke AP palsu.
-4. Saat korban memasukkan password, NISKALA memverifikasi ke AP asli.
-5. Hasil tersimpan di `PASSWORD` (email/password + status benar/salah).
+3. Minta "korban" (dengan izin) hubung ke WiFi palsu.
+4. Saat korban masukkan password, NISKALA verifikasi ke WiFi asli.
+5. Hasil tersimpan di `PASSWORD`.
 
-### Kasus C — Melihat perangkat BLE di sekitar
+### Kasus C — Memetakan perangkat Bluetooth di area
 1. Pilih `BLE SCAN`.
-2. Layar menampilkan MAC, nama (jika ada), RSSI, dan jumlah kemunculan.
-3. Gunakan untuk memetakan perangkat di area lab.
+2. Layar menampilkan MAC, nama, RSSI, jumlah kemunculan.
 
 ### Kasus D — Audit handshake WPA2 (EAPOL)
-1. Pilih `EAPOL CAPTURE` → scan → pilih AP target.
+1. Pilih `EAPOL CAPTURE` → scan → pilih AP.
 2. NISKALA otomatis kirim deauth agar klien reconnect.
 3. Amati M1-M4 di layar. Jika `FULL` bertambah, handshake tertangkap.
 
 ---
 
-## Serial CLI Lengkap
+# 9. Serial CLI (Lengkap)
 
-Hubungkan board via USB, buka Serial Monitor **115200**, lalu ketik salah satu perintah:
+**Apa itu Serial CLI?** Cara mengendalikan board lewat teks (terminal), tanpa layar/tombol.
+
+**Cara membuka:** colok USB, buka Serial Monitor 115200, ketik perintah lalu Enter.
+
+### Semua perintah
 
 | Perintah | Fungsi |
 |---|---|
 | `help` | Daftar perintah |
-| `status` | State, mode, paket, error, heap, min heap, baterai, suhu, stack, channel, uptime |
+| `status` | Info lengkap (state, mode, paket, error, heap, min heap, baterai, suhu, stack, channel, uptime) |
 | `log` | Lihat event log (riwayat kejadian) |
 | `scan` | Scan WiFi + tampilkan SSID/BSSID/channel/RSSI |
 | `stop` | Hentikan semua modul |
@@ -359,84 +445,111 @@ Hubungkan board via USB, buka Serial Monitor **115200**, lalu ketik salah satu p
 | `blespam` | Mulai Bluetooth Spam |
 | `blescan` | Mulai BLE Scan |
 | `deauth AA:BB:CC:DD:EE:FF` | Deauth target AP (MAC) |
-| `client AA:BB:CC:DD:EE:FF` | Lihat klien yang terhubung ke AP (MAC) |
+| `client AA:BB:CC:DD:EE:FF` | Lihat klien terhubung ke AP |
 | `ble-raw 020106...` | Replay iklan BLE mentah (hex) |
 | `ble-ibeacon [major minor]` | Spoof iBeacon |
 | `ble-eddy` | Spoof Eddystone-UID |
 | `config get` | Lihat konfigurasi |
-| `config set ssid <Nilai>` | Ubah konfigurasi (ssid/pass/url/tpl) |
+| `config set ssid <Nilai>` | Ubah konfigurasi |
 | `apwifi add <SSID> <PASS>` | Simpan password AP |
 | `apwifi list` | Lihat daftar AP tersimpan |
 | `apwifi del <index>` | Hapus AP tersimpan |
 | `sync` / `cloudsync` | Mulai Cloud Sync |
-| `export` | Cetak data hasil sebagai JSON |
-| `reboot` | Restart perangkat |
+| `export` | Cetak data hasil (JSON) |
+| `reboot` | Restart board |
 
-> Contoh: `deauth C0:E1:BE:9F:F8:BC` lalu `stop`.
+### Contoh output `status`
+```
+State=0 Mode=0 PKT=0 ERR=0 Heap=138000 Min=136000 Bat=100 Temp=90 Stack=3060 Ch=6 Up=120s
+```
+Artinya: idle, 0 paket, heap 138KB, baterai 100%, suhu 90C, stack 3060 byte, channel 6, nyala 120 detik.
 
 ---
 
-## Web Remote Lengkap
+# 10. Web Remote (Lengkap)
 
 1. Pilih menu `WEB REMOTE`.
 2. Hubungkan HP/laptop ke WiFi **`NISKALA_CTRL`** (password `niskala123`).
 3. Buka browser ke **`http://192.168.4.1/rc`**.
 
-### Yang bisa dilakukan di Web Remote
-- **Scan WiFi** dan pilih target langsung dari browser.
-- **Mode attack**: Deauth / Evil Twin / Auth Flood / CSA.
-- **Quick start**: Beacon, Global Deauth, Probe Sniff, BLE Spam, Karma.
-- **Telemetri**: heap, heap_min, stack, baterai, suhu, uptime, channel.
-- **EAPOL panel**: lihat M1-M4.
-- **Event Log panel**: lihat riwayat kejadian.
-- **Config attack**: ubah burst deauth/auth, interval hop/beacon, reason code, WiFi & URL sync.
-- **Export CSV**: Probe, Karma, Password.
+### Fitur Web Remote
+- **SCAN WIFI** — tampilkan daftar WiFi, klik untuk serang.
+- **MODE ATTACK** — Deauth / Evil Twin / Auth Flood / CSA.
+- **QUICK START** — Beacon, Global Deauth, Probe Sniff, BLE Spam, Karma.
+- **TELEMETRI** — heap, heap_min, stack, baterai, suhu, uptime, channel.
+- **EAPOL CAPTURE** — lihat M1-M4.
+- **EVENT LOG** — lihat riwayat kejadian.
+- **CONFIG ATTACK** — ubah burst/interval/reason + WiFi & URL sync.
+- **EXPORT** — download CSV Probe/Karma/Password.
 
 ### Token Web (opsional)
-Jika `NISKALA_WEB_PASS` diisi di `src/secrets.h`, Web Remote akan minta token (dikirim sebagai header `X-NISKALA-TOKEN`). Jika kosong, autentikasi dilewati.
+Jika `NISKALA_WEB_PASS` diisi di `secrets.h`, Web Remote minta token. Kalau kosong, autentikasi dilewati.
 
 ---
 
-## Struktur Project
+# 11. Cheat Sheet
+
+### Tombol board
+| Aksi | Tombol |
+|---|---|
+| Pilih ke atas | Tombol atas |
+| Pilih ke bawah / konfirmasi | Tombol bawah |
+| Mulai modul | Tombol bawah (pada item terpilih) |
+| Berhenti | Tombol bawah (saat modul jalan) |
+
+### Perintah CLI penting
+| Tujuan | Perintah |
+|---|---|
+| Lihat status | `status` |
+| Lihat log | `log` |
+| Scan WiFi | `scan` |
+| Berhenti semua | `stop` |
+| Deauth AP | `deauth <MAC>` |
+| Lihat klien AP | `client <MAC>` |
+| Restart | `reboot` |
+
+---
+
+# 12. Struktur Project
 
 ```text
 NISKALA/
 ├── src/
-│   ├── main.cpp            # State machine, UI, tombol, loop utama
-│   ├── attack_engine.cpp/h # Frame builder deauth/beacon/CSA + sniffer + attack task
-│   ├── karma.cpp/h         # Logika Karma
-│   ├── bt_spam.cpp/h       # BLE spam
-│   ├── tx_count.cpp/h      # Counter TX + mutex helper
-│   ├── ble_scan.cpp/h      # BLE scan + tracking
-│   ├── eapol.cpp/h         # EAPOL handshake capture
-│   ├── client_monitor.cpp/h# Client monitor
-│   ├── cloud.cpp/h         # Cloud sync & fetch template
-│   ├── recon.cpp/h         # Network recon
-│   ├── macro.cpp/h         # Macro attack sequence
-│   ├── ota.cpp/h           # OTA update
-│   ├── smart_attack.cpp/h  # Profiling + deteksi PMF
-│   ├── telemetry.cpp/h     # Telemetri + event log
-│   ├── radio_manager.cpp/h # Manajemen mode radio
-│   ├── wifi_state.h        # Restore MAC / reset WiFi state
-│   ├── pins.h              # Definisi pin tombol & baterai
-│   ├── cli.cpp/h           # Serial CLI
-│   ├── allowlist.cpp/h     # Allowlist perangkat sendiri
-│   ├── ui_screens.cpp/h    # Layar & UI TFT
-│   ├── ui_helpers.h        # Helper gambar
-│   ├── ui_icons.h          # Ikon
-│   ├── web_remote.h        # Endpoint API web
-│   ├── web_ui.h            # HTML/JS Web Remote
-│   ├── web_utils.h         # JSON escape / CSV helper
-│   ├── state_machine.h     # Enum state
-│   ├── templates.h         # Template captive portal
-│   ├── disclaimer.h        # Layar disclaimer
-│   ├── wifi_bypass.c       # Kompatibilitas raw frame
-│   └── secrets.example.h   # Template kredensial
+│   ├── main.cpp              # Menu, tombol, state machine, loop utama
+│   ├── attack_engine.cpp/h   # Frame deauth/beacon/CSA + sniffer + attack task
+│   ├── karma.cpp/h           # Logika Karma
+│   ├── bt_spam.cpp/h         # BLE spam
+│   ├── tx_count.cpp/h        # Counter TX + mutex
+│   ├── ble_scan.cpp/h        # BLE scan + tracking
+│   ├── eapol.cpp/h           # EAPOL capture
+│   ├── client_monitor.cpp/h  # Client monitor
+│   ├── cloud.cpp/h           # Cloud sync & template
+│   ├── recon.cpp/h           # Network recon
+│   ├── macro.cpp/h           # Macro sequence
+│   ├── ota.cpp/h             # OTA update
+│   ├── smart_attack.cpp/h    # Profiling + deteksi PMF
+│   ├── telemetry.cpp/h       # Telemetri + event log
+│   ├── radio_manager.cpp/h   # Manajemen mode radio
+│   ├── wifi_state.h          # Restore MAC / reset WiFi
+│   ├── pins.h                # Pin tombol & baterai
+│   ├── cli.cpp/h             # Serial CLI
+│   ├── allowlist.cpp/h       # Allowlist perangkat sendiri
+│   ├── ui_screens.cpp/h      # Layar & UI TFT
+│   ├── ui_helpers.h          # Helper gambar
+│   ├── ui_icons.h            # Ikon
+│   ├── web_remote.h          # Endpoint API web
+│   ├── web_ui.h              # HTML/JS Web Remote
+│   ├── web_utils.h           # JSON/CSV helper
+│   ├── state_machine.h       # Enum state
+│   ├── templates.h           # Template captive portal
+│   ├── disclaimer.h          # Layar disclaimer
+│   ├── wifi_bypass.c         # Kompatibilitas raw frame
+│   └── secrets.example.h     # Template kredensial
 ├── server/
-│   ├── sync.php            # Endpoint Cloud Sync
-│   ├── view.php            # Dashboard viewer
-│   ├── template.html       # Template portal hosting
-│   └── data/.htaccess      # Proteksi akses folder data
+│   ├── sync.php              # Endpoint Cloud Sync
+│   ├── view.php              # Dashboard viewer
+│   ├── template.html         # Template portal hosting
+│   └── data/.htaccess        # Proteksi folder data
 ├── platformio.ini
 ├── .gitignore
 ├── LICENSE
@@ -445,9 +558,9 @@ NISKALA/
 
 ---
 
-## Konfigurasi & Secrets
+# 13. Konfigurasi & Secrets
 
-### Konstanta runtime (disimpan di NVS, bisa diubah via Web Remote)
+### Konstanta runtime (diubah via Web Remote, tersimpan di NVS)
 | Konstanta | Keterangan |
 |---|---|
 | `cfg_deauth_burst` | Jumlah frame deauth per burst (1-100) |
@@ -456,107 +569,89 @@ NISKALA/
 | `cfg_beacon_hop_ms` | Interval ganti beacon (20-2000 ms) |
 | `cfg_deauth_reason` | Reason code deauth (0 = rotasi) |
 
-### Kredensial (jangan commit)
+### Kredensial rahasia (JANGAN di-commit ke GitHub)
 | File | Status |
 |---|---|
-| `src/secrets.h` | Tidak di-commit (lokal). Berisi `NISKALA_WIFI_SSID/PASS`, `NISKALA_SYNC_API_KEY`, `NISKALA_WEB_PASS`. |
+| `src/secrets.h` | Tidak di-commit (lokal). Isi: `NISKALA_WIFI_SSID/PASS`, `NISKALA_SYNC_API_KEY`, `NISKALA_WEB_PASS`. |
 | `src/secrets.example.h` | Template (di-commit). Salin jadi `secrets.h`. |
-| `server/config.php` | Tidak di-commit. Berisi `API_KEY`. |
-| `server/config.example.php` | Template (di-commit). |
+| `server/config.php` | Tidak di-commit. Isi: `API_KEY`. |
 
 **Cara membuat secrets.h:**
 1. Salin `src/secrets.example.h` → `src/secrets.h`.
-2. Isi nilai sesuai kebutuhan (boleh dikosongkan jika tidak pakai).
-3. Pastikan `secrets.h` dan `config.php` tidak ter-commit (sudah di-ignore).
+2. Isi nilai sesuai kebutuhan (boleh dikosongkan).
+3. Pastikan `secrets.h` dan `config.php` tidak ter-commit (sudah di-ignore otomatis).
 
 ---
 
-## Glosarium (Istilah Awam)
+# 14. Troubleshooting / FAQ
 
-| Istilah | Arti sederhana |
-|---|---|
-| **AP (Access Point)** | Perangkat pemancar WiFi (router). |
-| **SSID** | Nama WiFi yang terlihat (mis. "Office PT.PPKT"). |
-| **BSSID** | Alamat MAC unik dari AP. |
-| **MAC address** | "Nomor identitas" perangkat (contoh: `AA:BB:CC:DD:EE:FF`). |
-| **Deauth** | Frame yang memaksa perangkat putus dari WiFi. |
-| **Probe request** | "Panggilan" perangkat saat mencari WiFi yang pernah disimpan. |
-| **Beacon** | "Iklan" yang dipancarkan AP agar namanya terlihat. |
-| **Evil Twin** | AP palsu dengan nama sama seperti target. |
-| **Captive portal** | Halaman login palsu yang muncul saat terhubung. |
-| **RSSI** | Kekuatan sinyal (semakin dekat 0 semakin kuat). |
-| **Channel** | "Jalur" frekuensi WiFi (1-14 untuk 2.4 GHz). |
-| **PMF (802.11w)** | Fitur keamanan yang memblokir deauth. |
-| **WPA2/WPA3** | Jenis enkripsi WiFi. |
-| **EAPOL** | Frame proses "jabat tangan" keamanan WPA2. |
-| **Handshake** | Proses tukar kunci saat perangkat terhubung. |
-| **BLE** | Bluetooth Low Energy (untuk perangkat pintar). |
-| **NVS** | Penyimpanan permanen kecil di ESP32. |
-
----
-
-## Troubleshooting / FAQ
-
-### 1. Board tidak terdeteksi di laptop?
-- Pastikan pakai **kabel data** (bukan kabel charge-only).
+### 1. Board tidak terdeteksi laptop?
+- Pakai **kabel data** (bukan kabel charge-only).
 - Install driver USB CH340/CP210x.
-- Cek di Device Manager port `COMx` (Windows) atau `/dev/ttyUSB*` (Linux).
+- Cek Device Manager → Ports (COM & LPT).
 
 ### 2. Gagal build / upload?
-- Pastikan PlatformIO + platform ESP32 sudah terpasang.
-- Coba `pio run -t clean` lalu `pio run` lagi.
-- Pastikan pilih environment `ttgo-t-display`.
+- Pastikan PlatformIO + platform ESP32 terpasang.
+- Coba `pio run -t clean` lalu `pio run`.
+- Pilih environment `ttgo-t-display`.
 
-### 3. Layar kosong / menyala tapi tidak ada teks?
-- Pastikan board-nya memang TTGO T-Display (atau sesuaikan pin TFT di `platformio.ini` / `User_Setup.h` TFT_eSPI).
+### 3. Layar kosong / tidak menyala?
+- Pastikan board TTGO T-Display (atau sesuaikan pin TFT).
+- Cek kabel USB.
 
 ### 4. Deauth tidak memutus target?
-- **Kemungkinan besar target di 5 GHz.** ESP32 hanya bisa 2.4 GHz.
-- Kemungkinan lain: target memakai **PMF/WPA3** (deauth diblokir).
-- Pastikan target tersambung ke jaringan **2.4 GHz**.
+- **Paling sering: target di 5 GHz.** ESP32 cuma 2.4 GHz.
+- Kemungkinan lain: target pakai PMF/WPA3.
+- Pastikan target tersambung ke WiFi 2.4 GHz.
 
-### 5. HP tidak terhubung ke AP `NISKALA_CTRL`?
+### 5. HP tidak terhubung ke `NISKALA_CTRL`?
 - Pastikan menu `WEB REMOTE` aktif.
-- Password AP: `niskala123`.
+- Password `niskala123`.
 - Buka `http://192.168.4.1/rc`.
 
 ### 6. Web Remote minta token?
-- Token diambil dari `NISKALA_WEB_PASS` di `secrets.h`. Kalau kosong, tidak perlu token.
+- Token dari `NISKALA_WEB_PASS` di `secrets.h`. Kalau kosong, tidak perlu.
 
 ### 7. Board terasa panas?
-- Normal untuk operasi berat (deauth/beacon terus-menerus). Beri jeda, atau pastikan ventilasi cukup.
+- Normal untuk operasi berat. Beri jeda / pastikan ventilasi.
 
-### 8. Bagaimana melihat apakah board sehat?
-- Serial CLI ketik `status` dan `log`.
+### 8. Bagaimana cek kesehatan board?
+- Serial CLI: `status` dan `log`.
 - Pantau `Heap` (harus stabil) dan `Min` (heap watermark, tidak terus turun).
+
+### 9. Apa bedanya `P:` dan `E:` di layar deauth?
+- `P:` = paket terkirim. `E:` = error. Error kecil (beberapa persen) itu normal.
+
+### 10. Kenapa BLE Spam mematikan WiFi?
+- ESP32 hanya punya satu radio untuk WiFi & Bluetooth. Saat BLE aktif, WiFi mati sementara.
 
 ---
 
-## Batasan Teknis
+# 15. Batasan Teknis
 
-- **ESP32 hanya 2.4 GHz.** Tidak bisa melihat/menyerang WiFi 5 GHz.
-- **PMF/WPA3** dapat memblokir management frame (deauth/beacon).
+- **ESP32 hanya 2.4 GHz** — tidak bisa melihat/menyerang WiFi 5 GHz.
+- **PMF/WPA3** bisa memblokir management frame (deauth/beacon).
 - **WiFi & BLE berbagi satu radio** — tidak bisa aktif bersamaan.
-- Web server, DNS, TFT, dan radio aktif menambah beban heap.
+- Web server, DNS, TFT, radio aktif menambah beban heap.
 - Hasil pengujian bergantung versi ESP32 core, board, dan driver.
 - Jangan simpan kredensial nyata di repository.
 
 ---
 
-## Arsitektur
+# 16. Arsitektur
 
 - **Core 0:** task serangan + pekerjaan radio (attackTask).
 - **Core 1:** loop utama, UI TFT, tombol, WebServer, DNS, serial CLI.
-- **Shared state:** counter dan status dilindungi mutex (`g_txMux`, `g_stateMux`, `g_bleScanMux`, `g_eapolMux`, dll.) untuk mencegah data race antar-task/callback.
+- **Shared state:** counter/status dilindungi mutex (`g_txMux`, `g_stateMux`, `g_bleScanMux`, `g_eapolMux`) untuk mencegah data race.
 
 ---
 
-## Roadmap
+# 17. Roadmap
 
 - [x] Dashboard lokal Web Remote (status live + grafik).
 - [x] Export CSV (Probe, Karma, Password).
 - [x] Template captive portal (Generic, IndiHome, Facebook, MikroTik, Google).
-- [x] Telemetri heap/suhu/baterai (TFT + Web + serial).
+- [x] Telemetri heap/suhu/baterai.
 - [x] Runtime config attack via Web Remote + NVS.
 - [x] Deteksi PMF/WPA3 presisi.
 - [x] BLE Scan + MAC tracking.
@@ -569,7 +664,7 @@ NISKALA/
 
 ---
 
-## Lisensi
+# 18. Lisensi
 
 **Educational Use Only.** Kode disediakan "as-is", tanpa jaminan apa pun. Pengguna bertanggung jawab atas seluruh konsekuensi hukum dan teknis.
 
