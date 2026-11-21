@@ -31,14 +31,15 @@ const char* macroStepName(uint8_t a) {
     case MACT_PROBE: return "Probe Sniff";
     case MACT_KARMA: return "Karma Attack";
     case MACT_BT_SPAM: return "BLE Spam";
+    case MACT_EAPOL: return "EAPOL Capture";
     default: return "?";
   }
 }
 
 void drawMacroRunning(int frame) {
   (void)frame;
-  const MacroStep* steps = (macroIndex == 0) ? MACRO_RECON : MACRO_ASSAULT;
-  int stepCount = (macroIndex == 0) ? MACRO_RECON_STEPS : MACRO_ASSAULT_STEPS;
+  const MacroStep* steps = (macroIndex == 0) ? MACRO_RECON : (macroIndex == 1 ? MACRO_ASSAULT : MACRO_HANDSHAKE);
+  int stepCount = (macroIndex == 0) ? MACRO_RECON_STEPS : (macroIndex == 1 ? MACRO_ASSAULT_STEPS : MACRO_HANDSHAKE_STEPS);
   MacroStep s = steps[macroPhase];
 
   tft.fillScreen(TFT_BLACK);
@@ -72,6 +73,7 @@ void macroStartStep(uint8_t a) {
     case MACT_PROBE: startProbeSniffer(); break;
     case MACT_KARMA: startKarmaScan(); break;
     case MACT_BT_SPAM: startBTSpam(); break;
+    case MACT_EAPOL: startEapolCapture(); break;
   }
 }
 
@@ -82,6 +84,7 @@ void macroStopStep(uint8_t a) {
     case MACT_PROBE: if (isProbeRunning) stopProbeSniffer(); break;
     case MACT_KARMA: if (isKarmaRunning) stopKarmaScan(); break;
     case MACT_BT_SPAM: if (isBTSpamRunning) stopBTSpam(); break;
+    case MACT_EAPOL: if (isEapolRunning) stopEapolCapture(); break;
   }
 }
 
@@ -99,8 +102,8 @@ void startMacro(int idx) {
 }
 
 void macroTick() {
-  const MacroStep* steps = (macroIndex == 0) ? MACRO_RECON : MACRO_ASSAULT;
-  int stepCount = (macroIndex == 0) ? MACRO_RECON_STEPS : MACRO_ASSAULT_STEPS;
+  const MacroStep* steps = (macroIndex == 0) ? MACRO_RECON : (macroIndex == 1 ? MACRO_ASSAULT : MACRO_HANDSHAKE);
+  int stepCount = (macroIndex == 0) ? MACRO_RECON_STEPS : (macroIndex == 1 ? MACRO_ASSAULT_STEPS : MACRO_HANDSHAKE_STEPS);
   MacroStep s = steps[macroPhase];
 
   if (millis() - macroPhaseStart >= s.durationMs) {

@@ -8,7 +8,8 @@ enum MacroAction {
   MACT_GLOBAL_DEAUTH,
   MACT_PROBE,
   MACT_KARMA,
-  MACT_BT_SPAM
+  MACT_BT_SPAM,
+  MACT_EAPOL
 };
 
 struct MacroStep {
@@ -28,9 +29,14 @@ static const MacroStep MACRO_ASSAULT[] = {
 };
 static const int MACRO_ASSAULT_STEPS = 2;
 
-static const int MACRO_COUNT = 2;
-static const char* MACRO_NAMES[] = { "RECON", "ASSAULT" };
-static const char* MACRO_DESC[] = { "Probe + Karma (pasif)", "Beacon + Deauth (aktif)" };
+static const MacroStep MACRO_HANDSHAKE[] = {
+  {MACT_EAPOL, 15000},
+};
+static const int MACRO_HANDSHAKE_STEPS = 1;
+
+static const int MACRO_COUNT = 3;
+static const char* MACRO_NAMES[] = { "RECON", "ASSAULT", "HANDSHAKE" };
+static const char* MACRO_DESC[] = { "Probe + Karma (pasif)", "Beacon + Deauth (aktif)", "EAPOL capture + deauth" };
 
 extern bool isMacroRunning;
 extern int macroIndex;
@@ -43,6 +49,7 @@ extern bool isGlobalDeauthRunning;
 extern bool isProbeRunning;
 extern bool isKarmaRunning;
 extern bool isBTSpamRunning;
+extern bool isEapolRunning;
 
 void startBeaconSpam();
 void stopBeaconSpam();
@@ -54,6 +61,8 @@ void startKarmaScan();
 void stopKarmaScan();
 void startBTSpam();
 void stopBTSpam();
+void startEapolCapture();
+void stopEapolCapture();
 void stopAllAttacks();
 
 void drawMainMenu();
