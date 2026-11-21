@@ -7,5 +7,6 @@
 #define NISKALA_WIFI_SSID    ""
 #define NISKALA_WIFI_PASS    ""
 #define NISKALA_SYNC_API_KEY ""
+#define NISKALA_WEB_PASS    ""
 
 #endif
