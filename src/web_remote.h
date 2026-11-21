@@ -9,6 +9,19 @@
 #include "web_ui.h"
 
 extern WebServer server;
+#if __has_include("secrets.h")
+  #include "secrets.h"
+#endif
+#ifndef NISKALA_WEB_PASS
+  #define NISKALA_WEB_PASS ""
+#endif
+#define WEB_PASS NISKALA_WEB_PASS
+
+inline bool webAuthOK() {
+  if (WEB_PASS[0] == '\0') return true;
+  return server.hasHeader("X-NISKALA-TOKEN") && server.header("X-NISKALA-TOKEN") == String(WEB_PASS);
+}
+#define REQUIRE_WEB_AUTH() if (!webAuthOK()) { server.send(403, "text/plain", "Forbidden"); return; }
 extern State currentState;
 extern void startDeauthEngine();
 extern void startBeaconSpam();
@@ -59,6 +72,7 @@ inline void setupWebRemote() {
 
   // Status live untuk UI
   server.on("/api/status", []() {
+    REQUIRE_WEB_AUTH();
     String json = "{\"uptime\":" + String(millis() / 1000UL) +
                   ",\"heap\":" + String(ESP.getFreeHeap()) +
                   ",\"packets\":" + String((uint32_t)g_packetsSent) +
@@ -73,6 +87,7 @@ inline void setupWebRemote() {
 
   // Config attack (read)
   server.on("/api/config", HTTP_GET, []() {
+    REQUIRE_WEB_AUTH();
     String json = "{\"deauth\":" + String(cfg_deauth_burst) +
                   ",\"auth\":" + String(cfg_auth_burst) +
                   ",\"hop\":" + String(cfg_hop_interval_ms) +
@@ -88,6 +103,7 @@ inline void setupWebRemote() {
 
   // Config attack (save)
   server.on("/api/config", HTTP_POST, []() {
+    REQUIRE_WEB_AUTH();
     if (server.hasArg("deauth")) cfg_deauth_burst = constrain(server.arg("deauth").toInt(), 1, 100);
     if (server.hasArg("auth"))   cfg_auth_burst = constrain(server.arg("auth").toInt(), 1, 200);
     if (server.hasArg("hop"))    cfg_hop_interval_ms = constrain(server.arg("hop").toInt(), 20, 2000);
@@ -104,6 +120,7 @@ inline void setupWebRemote() {
 
   // Scan WiFi
   server.on("/api/scan", []() {
+    REQUIRE_WEB_AUTH();
     int n = WiFi.scanNetworks();
     String json = "[";
     for (int i = 0; i < n; i++) {
@@ -116,6 +133,7 @@ inline void setupWebRemote() {
 
   // Mulai Deauth ke target
   server.on("/api/attack", []() {
+    REQUIRE_WEB_AUTH();
     if (server.hasArg("mac") && server.hasArg("ch") && server.hasArg("ssid")) {
       String macStr = server.arg("mac");
       String ssid = server.arg("ssid");
@@ -155,6 +173,7 @@ inline void setupWebRemote() {
 
   // Stop semua
   server.on("/api/stop", []() {
+    REQUIRE_WEB_AUTH();
     stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
     server.send(200, "text/plain", "Stopped");
@@ -162,30 +181,35 @@ inline void setupWebRemote() {
 
   // Quick start modul lain
   server.on("/api/start/beacon", []() {
+    REQUIRE_WEB_AUTH();
     server.send(200, "text/plain", "Beacon Started");
     stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
     startBeaconSpam();
   });
   server.on("/api/start/global", []() {
+    REQUIRE_WEB_AUTH();
     server.send(200, "text/plain", "Global Started");
     stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
     startGlobalDeauth();
   });
   server.on("/api/start/probe", []() {
+    REQUIRE_WEB_AUTH();
     server.send(200, "text/plain", "Probe Started");
     stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
     startProbeSniffer();
   });
   server.on("/api/start/ble", []() {
+    REQUIRE_WEB_AUTH();
     server.send(200, "text/plain", "BLE Started - WiFi off, Web Remote disconnected");
     stopAllAttacks();
     currentState = BT_SPAM;
     startBTSpam();
   });
   server.on("/api/start/karma", []() {
+    REQUIRE_WEB_AUTH();
     server.send(200, "text/plain", "Karma Started");
     stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
@@ -194,21 +218,25 @@ inline void setupWebRemote() {
 
   // BLE scan JSON
   server.on("/api/ble", []() {
+    REQUIRE_WEB_AUTH();
     server.send(200, "application/json", buildBleJson());
   });
 
   // Telemetry lengkap
   server.on("/api/telemetry", []() {
+    REQUIRE_WEB_AUTH();
     server.send(200, "application/json", buildTelemetryJson());
   });
 
   // EAPOL status/export
   server.on("/api/eapol", []() {
+    REQUIRE_WEB_AUTH();
     server.send(200, "application/json", buildEapolJson());
   });
 
   // Export Probe Sniff CSV
   server.on("/api/export/probe", []() {
+    REQUIRE_WEB_AUTH();
     String csv = "mac,rssi,ssid\r\n";
     portENTER_CRITICAL(&g_probeLogMux);
     int cnt = g_probeLogCount;
@@ -233,6 +261,7 @@ inline void setupWebRemote() {
 
   // Export Karma CSV
   server.on("/api/export/karma", []() {
+    REQUIRE_WEB_AUTH();
     String csv = "ssid,probe_count,auth_count\r\n";
     for (int i = 0; i < g_karmaSSIDCount; i++) {
       csv += csvField(String(g_karmaSSIDs[i].ssid)) + "," + String(g_karmaSSIDs[i].probeCount) + "," + String(g_karmaSSIDs[i].authCount) + "\r\n";
@@ -243,6 +272,7 @@ inline void setupWebRemote() {
 
   // Export Password Vault CSV
   server.on("/api/export/passwords", []() {
+    REQUIRE_WEB_AUTH();
     int total = prefs.getInt("pwd_count", 0);
     String csv = "email,password,verified\r\n";
     for (int i = 0; i < total; i++) {

@@ -23,7 +23,10 @@ h2{color:#00ff00;margin:0 0 8px}
 </style></head><body>
 <h2>NISKALA Web Control</h2>
 <p class="info" id="info">Status: Idle</p>
-<canvas id="chart" width="320" height="90" style="width:100%;background:#1e1e1e;border-radius:8px;margin:0 0 12px"></canvas>
+<div style="text-align:left;margin:0 0 8px">
+<input id="web_token" type="password" placeholder="Token Web" style="width:calc(100% - 90px);padding:8px;border:none;border-radius:5px;background:#333;color:#fff;font-size:13px">
+<button class="btn" style="width:80px;padding:8px;margin:0" onclick="saveToken()">TOKEN</button>
+</div><canvas id="chart" width="320" height="90" style="width:100%;background:#1e1e1e;border-radius:8px;margin:0 0 12px"></canvas>
 <div style="text-align:left;margin:0 0 8px">
 <p style="color:#00ff00;font-weight:bold;margin:0 0 4px">MODE ATTACK:</p>
 <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -85,6 +88,17 @@ h2{color:#00ff00;margin:0 0 8px}
 </div>
 <div class="note">Mulai Deauth = HP terputus dari AP ini. Berhenti pakai tombol board.</div>
 <script>
+let WEB_TOKEN = localStorage.getItem('niskala_token') || '';
+function apiFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers || {}, {'X-NISKALA-TOKEN': WEB_TOKEN});
+  return fetch(url, opts);
+}
+function saveToken() {
+  WEB_TOKEN = document.getElementById('web_token').value;
+  localStorage.setItem('niskala_token', WEB_TOKEN);
+  document.getElementById('info').innerText = 'Token tersimpan';
+}
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function rssiBar(rssi) {
   const pct = Math.max(0, Math.min(100, (rssi + 90) / 60 * 100));
@@ -102,7 +116,7 @@ function setMode(m) {
 function scanWifi() {
   document.getElementById('info').innerText = 'Status: Scanning...';
   document.getElementById('scanResult').style.display = 'none';
-  fetch('/api/scan').then(r => r.json()).then(data => {
+  apiFetch('/api/scan').then(r => r.json()).then(data => {
     let html = '';
     data.forEach((ap, i) => {
       html += `<div class="ap-item" data-mac="${esc(ap.mac)}" data-ch="${ap.ch}" data-ssid="${esc(ap.ssid)}">
@@ -116,7 +130,7 @@ function scanWifi() {
   });
 }
 function stopAll() {
-  fetch('/api/stop').then(() => {
+  apiFetch('/api/stop').then(() => {
     document.getElementById('info').innerText = 'Status: Stopped';
     document.getElementById('scanResult').style.display = 'none';
   });
@@ -139,7 +153,7 @@ function drawChart(data) {
   ctx.stroke();
 }
 function loadTelemetry() {
-  fetch('/api/telemetry').then(r => r.json()).then(t => {
+  apiFetch('/api/telemetry').then(r => r.json()).then(t => {
     document.getElementById('telemetryPanel').innerText =
       'State: ' + (t.state ?? '-') + '  Mode: ' + (t.mode ?? '-') +
       '\nPackets: ' + (t.packets ?? 0) + '  Errors: ' + (t.tx_errors ?? 0) +
@@ -149,7 +163,7 @@ function loadTelemetry() {
   }).catch(() => { document.getElementById('telemetryPanel').innerText = 'Gagal ambil telemetri'; });
 }
 function loadEapol() {
-  fetch('/api/eapol').then(r => r.json()).then(e => {
+  apiFetch('/api/eapol').then(r => r.json()).then(e => {
     document.getElementById('eapolPanel').innerText =
       'Target: ' + (e.target || '-') +
       '\nBSSID: ' + (e.bssid || '-') +
@@ -160,7 +174,7 @@ function loadEapol() {
   }).catch(() => { document.getElementById('eapolPanel').innerText = 'Gagal ambil data EAPOL'; });
 }
 function poll() {
-  fetch('/api/status').then(r => r.json()).then(s => {
+  apiFetch('/api/status').then(r => r.json()).then(s => {
     document.getElementById('info').innerText = 'mode ' + s.mode + ' | pkt ' + s.packets + ' | err ' + s.txerrors + ' | heap ' + s.heap + 'B | stack ' + (s.stack||0) + 'B | bat ' + (s.battery||0) + '% | t ' + (s.temp||0) + 'C | up ' + s.uptime + 's | ' + s.target;
     pktSamples.push(s.packets);
     if (pktSamples.length > 60) pktSamples.shift();
@@ -176,15 +190,15 @@ document.getElementById('scanResult').addEventListener('click', function(e) {
   const ch = item.getAttribute('data-ch');
   const ssid = item.getAttribute('data-ssid');
   document.getElementById('info').innerText = 'Status: Attacking ' + ssid;
-  fetch(`/api/attack?mac=${encodeURIComponent(mac)}&ch=${encodeURIComponent(ch)}&ssid=${encodeURIComponent(ssid)}&mode=${encodeURIComponent(attackMode)}`)
+  apiFetch(`/api/attack?mac=${encodeURIComponent(mac)}&ch=${encodeURIComponent(ch)}&ssid=${encodeURIComponent(ssid)}&mode=${encodeURIComponent(attackMode)}`)
     .then(() => alert(attackMode.toUpperCase() + ' dimulai ke ' + ssid));
 });
 function start(m) {
   document.getElementById('info').innerText = 'Status: Starting ' + m;
-  fetch('/api/start/' + m).then(() => alert('Started ' + m + '. HP terputus; stop pakai tombol board.'));
+  apiFetch('/api/start/' + m).then(() => alert('Started ' + m + '. HP terputus; stop pakai tombol board.'));
 }
 function loadConfig() {
-  fetch('/api/config').then(r => r.json()).then(c => {
+  apiFetch('/api/config').then(r => r.json()).then(c => {
     document.getElementById('cfg_deauth').value = c.deauth;
     document.getElementById('cfg_auth').value = c.auth;
     document.getElementById('cfg_hop').value = c.hop;
@@ -208,13 +222,14 @@ function saveConfig() {
   const u = document.getElementById('cfg_url').value;
   const t = document.getElementById('cfg_tpl').value;
   const as = document.getElementById('cfg_autosync').value;
-  fetch('/api/config', {
+  apiFetch('/api/config', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: 'deauth=' + encodeURIComponent(d) + '&auth=' + encodeURIComponent(a) + '&hop=' + encodeURIComponent(h) + '&beacon=' + encodeURIComponent(b) + '&reason=' + encodeURIComponent(r) + '&wifi=' + encodeURIComponent(w) + '&wifipass=' + encodeURIComponent(wp) + '&url=' + encodeURIComponent(u) + '&tpl=' + encodeURIComponent(t) + '&autosync=' + encodeURIComponent(as)
   }).then(() => alert('Config tersimpan'));
 }
 setMode('deauth');
+document.getElementById('web_token').value = WEB_TOKEN;
 loadConfig();
 setInterval(poll, 2000);
 </script>
