@@ -44,7 +44,11 @@ h2{color:#00ff00;margin:0 0 8px}
 <button class="btn" onclick="start('ble')">START BLE SPAM</button>
 <button class="btn" onclick="start('karma')">START KARMA</button>
 </div>
-<div style="text-align:left;margin-top:6px">
+<div style="text-align:left;margin-top:14px;background:#1e1e1e;border-radius:8px;padding:12px">
+<p style="color:#00ff00;font-weight:bold;margin:0 0 8px">EAPOL CAPTURE</p>
+<button class="btn" onclick="loadEapol()">REFRESH EAPOL</button>
+<div id="eapolPanel" style="font-size:13px;color:#aaa;margin-top:8px;white-space:pre-wrap"></div>
+</div><div style="text-align:left;margin-top:6px">
 <p style="color:#aaa;font-size:13px;margin:0 0 4px">EXPORT DATA:</p>
 <a class="btn" href="/api/export/probe" download>Download Probe CSV</a>
 <a class="btn" href="/api/export/karma" download>Download Karma CSV</a>
@@ -129,12 +133,24 @@ function drawChart(data) {
   }
   ctx.stroke();
 }
+function loadEapol() {
+  fetch('/api/eapol').then(r => r.json()).then(e => {
+    document.getElementById('eapolPanel').innerText =
+      'Target: ' + (e.target || '-') +
+      '\nBSSID: ' + (e.bssid || '-') +
+      '\nChannel: ' + (e.channel || 0) +
+      '\nM1: ' + (e.m1 || 0) + '  M2: ' + (e.m2 || 0) + '  M3: ' + (e.m3 || 0) + '  M4: ' + (e.m4 || 0) +
+      '\nFULL: ' + (e.full || 0) + ' | EAPOL: ' + (e.packets || 0) +
+      '\nUptime: ' + (e.uptime_s || 0) + 's';
+  }).catch(() => { document.getElementById('eapolPanel').innerText = 'Gagal ambil data EAPOL'; });
+}
 function poll() {
   fetch('/api/status').then(r => r.json()).then(s => {
     document.getElementById('info').innerText = 'mode ' + s.mode + ' | pkt ' + s.packets + ' | err ' + s.txerrors + ' | heap ' + s.heap + 'B | stack ' + (s.stack||0) + 'B | bat ' + (s.battery||0) + '% | t ' + (s.temp||0) + 'C | up ' + s.uptime + 's | ' + s.target;
     pktSamples.push(s.packets);
     if (pktSamples.length > 60) pktSamples.shift();
     drawChart(pktSamples);
+    loadEapol();
   }).catch(() => {});
 }
 document.getElementById('scanResult').addEventListener('click', function(e) {
