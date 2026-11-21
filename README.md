@@ -236,7 +236,7 @@ Menu utama NISKALA berisi 20 modul. Berikut pengelompokannya agar mudah dipahami
 <summary><strong>Klik untuk membuka penjelasan semua modul</strong></summary>
 
 ### 7.1 DEAUTH MANUAL
-**Apa fungsinya (awam):** Memaksa perangkat putus dari WiFi target.
+**Apa fungsinya :** Memaksa perangkat putus dari WiFi target.
 
 **Contoh kasus:** Kamu ingin tahu apakah router-mu sendiri rentan diserang, atau memaksa satu HP putus lalu melihatnya reconnect.
 
@@ -252,7 +252,7 @@ Menu utama NISKALA berisi 20 modul. Berikut pengelompokannya agar mudah dipahami
 **Catatan:** Target 5 GHz atau PMF/WPA3 tidak bisa dideauth oleh ESP32.
 
 ### 7.2 EVIL TWIN
-**Apa fungsinya (awam):** Membuat WiFi palsu dengan nama sama seperti target, lalu menampilkan halaman login palsu.
+**Apa fungsinya :** Membuat WiFi palsu dengan nama sama seperti target, lalu menampilkan halaman login palsu.
 
 **Contoh kasus:** Melatih karyawan/keluarga agar tidak asal memasukkan password di halaman login mencurigakan.
 
@@ -266,63 +266,63 @@ Menu utama NISKALA berisi 20 modul. Berikut pengelompokannya agar mudah dipahami
 **Yang akan kamu lihat:** Korban melihat halaman login; hasil (email/password, benar/salah) muncul di `PASSWORD`.
 
 ### 7.3 BEACON SPAM
-**Apa fungsinya (awam):** Menyiarkan banyak nama WiFi palsu sekaligus.
+**Apa fungsinya :** Menyiarkan banyak nama WiFi palsu sekaligus.
 
 **Contoh kasus:** Menguji ketahanan driver WiFi atau mengisi daftar WiFi dengan nama palsu di lab.
 
 **Cara pakai:** Pilih `BEACON SPAM` → tombol bawah untuk berhenti.
 
 ### 7.4 PROBE SNIFF
-**Apa fungsinya (awam):** Melihat perangkat yang sedang "mencari" WiFi (termasuk WiFi tersembunyi yang pernah disimpan).
+**Apa fungsinya :** Melihat perangkat yang sedang "mencari" WiFi (termasuk WiFi tersembunyi yang pernah disimpan).
 
 **Contoh kasus:** Mengungkap SSID tersembunyi yang tersimpan di HP — HP otomatis mem-probe SSID tersimpan.
 
 **Cara pakai:** Pilih `PROBE SNIFF`, biarkan berjalan. SSID kosong tampil sebagai `(hidden)`.
 
 ### 7.5 GLOBAL DEAUTH
-**Apa fungsinya (awam):** Memutus semua WiFi di semua channel sekaligus.
+**Apa fungsinya :** Memutus semua WiFi di semua channel sekaligus.
 
 **Contoh kasus:** Uji ketahanan jaringan di lab **terisolasi**.
 
 **Cara pakai:** Pilih `GLOBAL DEAUTH` → tombol bawah berhenti. **Hanya di lingkungan terisolasi.**
 
 ### 7.6 AUTH FLOOD
-**Apa fungsinya (awam):** Membanjiri router dengan banyak permintaan login palsu.
+**Apa fungsinya :** Membanjiri router dengan banyak permintaan login palsu.
 
 **Contoh kasus:** Menguji apakah router tahan terhadap banjir permintaan login.
 
 **Cara pakai:** Pilih `AUTH FLOOD` → scan → pilih AP target.
 
 ### 7.7 BLUETOOTH SPAM
-**Apa fungsinya (awam):** Mengirim iklan Bluetooth palsu (Apple, Google, Samsung, dll.) untuk memunculkan popup pairing.
+**Apa fungsinya :** Mengirim iklan Bluetooth palsu (Apple, Google, Samsung, dll.) untuk memunculkan popup pairing.
 
 **Contoh kasus:** Memunculkan popup "Fast Pair"/"Swift Pair" di HP target.
 
 **Cara pakai:** Pilih `BLUETOOTH SPAM`. WiFi mati sementara (radio dipakai Bluetooth).
 
 ### 7.8 PASSWORD VAULT
-**Apa fungsinya (awam):** Tempat menyimpan hasil login yang tertangkap dari Evil Twin.
+**Apa fungsinya :** Tempat menyimpan hasil login yang tertangkap dari Evil Twin.
 
 **Contoh kasus:** Review hasil simulasi phishing (email, password, status benar/salah).
 
 **Cara pakai:** Pilih `PASSWORD` → navigasi → hapus entri/hapus semua.
 
 ### 7.9 KARMA ATTACK
-**Apa fungsinya (awam):** Menjawab "panggilan" perangkat agar mengira WiFi yang dicarinya tersedia.
+**Apa fungsinya :** Menjawab "panggilan" perangkat agar mengira WiFi yang dicarinya tersedia.
 
 **Contoh kasus:** Memancing klien terhubung otomatis ke AP yang dikontrol.
 
 **Cara pakai:** Pilih `KARMA ATTACK` → tunggu → pilih SSID → lanjut ke Evil Twin.
 
 ### 7.10 CSA ATTACK
-**Apa fungsinya (awam):** Memaksa perangkat pindah channel WiFi.
+**Apa fungsinya :** Memaksa perangkat pindah channel WiFi.
 
 **Contoh kasus:** Menguji ketahanan klien terhadap perpindahan channel, termasuk target PMF/WPA3 yang kebal deauth.
 
 **Cara pakai:** Pilih `CSA ATTACK` → scan → pilih AP target.
 
 ### 7.11 WEB REMOTE
-**Apa fungsinya (awam):** Mengendalikan NISKALA dari browser HP/laptop lewat WiFi.
+**Apa fungsinya :** Mengendalikan NISKALA dari browser HP/laptop lewat WiFi.
 
 **Cara pakai:**
 1. Pilih `WEB REMOTE`.
@@ -332,7 +332,7 @@ Menu utama NISKALA berisi 20 modul. Berikut pengelompokannya agar mudah dipahami
 **Yang bisa dilakukan:** scan WiFi, mulai serangan, lihat telemetri, lihat event log, ubah konfigurasi, export CSV.
 
 ### 7.12 OTA UPDATE
-**Apa fungsinya (awam):** Update program NISKALA lewat WiFi, tanpa cabut kabel USB.
+**Apa fungsinya :** Update program NISKALA lewat WiFi, tanpa cabut kabel USB.
 
 **Cara pakai:**
 1. Pilih `OTA UPDATE`.
@@ -340,14 +340,14 @@ Menu utama NISKALA berisi 20 modul. Berikut pengelompokannya agar mudah dipahami
 3. Jalankan `pio run -e ota -t upload`.
 
 ### 7.13 BLE SCAN
-**Apa fungsinya (awam):** Melihat & melacak perangkat Bluetooth di sekitar.
+**Apa fungsinya :** Melihat & melacak perangkat Bluetooth di sekitar.
 
 **Contoh kasus:** Memetakan AirTag/smartwatch/earphone di area lab.
 
 **Cara pakai:** Pilih `BLE SCAN` → tombol bawah berhenti.
 
 ### 7.14 CLOUD SYNC
-**Apa fungsinya (awam):** Mengirim hasil pengujian ke internet (hosting) sebagai pengganti SD card.
+**Apa fungsinya :** Mengirim hasil pengujian ke internet (hosting) sebagai pengganti SD card.
 
 **Cara pakai:**
 1. Isi WiFi & Server URL di `WEB REMOTE > Config`.
@@ -355,7 +355,7 @@ Menu utama NISKALA berisi 20 modul. Berikut pengelompokannya agar mudah dipahami
 3. Jalankan `CLOUD SYNC`.
 
 ### 7.15 MACRO
-**Apa fungsinya (awam):** Menjalankan beberapa serangan secara otomatis berurutan.
+**Apa fungsinya :** Menjalankan beberapa serangan secara otomatis berurutan.
 
 - **RECON:** Probe Sniff → Karma (intelijen pasif).
 - **ASSAULT:** Beacon Spam → Global Deauth (tekanan aktif).
@@ -364,31 +364,31 @@ Menu utama NISKALA berisi 20 modul. Berikut pengelompokannya agar mudah dipahami
 **Cara pakai:** Pilih `MACRO` → pilih jenis → tombol bawah jalankan.
 
 ### 7.16 CLIENT MONITOR
-**Apa fungsinya (awam):** Melihat siapa saja yang sedang terhubung ke WiFi target.
+**Apa fungsinya :** Melihat siapa saja yang sedang terhubung ke WiFi target.
 
 **Contoh kasus:** Mengetahui perangkat online di WiFi target, lalu deauth presisi ke satu MAC.
 
 **Cara pakai:** Pilih `CLIENT MONITOR` → scan → pilih AP → tombol atas pilih klien → tombol bawah deauth klien/kembali.
 
 ### 7.17 EAPOL CAPTURE
-**Apa fungsinya (awam):** Merekam "jabat tangan" keamanan WPA2 saat perangkat reconnect.
+**Apa fungsinya :** Merekam "jabat tangan" keamanan WPA2 saat perangkat reconnect.
 
 **Contoh kasus:** Audit handshake WPA2 di lab.
 
 **Cara pakai:** Pilih `EAPOL CAPTURE` → scan → pilih AP. Hasil di layar, Web Remote `/api/eapol`, atau Cloud Sync.
 
 ### 7.18 SMART ATTACK
-**Apa fungsinya (awam):** Menganalisis target otomatis (enkripsi, PMF, vendor) lalu menyarankan serangan terbaik.
+**Apa fungsinya :** Menganalisis target otomatis (enkripsi, PMF, vendor) lalu menyarankan serangan terbaik.
 
 **Cara pakai:** Pilih `SMART ATTACK` → scan → pilih target → lihat rekomendasi → tombol bawah jalankan.
 
 ### 7.19 NETWORK RECON
-**Apa fungsinya (awam):** Setelah terhubung ke jaringan, memetakan perangkat & layanan di dalamnya (ping sweep, port scan, banner).
+**Apa fungsinya :** Setelah terhubung ke jaringan, memetakan perangkat & layanan di dalamnya (ping sweep, port scan, banner).
 
 **Cara pakai:** Pilih `NETWORK RECON` → scan → pilih AP. Set password dulu via `config set ssid=<SSID> pass=<PASS>` atau `AP WIFI`.
 
 ### 7.20 AP WIFI
-**Apa fungsinya (awam):** Menyimpan daftar password WiFi untuk dipakai modul lain.
+**Apa fungsinya :** Menyimpan daftar password WiFi untuk dipakai modul lain.
 
 **Cara pakai:** Pilih `AP WIFI` → tambah/hapus/list password.
 
