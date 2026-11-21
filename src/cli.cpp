@@ -111,32 +111,38 @@ void processCliCommand(String line) {
     stopAllAttacks();
     currentState = BEACON_SPAM; startBeaconSpam(); drawBeaconSpam(0);
     Serial.println("[CLI] Beacon spam ON");
+    logEvent("CLI beacon ON");
   }
   else if (cmd == "probe") {
     stopAllAttacks();
     currentState = PROBE_SNIFF; startProbeSniffer(); drawProbeSniff(0);
     Serial.println("[CLI] Probe sniff ON");
+    logEvent("CLI probe ON");
   }
   else if (cmd == "karma") {
     stopAllAttacks();
     currentState = KARMA_SCAN; startKarmaScan(); drawKarmaScan(0);
     Serial.println("[CLI] Karma ON");
+    logEvent("CLI karma ON");
   }
   else if (cmd == "global") {
     stopAllAttacks();
     currentState = GLOBAL_DEAUTH; startGlobalDeauth(); drawGlobalDeauth(0);
     Serial.println("[CLI] Global deauth ON");
+    logEvent("CLI global deauth ON");
   }
   else if (cmd == "blespam") {
     stopAllAttacks();
     btStopFixed();
     currentState = BT_SPAM; startBTSpam(); drawBTSpam(0);
     Serial.println("[CLI] BLE spam ON");
+    logEvent("CLI blespam ON");
   }
   else if (cmd == "blescan") {
     stopAllAttacks();
     currentState = BLE_SCAN; startBLEScan();
     Serial.println("[CLI] BLE scan ON");
+    logEvent("CLI blescan ON");
   }
   else if (cmd == "deauth") {
     uint8_t mac[6];
@@ -163,6 +169,7 @@ void processCliCommand(String line) {
     drawDeauthMenu();
     Serial.printf("[CLI] Deauth target %02X:%02X:%02X:%02X:%02X:%02X ch=%d\n",
       mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], g_targetChannel);
+    logEvent("CLI deauth %s", targetSSID.c_str());
   }
   else if (cmd == "client") {
     uint8_t mac[6];
