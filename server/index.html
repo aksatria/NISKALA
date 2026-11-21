@@ -5,17 +5,20 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>NISKALA — Network Intrusion &amp; Security Kit</title>
 <meta name="description" content="NISKALA adalah platform audit keamanan WiFi & Bluetooth berbasis ESP32 untuk laboratorium, edukasi, dan pengujian berizin.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#070a0f; --bg-2:#0b1018; --panel:#0f1520; --panel-2:#141b28;
     --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.16);
     --text:#e8edf4; --muted:#8b98a9; --muted-2:#6b7887;
-    --green:#00e676; --green-2:#00c853; --cyan:#22d3ee; --blue:#4da3ff; --violet:#a78bfa; --red:#ff5252;
+    --green:#00e676; --green-2:#00c853; --cyan:#22d3ee; --blue:#4da3ff; --violet:#a78bfa; --red:#ff5252; --amber:#ffca28;
     --radius:16px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
-  body{font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  body{font-family:"Nunito",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:var(--bg);color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden}
   a{color:inherit;text-decoration:none}
   .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
@@ -37,18 +40,16 @@
   .hero-art{flex:.95;display:flex;justify-content:center;min-width:0}
   .hero-art svg{width:100%;max-width:480px;height:auto}
 
-  .badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,230,118,.08);
-    border:1px solid rgba(0,230,118,.25);color:var(--green);font-size:12.5px;font-weight:600;
-    padding:6px 14px;border-radius:999px;letter-spacing:.02em}
+  .badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.25);color:var(--green);font-size:12.5px;font-weight:700;padding:6px 14px;border-radius:999px;letter-spacing:.02em}
   .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
-  .logo{margin:22px 0 10px;font-weight:800;font-size:clamp(42px,7vw,68px);letter-spacing:2px;line-height:1}
+  .logo{margin:22px 0 10px;font-weight:900;font-size:clamp(42px,7vw,68px);letter-spacing:2px;line-height:1}
   .logo .a{color:#fff}
   .logo .b{background:linear-gradient(90deg,var(--green),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
-  .tagline{color:var(--muted);font-size:clamp(13px,2.2vw,16px);letter-spacing:.08em;text-transform:uppercase;font-weight:500}
-  .hero-desc{max-width:560px;margin:20px 0 0;color:var(--muted);font-size:16.5px}
-  .hero-desc b{color:var(--text);font-weight:600}
+  .tagline{color:var(--muted);font-size:clamp(13px,2.2vw,16px);letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+  .hero-desc{max-width:560px;margin:20px 0 0;color:var(--muted);font-size:16.5px;font-weight:600}
+  .hero-desc b{color:var(--text);font-weight:800}
   .cta{display:flex;gap:14px;flex-wrap:wrap;margin-top:30px}
-  .btn{display:inline-flex;align-items:center;gap:8px;padding:13px 24px;border-radius:10px;font-weight:650;font-size:15px;transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:13px 24px;border-radius:10px;font-weight:800;font-size:15px;transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease}
   .btn-primary{background:linear-gradient(135deg,var(--green),var(--green-2));color:#04140b;box-shadow:0 8px 30px rgba(0,230,118,.28)}
   .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,230,118,.4)}
   .btn-ghost{border:1px solid var(--line-2);color:var(--text);background:rgba(255,255,255,.02)}
@@ -56,56 +57,87 @@
 
   .stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:34px}
   .stat{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:12px;padding:13px 20px;min-width:110px;text-align:center}
-  .stat b{display:block;font-size:22px;font-weight:800;color:#fff;line-height:1.1}
-  .stat span{font-size:11.5px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+  .stat b{display:block;font-size:22px;font-weight:900;color:#fff;line-height:1.1}
+  .stat span{font-size:11.5px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;font-weight:700}
 
   section{position:relative;padding:60px 0}
   .sec-head{text-align:center;margin-bottom:38px}
-  .kicker{color:var(--green);font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
-  .sec-head h2{font-size:clamp(25px,4vw,34px);font-weight:800;margin:8px 0 10px;letter-spacing:-.01em}
-  .sec-head p{color:var(--muted);max-width:560px;margin:0 auto;font-size:15px}
+  .kicker{color:var(--green);font-size:13px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}
+  .sec-head h2{font-size:clamp(25px,4vw,34px);font-weight:900;margin:8px 0 10px;letter-spacing:-.01em}
+  .sec-head p{color:var(--muted);max-width:560px;margin:0 auto;font-size:15px;font-weight:600}
 
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}
   .card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:var(--radius);padding:24px;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;position:relative;overflow:hidden}
   .card:hover{transform:translateY(-4px);border-color:rgba(0,230,118,.35);box-shadow:0 16px 40px rgba(0,0,0,.4)}
   .icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:16px}
   .icon svg{width:22px;height:22px}
-  .card h3{font-size:16px;font-weight:700;margin-bottom:6px;color:#fff}
-  .card p{font-size:13.5px;color:var(--muted)}
+  .card h3{font-size:16px;font-weight:800;margin-bottom:6px;color:#fff}
+  .card p{font-size:13.5px;color:var(--muted);font-weight:600}
   .i-green{background:rgba(0,230,118,.12);color:var(--green)} .i-cyan{background:rgba(34,211,238,.12);color:var(--cyan)}
   .i-blue{background:rgba(77,163,255,.12);color:var(--blue)} .i-violet{background:rgba(167,139,250,.12);color:var(--violet)}
-  .i-red{background:rgba(255,82,82,.12);color:var(--red)} .i-amber{background:rgba(255,202,40,.12);color:#ffca28}
+  .i-red{background:rgba(255,82,82,.12);color:var(--red)} .i-amber{background:rgba(255,202,40,.12);color:var(--amber)}
 
-  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
-  .step{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:24px;position:relative}
-  .step .num{font-size:13px;font-weight:800;color:var(--green);letter-spacing:.1em;text-transform:uppercase}
-  .step h3{font-size:16px;font-weight:700;margin:10px 0 6px;color:#fff}
-  .step p{font-size:13.5px;color:var(--muted)}
+  /* value props */
+  .values{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
+  .value{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:26px;display:flex;gap:16px;align-items:flex-start}
+  .value .vicon{flex-shrink:0;width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+  .value .vicon svg{width:24px;height:24px}
+  .value h3{font-size:16px;font-weight:800;color:#fff;margin-bottom:4px}
+  .value p{font-size:13.5px;color:var(--muted);font-weight:600}
+
+  /* steps with illustration */
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:24px;text-align:center;position:relative}
+  .step .art{height:110px;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+  .step .art svg{width:110px;height:110px}
+  .step .num{font-size:12px;font-weight:900;color:var(--green);letter-spacing:.12em;text-transform:uppercase}
+  .step h3{font-size:16px;font-weight:800;margin:8px 0 6px;color:#fff}
+  .step p{font-size:13px;color:var(--muted);font-weight:600}
+
+  /* specs */
+  .specs-wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center}
+  .specs{display:grid;gap:12px}
+  .spec{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+  .spec .sicon{flex-shrink:0;width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center}
+  .spec .sicon svg{width:20px;height:20px}
+  .spec b{display:block;font-size:14px;font-weight:800;color:#fff}
+  .spec span{font-size:12.5px;color:var(--muted);font-weight:600}
+  .specs-art{display:flex;justify-content:center}
+  .specs-art svg{width:100%;max-width:380px;height:auto}
 
   .cta-panel{background:linear-gradient(135deg,rgba(0,230,118,.1),rgba(34,211,238,.08));border:1px solid rgba(0,230,118,.28);border-radius:20px;padding:44px 32px;text-align:center;position:relative;overflow:hidden}
-  .cta-panel h3{font-size:clamp(22px,3.4vw,30px);font-weight:800;color:#fff}
-  .cta-panel p{color:var(--muted);max-width:520px;margin:12px auto 24px;font-size:15px}
+  .cta-panel h3{font-size:clamp(22px,3.4vw,30px);font-weight:900;color:#fff}
+  .cta-panel p{color:var(--muted);max-width:520px;margin:12px auto 24px;font-size:15px;font-weight:600}
+
+  /* faq */
+  .faq{max-width:760px;margin:0 auto;display:grid;gap:12px}
+  details{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0}
+  summary{cursor:pointer;padding:16px 20px;font-weight:800;font-size:15px;color:#fff;list-style:none;display:flex;justify-content:space-between;align-items:center}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";color:var(--green);font-size:20px;font-weight:800;transition:transform .2s}
+  details[open] summary::after{transform:rotate(45deg)}
+  details .ans{padding:0 20px 16px;font-size:14px;color:var(--muted);font-weight:600}
 
   .notice{border:1px solid rgba(255,82,82,.35);border-radius:14px;padding:20px 22px;background:rgba(255,82,82,.05);display:flex;gap:14px;align-items:flex-start}
   .notice .nicon{flex-shrink:0;width:38px;height:38px;border-radius:9px;background:rgba(255,82,82,.12);color:var(--red);display:flex;align-items:center;justify-content:center}
-  .notice h4{font-size:15px;color:#fff;margin-bottom:4px}
-  .notice p{font-size:13.5px;color:var(--muted)}
+  .notice h4{font-size:15px;color:#fff;margin-bottom:4px;font-weight:800}
+  .notice p{font-size:13.5px;color:var(--muted);font-weight:600}
 
   footer{border-top:1px solid var(--line);padding:40px 0 48px;text-align:center;position:relative}
-  .foot-brand{font-weight:800;font-size:22px;letter-spacing:2px;color:#fff}
+  .foot-brand{font-weight:900;font-size:22px;letter-spacing:2px;color:#fff}
   .foot-brand span{color:var(--green)}
   .foot-tags{margin:14px 0 6px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-  .tag{font-size:11.5px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);padding:4px 12px;border-radius:999px;letter-spacing:.03em}
-  .foot-copy{font-size:12.5px;color:var(--muted-2);margin-top:14px}
+  .tag{font-size:11.5px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);padding:4px 12px;border-radius:999px;letter-spacing:.03em;font-weight:700}
+  .foot-copy{font-size:12.5px;color:var(--muted-2);margin-top:14px;font-weight:600}
 
   @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
   @keyframes sweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
   @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
   .anim{animation:fadeUp .6s ease both}
   .float{animation:float 5s ease-in-out infinite}
-  .sweep{transform-origin:260px 210px;animation:sweep 6s linear infinite}
+  .sweep{transform-origin:260px 215px;animation:sweep 6s linear infinite}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-  @media(max-width:900px){.hero{flex-direction:column;text-align:center}.hero-desc{margin-left:auto;margin-right:auto}.cta,.stats{justify-content:center}}
+  @media(max-width:900px){.hero{flex-direction:column;text-align:center}.hero-desc{margin-left:auto;margin-right:auto}.cta,.stats{justify-content:center}.specs-wrap{grid-template-columns:1fr}}
   @media(max-width:640px){header{padding:48px 0 28px}.cta .btn{width:100%;justify-content:center}}
 </style>
 </head>
@@ -136,17 +168,9 @@
     <div class="hero-art anim" style="animation-delay:.2s">
       <svg viewBox="0 0 520 430" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ilustrasi radar dan perangkat NISKALA">
         <defs>
-          <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#00e676" stop-opacity=".9"/>
-            <stop offset="1" stop-color="#22d3ee" stop-opacity=".5"/>
-          </linearGradient>
-          <radialGradient id="glow" cx=".5" cy=".5" r=".5">
-            <stop offset="0" stop-color="#00e676" stop-opacity=".25"/>
-            <stop offset="1" stop-color="#00e676" stop-opacity="0"/>
-          </radialGradient>
+          <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00e676" stop-opacity=".9"/><stop offset="1" stop-color="#22d3ee" stop-opacity=".5"/></linearGradient>
+          <radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#00e676" stop-opacity=".25"/><stop offset="1" stop-color="#00e676" stop-opacity="0"/></radialGradient>
         </defs>
-
-        <!-- radar rings -->
         <circle cx="260" cy="215" r="170" stroke="rgba(255,255,255,.05)" stroke-width="1.5"/>
         <circle cx="260" cy="215" r="130" stroke="rgba(0,230,118,.14)" stroke-width="1.5"/>
         <circle cx="260" cy="215" r="92" stroke="rgba(0,230,118,.22)" stroke-width="1.5"/>
@@ -154,49 +178,29 @@
         <circle cx="260" cy="215" r="170" fill="url(#glow)"/>
         <line x1="88" y1="215" x2="432" y2="215" stroke="rgba(255,255,255,.05)" stroke-width="1"/>
         <line x1="260" y1="43" x2="260" y2="387" stroke="rgba(255,255,255,.05)" stroke-width="1"/>
-
-        <!-- sweep -->
-        <g class="sweep">
-          <path d="M260 215 L260 45 A170 170 0 0 1 430 215 Z" fill="url(#lg)" opacity=".08"/>
-          <line x1="260" y1="215" x2="404" y2="70" stroke="url(#lg)" stroke-width="2" stroke-linecap="round"/>
-        </g>
-
-        <!-- blips -->
+        <g class="sweep"><path d="M260 215 L260 45 A170 170 0 0 1 430 215 Z" fill="url(#lg)" opacity=".08"/><line x1="260" y1="215" x2="404" y2="70" stroke="url(#lg)" stroke-width="2" stroke-linecap="round"/></g>
         <circle cx="322" cy="140" r="5" fill="#00e676"><animate attributeName="opacity" values="1;.3;1" dur="2s" repeatCount="indefinite"/></circle>
         <circle cx="205" cy="268" r="4" fill="#22d3ee"><animate attributeName="opacity" values=".4;1;.4" dur="2.4s" repeatCount="indefinite"/></circle>
         <circle cx="345" cy="290" r="3.5" fill="#4da3ff"><animate attributeName="opacity" values="1;.2;1" dur="1.8s" repeatCount="indefinite"/></circle>
-
-        <!-- device -->
         <g class="float">
           <rect x="196" y="176" width="128" height="82" rx="12" fill="#0c1220" stroke="rgba(0,230,118,.55)" stroke-width="1.6"/>
           <rect x="196" y="176" width="128" height="82" rx="12" fill="rgba(0,230,118,.05)"/>
-          <!-- screen -->
           <rect x="208" y="188" width="64" height="40" rx="5" fill="#06120b" stroke="rgba(0,230,118,.3)"/>
           <path d="M216 220 L232 200 L248 214 L256 206" stroke="#00e676" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-          <!-- buttons -->
           <rect x="208" y="236" width="16" height="10" rx="3" fill="#1c2733" stroke="rgba(255,255,255,.14)"/>
           <rect x="230" y="236" width="16" height="10" rx="3" fill="#1c2733" stroke="rgba(255,255,255,.14)"/>
-          <!-- ports -->
           <circle cx="284" cy="194" r="5" fill="none" stroke="rgba(255,255,255,.25)"/>
           <circle cx="284" cy="210" r="5" fill="none" stroke="rgba(255,255,255,.25)"/>
           <circle cx="284" cy="226" r="5" fill="none" stroke="rgba(255,255,255,.25)"/>
-          <!-- antenna -->
           <line x1="260" y1="176" x2="260" y2="148" stroke="rgba(0,230,118,.7)" stroke-width="2.5" stroke-linecap="round"/>
           <circle cx="260" cy="144" r="5" fill="#00e676"><animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite"/></circle>
         </g>
-
-        <!-- wifi arcs -->
         <path d="M360 150 q18 -16 36 0" stroke="rgba(34,211,238,.7)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
         <path d="M370 140 q28 -26 56 0" stroke="rgba(34,211,238,.4)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-
-        <!-- label chips -->
-        <g font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600">
-          <rect x="118" y="120" width="76" height="24" rx="12" fill="rgba(0,230,118,.1)" stroke="rgba(0,230,118,.25)"/>
-          <text x="156" y="135" text-anchor="middle" fill="#00e676">PROBE</text>
-          <rect x="150" y="300" width="70" height="24" rx="12" fill="rgba(34,211,238,.1)" stroke="rgba(34,211,238,.25)"/>
-          <text x="185" y="315" text-anchor="middle" fill="#22d3ee">EAPOL</text>
-          <rect x="330" y="320" width="66" height="24" rx="12" fill="rgba(77,163,255,.1)" stroke="rgba(77,163,255,.25)"/>
-          <text x="363" y="335" text-anchor="middle" fill="#4da3ff">BLE</text>
+        <g font-family="Nunito,system-ui,sans-serif" font-size="11" font-weight="800">
+          <rect x="118" y="120" width="76" height="24" rx="12" fill="rgba(0,230,118,.1)" stroke="rgba(0,230,118,.25)"/><text x="156" y="135" text-anchor="middle" fill="#00e676">PROBE</text>
+          <rect x="150" y="300" width="70" height="24" rx="12" fill="rgba(34,211,238,.1)" stroke="rgba(34,211,238,.25)"/><text x="185" y="315" text-anchor="middle" fill="#22d3ee">EAPOL</text>
+          <rect x="330" y="320" width="66" height="24" rx="12" fill="rgba(77,163,255,.1)" stroke="rgba(77,163,255,.25)"/><text x="363" y="335" text-anchor="middle" fill="#4da3ff">BLE</text>
         </g>
       </svg>
     </div>
@@ -206,9 +210,23 @@
 <section>
   <div class="wrap">
     <div class="sec-head anim">
+      <div class="kicker">Kenapa NISKALA</div>
+      <h2>Dibangun untuk belajar keamanan</h2>
+    </div>
+    <div class="values">
+      <div class="value anim"><div class="vicon i-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg></div><div><h3>Portabel &amp; Mandiri</h3><p>Berjalan di ESP32 mungil dengan layar dan tombol — tanpa perlu laptop saat pengujian lapangan.</p></div></div>
+      <div class="value anim" style="animation-delay:.05s"><div class="vicon i-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"/></svg></div><div><h3>Terbuka &amp; Terukur</h3><p>Kode terbuka dan modular — mudah dipelajari, dimodifikasi, dan diperluas sesuai kebutuhan lab.</p></div></div>
+      <div class="value anim" style="animation-delay:.1s"><div class="vicon i-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M12 8v4M12 16h.01"/></svg></div><div><h3>Edukasi yang Bertanggung Jawab</h3><p>Fokus pada security awareness dan pengujian berizin, bukan eksploitasi ilegal.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head anim">
       <div class="kicker">Kemampuan</div>
       <h2>Alat lengkap untuk audit nirkabel</h2>
-      <p>Dari pemantauan pasif hingga pengujian aktif, semua terintegrasi dalam satu perangkat portabel.</p>
+      <p>Dari pemantauan pasif hingga pengujian aktif, semua terintegrasi dalam satu perangkat.</p>
     </div>
     <div class="grid">
       <div class="card anim"><div class="icon i-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8a5 5 0 015-5h10a5 5 0 015 5v8a5 5 0 01-5 5H7a5 5 0 01-5-5V8z"/><path d="M8 12h.01M12 12h.01M16 12h.01"/></svg></div><h3>WiFi Scanner</h3><p>Memindai jaringan sekitar beserta SSID, BSSID, channel, RSSI, dan vendor perangkat.</p></div>
@@ -230,9 +248,63 @@
       <h2>Dari pengujian ke analisis</h2>
     </div>
     <div class="steps">
-      <div class="step anim"><div class="num">01</div><h3>Hubungkan Perangkat</h3><p>Flash firmware NISKALA ke ESP32, lalu navigasi lewat layar dan dua tombol.</p></div>
-      <div class="step anim" style="animation-delay:.05s"><div class="num">02</div><h3>Jalankan Pengujian</h3><p>Scan, deauth, Evil Twin, BLE, EAPOL — semuanya dari menu atau Web Remote.</p></div>
-      <div class="step anim" style="animation-delay:.1s"><div class="num">03</div><h3>Sinkronkan Data</h3><p>Kirim hasil ke Cloud Dashboard dan tinjau lewat browser.</p></div>
+      <div class="step anim">
+        <div class="art"><svg viewBox="0 0 110 110" fill="none"><circle cx="55" cy="55" r="45" stroke="rgba(0,230,118,.2)" stroke-width="1.5"/><rect x="30" y="28" width="50" height="40" rx="8" fill="#0c1220" stroke="#00e676" stroke-width="1.6"/><path d="M36 44h26M36 52h18" stroke="#00e676" stroke-width="1.6" stroke-linecap="round"/><circle cx="70" cy="38" r="5" fill="none" stroke="rgba(255,255,255,.3)"/><path d="M55 28v-8M55 16a4 4 0 016 0v2" stroke="#00e676" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+        <div class="num">01</div>
+        <h3>Hubungkan Perangkat</h3>
+        <p>Flash firmware NISKALA ke ESP32, lalu navigasi lewat layar dan dua tombol.</p>
+      </div>
+      <div class="step anim" style="animation-delay:.05s">
+        <div class="art"><svg viewBox="0 0 110 110" fill="none"><circle cx="55" cy="55" r="20" stroke="#22d3ee" stroke-width="1.5"/><circle cx="55" cy="55" r="38" stroke="rgba(34,211,238,.25)" stroke-width="1.5"/><circle cx="55" cy="55" r="52" stroke="rgba(34,211,238,.12)" stroke-width="1.5"/><line x1="55" y1="55" x2="82" y2="28" stroke="#22d3ee" stroke-width="1.8" stroke-linecap="round"/><circle cx="55" cy="55" r="4" fill="#22d3ee"/><circle cx="82" cy="28" r="4" fill="#00e676"/></svg></div>
+        <div class="num">02</div>
+        <h3>Jalankan Pengujian</h3>
+        <p>Scan, deauth, Evil Twin, BLE, EAPOL — semuanya dari menu atau Web Remote.</p>
+      </div>
+      <div class="step anim" style="animation-delay:.1s">
+        <div class="art"><svg viewBox="0 0 110 110" fill="none"><path d="M30 62 a20 20 0 0120-22 a20 20 0 0120 22z" fill="rgba(167,139,250,.1)" stroke="#a78bfa" stroke-width="1.6"/><path d="M70 62 h10 v-6 a25 25 0 00-50 0 v6 h10" fill="rgba(167,139,250,.1)" stroke="#a78bfa" stroke-width="1.6"/><path d="M55 70 v18M44 84 l11 8 11-8" stroke="#a78bfa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="num">03</div>
+        <h3>Sinkronkan Data</h3>
+        <p>Kirim hasil ke Cloud Dashboard dan tinjau lewat browser.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head anim">
+      <div class="kicker">Spesifikasi</div>
+      <h2>Perangkat keras &amp; kemampuan</h2>
+    </div>
+    <div class="specs-wrap">
+      <div class="specs">
+        <div class="spec anim"><div class="sicon i-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg></div><div><b>ESP32</b><span>Prosesor dual-core 240 MHz dengan WiFi + BLE bawaan</span></div></div>
+        <div class="spec anim" style="animation-delay:.04s"><div class="sicon i-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"/></svg></div><div><b>WiFi 2.4 GHz</b><span>Monitor mode, raw frame injection, dan channel hopping</span></div></div>
+        <div class="spec anim" style="animation-delay:.08s"><div class="sicon i-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7l10 10M17 7L7 17"/></svg></div><div><b>Bluetooth BLE</b><span>Scan, tracking, dan advertisement spoofing (iBeacon/Eddystone)</span></div></div>
+        <div class="spec anim" style="animation-delay:.12s"><div class="sicon i-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div><div><b>Layar TFT</b><span>Tampilan 135×240 untuk navigasi dan pemantauan langsung</span></div></div>
+      </div>
+      <div class="specs-art anim" style="animation-delay:.1s">
+        <svg viewBox="0 0 340 300" fill="none">
+          <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00e676" stop-opacity=".6"/><stop offset="1" stop-color="#22d3ee" stop-opacity=".2"/></linearGradient></defs>
+          <rect x="80" y="70" width="180" height="120" rx="16" fill="#0c1220" stroke="url(#sg)" stroke-width="1.8"/>
+          <rect x="80" y="70" width="180" height="120" rx="16" fill="rgba(0,230,118,.04)"/>
+          <rect x="98" y="88" width="90" height="56" rx="6" fill="#06120b" stroke="rgba(0,230,118,.35)"/>
+          <path d="M108 130 L128 104 L150 122 L160 112" stroke="#00e676" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="98" y="156" width="22" height="14" rx="3" fill="#1c2733" stroke="rgba(255,255,255,.15)"/>
+          <rect x="128" y="156" width="22" height="14" rx="3" fill="#1c2733" stroke="rgba(255,255,255,.15)"/>
+          <circle cx="206" cy="96" r="6" fill="none" stroke="rgba(255,255,255,.28)"/>
+          <circle cx="206" cy="114" r="6" fill="none" stroke="rgba(255,255,255,.28)"/>
+          <circle cx="206" cy="132" r="6" fill="none" stroke="rgba(255,255,255,.28)"/>
+          <circle cx="206" cy="150" r="6" fill="none" stroke="rgba(255,255,255,.28)"/>
+          <line x1="170" y1="70" x2="170" y2="44" stroke="#00e676" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="170" cy="40" r="6" fill="#00e676"><animate attributeName="r" values="6;8;6" dur="2s" repeatCount="indefinite"/></circle>
+          <path d="M40 210 q12 -10 24 0 M48 220 q20 -18 40 0" stroke="rgba(34,211,238,.6)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <g font-family="Nunito,sans-serif" font-size="12" font-weight="800">
+            <rect x="70" y="230" width="72" height="26" rx="13" fill="rgba(0,230,118,.1)" stroke="rgba(0,230,118,.25)"/><text x="106" y="247" text-anchor="middle" fill="#00e676">2.4 GHz</text>
+            <rect x="200" y="230" width="60" height="26" rx="13" fill="rgba(34,211,238,.1)" stroke="rgba(34,211,238,.25)"/><text x="230" y="247" text-anchor="middle" fill="#22d3ee">BLE</text>
+          </g>
+        </svg>
+      </div>
     </div>
   </div>
 </section>
@@ -243,6 +315,22 @@
       <h3>Pantau hasil pengujian secara real-time</h3>
       <p>Dashboard cloud menampilkan data Probe Sniff, Karma, Password, dan BLE yang dikirim dari perangkat NISKALA.</p>
       <a class="btn btn-primary" href="view.php">Masuk ke Dashboard</a>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:20px">
+  <div class="wrap">
+    <div class="sec-head anim">
+      <div class="kicker">FAQ</div>
+      <h2>Pertanyaan umum</h2>
+    </div>
+    <div class="faq">
+      <details class="anim"><summary>Apakah NISKALA legal digunakan?</summary><div class="ans">Ya, selama digunakan pada perangkat/jaringan milik sendiri atau dengan izin tertulis. Penggunaan tanpa izin untuk mengganggu jaringan orang lain adalah ilegal.</div></details>
+      <details class="anim"><summary>Kenapa deauth tidak memutus target?</summary><div class="ans">Kemungkinan besar target berada di WiFi 5 GHz (ESP32 hanya mendukung 2.4 GHz) atau target mengaktifkan PMF/WPA3 yang memblokir deauth.</div></details>
+      <details class="anim"><summary>Board apa yang didukung?</summary><div class="ans">TTGO T-Display (ESP32) atau ESP32 dengan layar ST7789 135×240 dan dua tombol (GPIO 0 dan GPIO 35).</div></details>
+      <details class="anim"><summary>Apakah butuh SD card?</summary><div class="ans">Tidak wajib. Hasil pengujian bisa disimpan di NVS internal atau dikirim ke Cloud Sync (hosting) sebagai pengganti SD card.</div></details>
+      <details class="anim"><summary>Bagaimana cara mengendalikan dari HP?</summary><div class="ans">Aktifkan menu WEB REMOTE, hubungkan HP ke WiFi NISKALA_CTRL (password niskala123), lalu buka http://192.168.4.1/rc.</div></details>
     </div>
   </div>
 </section>
@@ -262,9 +350,7 @@
 <footer>
   <div class="wrap">
     <div class="foot-brand">NIS<span>KALA</span></div>
-    <div class="foot-tags">
-      <span class="tag">v3.1</span><span class="tag">ESP32</span><span class="tag">Educational Use Only</span>
-    </div>
+    <div class="foot-tags"><span class="tag">v3.1</span><span class="tag">ESP32</span><span class="tag">Educational Use Only</span></div>
     <p class="foot-copy">&copy; 2024 NISKALA — Dibuat untuk belajar, bukan untuk menyakiti.</p>
   </div>
 </footer>
