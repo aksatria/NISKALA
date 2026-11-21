@@ -463,11 +463,12 @@ void drawCSARunning(int frame) {
   tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println(g_packetsSent);
 
   tft.setCursor(10, 86); tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.print("Korban: ");
-  if (g_victimFound) {
+  if (isVictimFound()) {
     tft.setTextColor(TFT_GREEN, TFT_BLACK);
     char buf[24];
+    uint8_t vm[6]; getVictimMac(vm);
     snprintf(buf, sizeof(buf), "%02X:%02X:%02X...",
-             g_victimMAC[0], g_victimMAC[1], g_victimMAC[2]);
+             vm[0], vm[1], vm[2]);
     tft.println(buf);
   } else {
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);

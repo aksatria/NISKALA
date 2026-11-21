@@ -134,6 +134,7 @@ KarmaClientEntry g_karmaClients[KARMA_MAX_CLIENTS];
 int g_karmaClientCount = 0;
 volatile uint32_t g_karmaResponses = 0;
 portMUX_TYPE g_karmaMux = portMUX_INITIALIZER_UNLOCKED;
+portMUX_TYPE g_stateMux = portMUX_INITIALIZER_UNLOCKED;
 volatile bool g_karmaActiveMode = true;
 
 // Karma UI state
@@ -445,7 +446,7 @@ void startKarmaScan() {
   esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
   esp_wifi_set_promiscuous(true);
 
-  g_attackMode = ATK_KARMA;
+  setAttackMode(ATK_KARMA);
   isKarmaRunning = true;
   karmaScanStart = millis();
   Serial.println("[KARMA] Scan started (20s, active mode)");
@@ -453,7 +454,7 @@ void startKarmaScan() {
 
 void stopKarmaScan() {
   isKarmaRunning = false;
-  g_attackMode = ATK_IDLE;
+  setAttackMode(ATK_IDLE);
   resetWifiStateAfterAttack();
   Serial.println("[KARMA] Scan stopped");
 }
@@ -483,14 +484,14 @@ void startDeauthEngine() {
   delay(100);
   g_packetsSent = 0;
   g_txErrors = 0;
-  g_victimFound = false;
+  setVictimFound(false);
   isDeauthRunning = true;
-  g_attackMode = ATK_DEAUTH_TARGET;
+  setAttackMode(ATK_DEAUTH_TARGET);
 }
 
 void stopDeauthEngine() {
   isDeauthRunning = false;
-  g_attackMode = ATK_IDLE;
+  setAttackMode(ATK_IDLE);
   resetWifiStateAfterAttack();
 }
 
@@ -515,12 +516,12 @@ void startAuthFlood() {
   g_packetsSent = 0;
   g_txErrors = 0;
   isAuthFloodRunning = true;
-  g_attackMode = ATK_AUTH_FLOOD;
+  setAttackMode(ATK_AUTH_FLOOD);
 }
 
 void stopAuthFlood() {
   isAuthFloodRunning = false;
-  g_attackMode = ATK_IDLE;
+  setAttackMode(ATK_IDLE);
   resetWifiStateAfterAttack();
 }
 
@@ -534,12 +535,12 @@ void startGlobalDeauth() {
   g_packetsSent = 0;
   g_txErrors = 0;
   isGlobalDeauthRunning = true;
-  g_attackMode = ATK_DEAUTH_GLOBAL;
+  setAttackMode(ATK_DEAUTH_GLOBAL);
 }
 
 void stopGlobalDeauth() {
   isGlobalDeauthRunning = false;
-  g_attackMode = ATK_IDLE;
+  setAttackMode(ATK_IDLE);
   resetWifiStateAfterAttack();
 }
 
@@ -556,12 +557,12 @@ void startBeaconSpam() {
   g_packetsSent = 0;
   g_txErrors = 0;
   isBeaconRunning = true;
-  g_attackMode = ATK_BEACON;
+  setAttackMode(ATK_BEACON);
 }
 
 void stopBeaconSpam() {
   isBeaconRunning = false;
-  g_attackMode = ATK_IDLE;
+  setAttackMode(ATK_IDLE);
   resetWifiStateAfterAttack();
 }
 
@@ -578,12 +579,12 @@ void startProbeSniffer() {
   esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
   esp_wifi_set_promiscuous(true);
   isProbeRunning = true;
-  g_attackMode = ATK_PROBE;
+  setAttackMode(ATK_PROBE);
 }
 
 void stopProbeSniffer() {
   isProbeRunning = false;
-  g_attackMode = ATK_IDLE;
+  setAttackMode(ATK_IDLE);
   resetWifiStateAfterAttack();
 }
 
@@ -591,7 +592,7 @@ void startBTSpam() {
   radioSetMode(RADIO_OFF);
   if (btSpamInit()) {
     isBTSpamRunning = true;
-    g_attackMode = ATK_IDLE;
+    setAttackMode(ATK_IDLE);
   }
 }
 
@@ -628,9 +629,9 @@ void startCSAAttack() {
 
   g_packetsSent = 0;
   g_txErrors = 0;
-  g_victimFound = false;
+  setVictimFound(false);
   isCSARunning = true;
-  g_attackMode = ATK_CSA;
+  setAttackMode(ATK_CSA);
   Serial.printf("[CSA] Started on BSSID %02X:%02X:%02X:%02X:%02X:%02X ch=%d SSID=%s\n",
                 g_targetBSSID[0], g_targetBSSID[1], g_targetBSSID[2],
                 g_targetBSSID[3], g_targetBSSID[4], g_targetBSSID[5],
@@ -639,7 +640,7 @@ void startCSAAttack() {
 
 void stopCSAAttack() {
   isCSARunning = false;
-  g_attackMode = ATK_IDLE;
+  setAttackMode(ATK_IDLE);
   resetWifiStateAfterAttack();
   Serial.println("[CSA] Stopped");
 }
@@ -743,7 +744,7 @@ void stopAttacksKeepWebRemote() {
     dnsServer.stop();
     esp_wifi_set_promiscuous(false);
   }
-  g_attackMode = ATK_IDLE;
+  setAttackMode(ATK_IDLE);
 }
 
 // Hentikan semua modul serangan tanpa merusak AP kontrol saat idle
@@ -766,7 +767,7 @@ void stopAllAttacks() {
     dnsServer.stop();
     resetWifiStateAfterAttack();
   }
-  g_attackMode = ATK_IDLE;
+  setAttackMode(ATK_IDLE);
 }
 
 // ── Evil Twin  [PATCH 5 MAC cloning] ──
@@ -837,11 +838,11 @@ void startEvilTwinWithDeauth() {
 
   g_packetsSent = 0;
   g_txErrors = 0;
-  g_victimFound = false;
+  setVictimFound(false);
   isReleasing = false;
   isVerifying = false;
   isEvilTwinRunning = true;
-  g_attackMode = ATK_EVIL_TWIN;
+  setAttackMode(ATK_EVIL_TWIN);
   evilTwinStartTime = millis();
 
   Serial.printf("Evil Twin Started. Target BSSID=%02X:%02X:%02X:%02X:%02X:%02X ch=%d (attempt %d/%d)\n",
@@ -856,7 +857,7 @@ void stopEvilTwin() {
   isVerifying = false;
   verifyState = 0;
   useCustomTemplate = false;
-  g_attackMode = ATK_IDLE;
+  setAttackMode(ATK_IDLE);
   server.stop();
   dnsServer.stop();
   resetWifiStateAfterAttack();
@@ -964,7 +965,7 @@ void beginVerification() {
   Serial.printf("[VERIFY] Attempt %d/%d starting\n",
                 verifyAttempts + 1, MAX_VERIFY_ATTEMPTS);
   esp_wifi_set_promiscuous(false);
-  g_attackMode = ATK_IDLE;
+  setAttackMode(ATK_IDLE);
   WiFi.disconnect();
   delay(100);
   WiFi.begin(targetSSID.c_str(), capturedPass.c_str(), g_targetChannel, g_targetBSSID);
@@ -1014,7 +1015,7 @@ void updateVerification() {
     verifyState = 3;
     isReleasing = false;
     esp_wifi_set_promiscuous(true);
-    g_attackMode = ATK_EVIL_TWIN;
+    setAttackMode(ATK_EVIL_TWIN);
 
     tft.fillScreen(TFT_BLACK);
     drawHeader("PASSWORD SALAH", TFT_RED);

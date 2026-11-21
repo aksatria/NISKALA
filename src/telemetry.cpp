@@ -21,7 +21,7 @@ String buildSystemStatusLine() {
   snprintf(buf, sizeof(buf),
            "State=%d Mode=%d PKT=%u ERR=%u Heap=%u Bat=%d Temp=%.0f Stack=%u Uptime=%lu",
            (int)currentState,
-           (int)g_attackMode,
+           (int)getAttackMode(),
            (unsigned)g_packetsSent,
            (unsigned)g_txErrors,
            (unsigned)ESP.getFreeHeap(),
@@ -35,7 +35,7 @@ String buildSystemStatusLine() {
 String buildTelemetryJson() {
   String j = "{";
   j += "\"state\":" + String((int)currentState);
-  j += ",\"mode\":" + String((int)g_attackMode);
+  j += ",\"mode\":" + String((int)getAttackMode());
   j += ",\"packets\":" + String((uint32_t)g_packetsSent);
   j += ",\"tx_errors\":" + String((uint32_t)g_txErrors);
   j += ",\"heap\":" + String((uint32_t)ESP.getFreeHeap());

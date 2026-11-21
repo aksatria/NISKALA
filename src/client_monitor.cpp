@@ -75,7 +75,7 @@ void startClientMonitor() {
   g_packetsSent = 0;
   g_txErrors = 0;
   isClientMonitorRunning = true;
-  g_attackMode = ATK_CLIENT_MONITOR;
+  setAttackMode(ATK_CLIENT_MONITOR);
   Serial.printf("[CLIENT] Monitor %02X:%02X:%02X:%02X:%02X:%02X ch=%d SSID=%s\n",
     g_targetBSSID[0], g_targetBSSID[1], g_targetBSSID[2],
     g_targetBSSID[3], g_targetBSSID[4], g_targetBSSID[5],
@@ -84,7 +84,7 @@ void startClientMonitor() {
 
 void stopClientMonitor() {
   isClientMonitorRunning = false;
-  g_attackMode = ATK_IDLE;
+  setAttackMode(ATK_IDLE);
   resetWifiStateAfterAttack();
   Serial.println("[CLIENT] Monitor berhenti");
 }

