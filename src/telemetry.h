@@ -18,4 +18,8 @@ float temperatureRead();
 String buildSystemStatusLine();
 String buildTelemetryJson();
 
+// Event log (ring buffer untuk observability)
+void logEvent(const char* fmt, ...);
+String dumpEventLog();
+
 #endif

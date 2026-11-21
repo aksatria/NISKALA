@@ -62,6 +62,7 @@ void cliPrintHelp() {
   Serial.println("NISKALA CLI");
   Serial.println("  help");
   Serial.println("  status");
+  Serial.println("  log");
   Serial.println("  scan");
   Serial.println("  stop");
   Serial.println("  beacon | probe | karma | global | blespam | blescan");
@@ -86,6 +87,9 @@ void processCliCommand(String line) {
   if (cmd == "help") { cliPrintHelp(); }
   else if (cmd == "status") {
     Serial.println(buildSystemStatusLine());
+  }
+  else if (cmd == "log" || cmd == "events") {
+    Serial.println(dumpEventLog());
   }
   else if (cmd == "scan") {
     radioSetMode(RADIO_STA);

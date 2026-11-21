@@ -744,6 +744,7 @@ void stopAttacksKeepWebRemote() {
     esp_wifi_set_promiscuous(false);
   }
   setAttackMode(ATK_IDLE);
+  logEvent("STOP attacks (keep web)");
 }
 
 // Hentikan semua modul serangan tanpa merusak AP kontrol saat idle
@@ -767,6 +768,7 @@ void stopAllAttacks() {
     resetWifiStateAfterAttack();
   }
   setAttackMode(ATK_IDLE);
+  logEvent("STOP all attacks");
 }
 
 // ── Evil Twin  [PATCH 5 MAC cloning] ──
@@ -1269,6 +1271,7 @@ void setup() {
 
   Serial.println("Setup selesai, heap tersisa: " + String(ESP.getFreeHeap()));
   Serial.println("Ketik 'help' untuk CLI (Serial Monitor 115200).");
+  logEvent("BOOT v" FW_VERSION " heap=%u", (unsigned)ESP.getFreeHeap());
   lastActivity = millis();
 }
 
