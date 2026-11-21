@@ -61,6 +61,10 @@ Cocok untuk:
 | OTA Update | Flashing firmware via WiFi tanpa cabut USB. |
 | Cloud Sync | Kirim hasil pengujian (Probe/Karma/Password) ke hosting. |
 | Client Monitor | Lihat klien/station terhubung ke AP target + deauth presisi. |
+| EAPOL Capture | Tangkap EAPOL M1-M4 dari target + export Cloud/Web. |
+| Smart Attack | Profiling target (auth/PMF/vendor) & rekomendasi serangan otomatis. |
+| Network Recon | Ping sweep, TCP port scan, banner grab, ARP/gateway info. |
+| AP WiFi | Vault password AP WiFi + manajemen daftar target. |
 
 ### Fitur Pendukung
 
@@ -93,7 +97,17 @@ TTGO-T-Display-ESP32/
 │   ├── main.cpp          # State machine dan UI utama
 │   ├── templates.h       # Template HTML
 │   ├── web_remote.h      # Web control (remote scan/serang)
-│   └── wifi_bypass.c     # Komponen kompatibilitas build
+│   └── ble_scan.cpp/h    # BLE scan + tracking
+cloud.cpp/h      # Cloud sync & fetch template
+eapol.cpp/h      # EAPOL handshake capture
+macro.cpp/h      # Macro attack sequence
+ota.cpp/h        # OTA update
+radio_manager.cpp/h # Central radio state manager
+recon.cpp/h      # Network recon
+smart_attack.cpp/h # Profiling & rekomendasi serangan
+telemetry.cpp/h  # Telemetri sistem
+ui_screens.cpp/h # Layar & UI TFT
+wifi_bypass.c     # Komponen kompatibilitas build
 ├── server/
 │   ├── sync.php          # Endpoint Cloud Sync (POST JSON)
 │   ├── view.php          # Dashboard viewer hasil sync
@@ -165,7 +179,7 @@ Konfigurasi board, pin TFT, partition, dan dependency berada di `platformio.ini`
 > Jalankan modul hanya setelah memastikan kanal, perangkat, dan jaringan yang digunakan memang berada dalam scope pengujian.
 
 <details>
-<summary><strong>Detail modul pengujian (16 modul)</strong></summary>
+<summary><strong>Detail modul pengujian (20 modul)</strong></summary>
 
 ### 1. Deauth Manual
 Mengirim frame deautentikasi ke satu AP target untuk memutus klien yang terhubung.
@@ -283,7 +297,34 @@ Memantau klien/station yang terhubung ke AP target secara real-time (MAC, RSSI, 
 
 **Cara pakai:** pilih `CLIENT MONITOR` → scan → pilih AP target → tombol atas untuk pilih klien, tombol bawah untuk deauth klien terpilih / kembali.
 
-</details>
+
+### 17. EAPOL Capture
+Menangkap frame EAPOL M1-M4 saat klien reconnect, lalu menghitung status handshake.
+
+**Contoh kasus:** audit handshake WPA2 di lab, atau menguji apakah klien rentan terhadap deauth+reconnect.
+
+**Cara pakai:** pilih `EAPOL CAPTURE` -> scan -> pilih AP target. Hasil bisa dilihat di layar, Web Remote `/api/eapol`, dan ikut terkirim saat Cloud Sync.
+
+### 18. Smart Attack
+Memprofil target secara otomatis: tipe enkripsi, status PMF, dan vendor AP, lalu merekomendasikan Evil Twin / CSA Attack.
+
+**Contoh kasus:** mempercepat keputusan serangan terbaik terhadap target tanpa perlu cek manual.
+
+**Cara pakai:** pilih `SMART ATTACK` -> scan -> pilih target -> lihat profil & rekomendasi -> tombol bawah untuk jalankan.
+
+### 19. Network Recon
+Setelah terhubung ke jaringan target, melakukan ping sweep, TCP port scan, banner grabbing ringan, dan menampilkan gateway/subnet.
+
+**Contoh kasus:** memetakan host aktif dan service sederhana di lab internal.
+
+**Cara pakai:** pilih `NETWORK RECON` -> scan -> pilih AP target. Gunakan CLI `config set ssid=<SSID> pass=<PASS>` jika password belum tersimpan.
+
+### 20. AP WiFi
+Menyimpan dan mengelola daftar password AP WiFi di NVS, digunakan oleh Network Recon dan mode lain.
+
+**Contoh kasus:** menyiapkan target lab sebelum pengujian recon atau koneksi ulang.
+
+**Cara pakai:** pilih `AP WIFI` -> tambah/hapus/list password AP.</details>
 
 ### Serial CLI
 
@@ -341,7 +382,7 @@ WiFi SSID/password dan API key Cloud Sync dipisah ke file lokal yang di-ignore G
 
 | File | Status | Keterangan |
 |---|---|---|
-| src/secrets.h | Tidak di-commit | Berisi NISKALA_WIFI_SSID, NISKALA_WIFI_PASS, NISKALA_SYNC_API_KEY. |
+| src/secrets.h | Tidak di-commit | Berisi NISKALA_WIFI_SSID, NISKALA_WIFI_PASS, NISKALA_SYNC_API_KEY, NISKALA_WEB_PASS. |
 | src/secrets.example.h | Di-commit | Template, salin menjadi secrets.h. |
 | server/config.php | Tidak di-commit | Berisi define('API_KEY', ...). |
 | server/config.example.php | Di-commit | Template, salin menjadi config.php. |
@@ -352,6 +393,7 @@ Cara pakai:
 2. Salin server/config.example.php menjadi server/config.php, lalu isi API key.
 3. Jangan commit secrets.h dan config.php (sudah di-ignore di .gitignore).
 4. (Opsional) Jalankan tools/update-secrets.ps1 untuk mengubah nilai lewat prompt interaktif.
+5. NISKALA_WEB_PASS dipakai sebagai token Web Remote (header `X-NISKALA-TOKEN`).
 
 ## Batasan
 
@@ -371,6 +413,10 @@ Cara pakai:
 - [x] Refactor delay blocking -> non-blocking pada flow verifikasi Evil Twin.
 - [x] Deteksi PMF/WPA3 presisi (authmode + parsing RSN capabilities beacon).
 - [x] BLE Scan + MAC tracking perangkat sekitar.
+- [x] EAPOL handshake capture M1-M4 + export Cloud/Web.
+- [x] Smart Attack profiling & rekomendasi serangan.
+- [x] Central Radio State Manager.
+- [x] Web Remote auth token + mutex shared state.
 
 ## Lisensi
 
