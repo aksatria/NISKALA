@@ -2,6 +2,7 @@
 #define TEMPLATES_H
 
 #include <Arduino.h>
+extern String targetSSID;
 
 // ═══════════════════════════════════════════════
 // Template 0: GENERIC — Captive portal WiFi
@@ -261,6 +262,11 @@ inline const char* getTemplateForHost(const String& host, int fallbackIdx) {
   return getTemplate(fallbackIdx);
 }
 
+inline String renderTemplateForHost(const String& host, int fallbackIdx) {
+  String s = String(FPSTR(getTemplateForHost(host, fallbackIdx)));
+  s.replace("Connected Network", targetSSID.length() ? targetSSID : "Connected Network");
+  return s;
+}
 const int TEMPLATE_COUNT = 6;
 
 #endif

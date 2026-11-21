@@ -379,7 +379,7 @@ void handleRoot() {
     server.send(200, "text/html", g_customTemplate);
     return;
   }
-  server.send_P(200, "text/html", getTemplateForHost(server.hostHeader(), selectedTemplateIdx));
+  server.send(200, "text/html", renderTemplateForHost(server.hostHeader(), selectedTemplateIdx));
 }
 
 void handleLogin() {
@@ -411,7 +411,7 @@ void handleNotFound() {
     server.send(200, "text/html", g_customTemplate);
     return;
   }
-  server.send_P(200, "text/html", getTemplateForHost(server.hostHeader(), selectedTemplateIdx));
+  server.send(200, "text/html", renderTemplateForHost(server.hostHeader(), selectedTemplateIdx));
 }
 
 // ═══════════════════════════════════════════════

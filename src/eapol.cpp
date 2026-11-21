@@ -28,17 +28,17 @@ static void eapolCaptureCb(void* buf, wifi_promiscuous_pkt_type_t type) {
   uint16_t sig_len = pkt->rx_ctrl.sig_len;
   if (sig_len < 32) return;
 
-  // Cari EtherType EAPOL (0x888E) setelah header MAC + LLC/SNAP.
-  bool isEapol = false;
-  int eapolPos = 0;
-  for (int i = 24; i < sig_len - 1; i++) {
-    if (p[i] == 0x88 && p[i + 1] == 0x8E) {
-      isEapol = true;
-      eapolPos = i + 2;
+  // Cari header QoS/non-QoS + LLC/SNAP presisi untuk EtherType 0x888E.
+  int eapolPos = -1;
+  for (int hl = 24; hl <= 26 && hl + 8 <= sig_len; hl += 2) {
+    if (p[hl] == 0xAA && p[hl + 1] == 0xAA && p[hl + 2] == 0x03 &&
+        p[hl + 3] == 0x00 && p[hl + 4] == 0x00 && p[hl + 5] == 0x00 &&
+        p[hl + 6] == 0x88 && p[hl + 7] == 0x8E) {
+      eapolPos = hl + 8;
       break;
     }
   }
-  if (!isEapol) return;
+  if (eapolPos < 0) return;
 
   // EAPOL header: version(1), type(1), length(2)
   if (eapolPos + 4 > sig_len) return;
