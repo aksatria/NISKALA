@@ -1226,23 +1226,6 @@ void handleKarmaResults() {
   }
 }
 
-void doScanAnimation() {
-  tft.fillScreen(TFT_BLACK);
-  drawScanAnimation(0);
-  WiFi.scanNetworks(true, true);
-  int frame = 0;
-  while (true) {
-    int n = WiFi.scanComplete();
-    if (n >= 0) { apCount = n; break; }
-    if (n == -2) { apCount = 0; break; }
-    drawScanAnimation(frame++);
-    if (digitalRead(BTN_TOP) == LOW) {
-      WiFi.scanDelete(); apCount = -1; delay(200); break;
-    }
-    delay(60);
-  }
-}
-
 void startApScan(int pendingMenu) {
   g_scanPendingMenu = pendingMenu;
   g_scanFrame = 0;
@@ -1273,7 +1256,7 @@ void apScanTick() {
     else {
       tft.fillScreen(TFT_BLACK);
       drawHeader("NO WIFI FOUND", TFT_RED);
-      delay(1500);
+      delay(250);
       drawMainMenu();
       currentState = MAIN_MENU;
     }

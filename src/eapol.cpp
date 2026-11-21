@@ -68,7 +68,7 @@ void startEapolCapture() {
     tft.setCursor(10, 40); tft.println("Target belum dipilih.");
     tft.setCursor(10, 60); tft.println("Pilih AP dulu lewat");
     tft.setCursor(10, 80); tft.println("menu EAPOL CAPTURE.");
-    delay(1800);
+    delay(300);
     currentState = MAIN_MENU;
     drawMainMenu();
     return;
