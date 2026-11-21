@@ -461,7 +461,7 @@ void startDeauthEngine() {
   if (isWebRemoteRunning) {
     if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
   } else {
-    WiFi.mode(WIFI_OFF);
+    radioSetMode(RADIO_OFF);
     delay(50);
     uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
     if (memcmp(mac, g_targetBSSID, 6) != 0) {
@@ -543,7 +543,7 @@ void stopGlobalDeauth() {
 
 void startBeaconSpam() {
   if (!isWebRemoteRunning) {
-    WiFi.mode(WIFI_AP);
+    radioSetMode(RADIO_AP);
     restoreOriginalApMac();
     WiFi.softAP("Beacon_Init", "12345678", 1, 1); delay(300);
   } else {
@@ -586,7 +586,7 @@ void stopProbeSniffer() {
 }
 
 void startBTSpam() {
-  WiFi.mode(WIFI_OFF);
+  radioSetMode(RADIO_OFF);
   if (btSpamInit()) {
     isBTSpamRunning = true;
     g_attackMode = ATK_IDLE;
@@ -932,7 +932,7 @@ bool detectPMFExact(const uint8_t* bssid, uint8_t channel) {
   }
 
   esp_wifi_set_promiscuous(false);
-  WiFi.mode(WIFI_STA);
+  radioSetMode(RADIO_STA);
   return g_pmfEnabled;
 }
 
@@ -1363,7 +1363,7 @@ void setup() {
 
   radioSetMode(RADIO_AP_STA);
   esp_wifi_get_mac(WIFI_IF_AP, g_originalApMac);
-  WiFi.mode(WIFI_STA);
+  radioSetMode(RADIO_STA);
   WiFi.disconnect();
 
   Serial.println("[3/4] Start attack task...");
@@ -1683,7 +1683,7 @@ void loop() {
       delay(200);
       WiFi.disconnect();
       restoreOriginalApMac();
-      WiFi.mode(WIFI_STA);
+      radioSetMode(RADIO_STA);
       currentState = TEMPLATE_SELECT;
       drawTemplateSelect();
     }
@@ -1751,7 +1751,7 @@ void loop() {
       delay(200);
       WiFi.disconnect();
       restoreOriginalApMac();
-      WiFi.mode(WIFI_STA);
+      radioSetMode(RADIO_STA);
       g_cloudPhase = CLOUD_PHASE_IDLE;
       currentState = MAIN_MENU;
       drawMainMenu();

@@ -423,7 +423,7 @@ void startNetworkRecon() {
 
   tft.print("Hubung WiFi: ");
   tft.println(ssid.substring(0, 18));
-  WiFi.mode(WIFI_STA);
+  radioSetMode(RADIO_STA);
   WiFi.disconnect(true);
   WiFi.begin(ssid.c_str(), pass.c_str());
   g_reconConnectStart = millis();

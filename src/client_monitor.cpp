@@ -50,9 +50,9 @@ void drawClientMonitor() {
 
 void startClientMonitor() {
   if (isWebRemoteRunning) {
-    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+    if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
   } else {
-    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+    if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
     uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
     if (memcmp(mac, g_targetBSSID, 6) != 0) {
       esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);

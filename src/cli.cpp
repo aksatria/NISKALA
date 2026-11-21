@@ -9,6 +9,7 @@
 #include "recon.h"
 #include "macro.h"
 #include "telemetry.h"
+#include "wifi_state.h"
 
 static String cliBuf = "";
 int hexNibble(char c) {
@@ -85,7 +86,7 @@ void processCliCommand(String line) {
     Serial.println(buildSystemStatusLine());
   }
   else if (cmd == "scan") {
-    WiFi.mode(WIFI_STA);
+    radioSetMode(RADIO_STA);
     int n = WiFi.scanNetworks(false, true);
     Serial.printf("[SCAN] %d AP\n", n);
     for (int i = 0; i < n && i < 20; i++) {
@@ -140,7 +141,7 @@ void processCliCommand(String line) {
     memcpy(g_targetBSSID, mac, 6);
     g_targetChannel = 1;
     targetSSID = "CLI_Target";
-    WiFi.mode(WIFI_STA);
+    radioSetMode(RADIO_STA);
     int n = WiFi.scanNetworks(false, true);
     for (int i = 0; i < n; i++) {
       if (memcmp(WiFi.BSSID(i), mac, 6) == 0) {
@@ -162,7 +163,7 @@ void processCliCommand(String line) {
     int n = hexToBytes(arg.c_str(), buf, 31);
     if (n <= 0) { Serial.println("[CLI] hex tidak valid / kosong"); return; }
     stopAllAttacks();
-    WiFi.mode(WIFI_OFF);
+    radioSetMode(RADIO_OFF);
     if (btStartFixed(buf, n)) {
       isBTSpamRunning = true;
       currentState = BT_SPAM;
@@ -183,7 +184,7 @@ void processCliCommand(String line) {
       major = arg.toInt();
     }
     stopAllAttacks();
-    WiFi.mode(WIFI_OFF);
+    radioSetMode(RADIO_OFF);
     if (btStartIBeacon(IBEACON_DEFAULT_UUID, (uint16_t)major, (uint16_t)minor, -59)) {
       isBTSpamRunning = true;
       currentState = BT_SPAM;
@@ -195,7 +196,7 @@ void processCliCommand(String line) {
   }
   else if (cmd == "ble-eddy") {
     stopAllAttacks();
-    WiFi.mode(WIFI_OFF);
+    radioSetMode(RADIO_OFF);
     if (btStartEddystone(EDDYSTONE_NS, EDDYSTONE_INST, -59)) {
       isBTSpamRunning = true;
       currentState = BT_SPAM;
