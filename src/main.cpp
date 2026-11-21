@@ -431,7 +431,7 @@ void startKarmaScan() {
   g_karmaResponses = 0;
   g_karmaActiveMode = true;
 
-  WiFi.mode(WIFI_AP_STA);
+  radioSetMode(RADIO_AP_STA);
   delay(200);
   if (!isWebRemoteRunning) {
     restoreOriginalApMac();
@@ -459,7 +459,7 @@ void stopKarmaScan() {
 // ── Deauth ──
 void startDeauthEngine() {
   if (isWebRemoteRunning) {
-    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+    if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
   } else {
     WiFi.mode(WIFI_OFF);
     delay(50);
@@ -471,7 +471,7 @@ void startDeauthEngine() {
       }
       delay(50);
     }
-    WiFi.mode(WIFI_AP_STA);
+    radioSetMode(RADIO_AP_STA);
     WiFi.softAP("Deauther_Fix", "12345678", 1, 1); delay(400);
   }
   applyPromiscuousFilter(false);
@@ -494,9 +494,9 @@ void stopDeauthEngine() {
 
 void startAuthFlood() {
   if (isWebRemoteRunning) {
-    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+    if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
   } else {
-    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+    if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
     uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
     if (memcmp(mac, g_targetBSSID, 6) != 0) {
       esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
@@ -523,7 +523,7 @@ void stopAuthFlood() {
 }
 
 void startGlobalDeauth() {
-  if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
   if (!isWebRemoteRunning) {
     restoreOriginalApMac();
     WiFi.softAP("Global_Deauth", "12345678", 1, 1); delay(300);
@@ -547,7 +547,7 @@ void startBeaconSpam() {
     restoreOriginalApMac();
     WiFi.softAP("Beacon_Init", "12345678", 1, 1); delay(300);
   } else {
-    WiFi.mode(WIFI_AP_STA);
+    radioSetMode(RADIO_AP_STA);
   }
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
   esp_wifi_set_promiscuous(false);
@@ -564,7 +564,7 @@ void stopBeaconSpam() {
 }
 
 void startProbeSniffer() {
-  if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+  if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
   if (!isWebRemoteRunning) {
     restoreOriginalApMac();
     WiFi.softAP("Probe_Sniff", "12345678", 1, 1); delay(200);
@@ -602,9 +602,9 @@ void stopBTSpam() {
 // ── CSA  [PATCH 2] ──
 void startCSAAttack() {
   if (isWebRemoteRunning) {
-    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+    if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
   } else {
-    if (WiFi.getMode() != WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
+    if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
     uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
     if (memcmp(mac, g_targetBSSID, 6) != 0) {
       esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
@@ -644,7 +644,7 @@ void stopCSAAttack() {
 
 // ── Web Remote ──
 void startWebRemote() {
-  WiFi.mode(WIFI_AP_STA);
+  radioSetMode(RADIO_AP_STA);
   delay(200);
   restoreOriginalApMac();
   WiFi.softAP("NISKALA_CTRL", "niskala123", 1, 0, 4);
@@ -794,7 +794,7 @@ String getBestDiscoveredSSID() {
 }
 
 void startEvilTwinWithDeauth() {
-  WiFi.mode(WIFI_AP_STA);
+  radioSetMode(RADIO_AP_STA);
   delay(100);
   restoreOriginalApMac();
 
@@ -914,7 +914,7 @@ bool detectPMFExact(const uint8_t* bssid, uint8_t channel) {
   g_pmfEnabled = false;
   memcpy(g_pmfBSSID, bssid, 6);
 
-  WiFi.mode(WIFI_AP_STA);
+  radioSetMode(RADIO_AP_STA);
   delay(50);
   esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
   delay(50);
@@ -1361,7 +1361,7 @@ void setup() {
   Serial.println("[2/4] Disclaimer...");
   showDisclaimerFlow();
 
-  WiFi.mode(WIFI_AP_STA);
+  radioSetMode(RADIO_AP_STA);
   esp_wifi_get_mac(WIFI_IF_AP, g_originalApMac);
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();

@@ -24,7 +24,7 @@ void drawOtaScreen() {
 }
 
 void startOTA() {
-  WiFi.mode(WIFI_AP);
+  radioSetMode(RADIO_AP);
   restoreOriginalApMac();
   WiFi.softAP("NISKALA_OTA", "niskala123", 1, 0, 1);
   delay(300);

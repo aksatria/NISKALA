@@ -76,7 +76,7 @@ void drawBleScan() {
 }
 
 void startBLEScan() {
-  WiFi.mode(WIFI_OFF);
+  radioSetMode(RADIO_OFF);
   if (!BLEDevice::getInitialized()) BLEDevice::init("");
   g_bleScan = BLEDevice::getScan();
   g_bleScan->setAdvertisedDeviceCallbacks(new BleScanCallbacks());

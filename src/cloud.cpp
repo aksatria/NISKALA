@@ -1,4 +1,5 @@
 #include "cloud.h"
+#include "wifi_state.h"
 #include <HTTPClient.h>
 int g_cloudPhase = CLOUD_PHASE_IDLE;
 unsigned long g_cloudTimer = 0;
@@ -27,7 +28,7 @@ void startCloudSync() {
   tft.setTextColor(TFT_YELLOW, TFT_BLACK);
   tft.setCursor(10, 85); tft.print("Menghubungkan...");
 
-  WiFi.mode(WIFI_STA);
+  radioSetMode(RADIO_STA);
   WiFi.begin(cfg_wifi_ssid.c_str(), cfg_wifi_pass.c_str());
   Serial.printf("[SYNC] Connect %s ...\n", cfg_wifi_ssid.c_str());
   g_cloudPhase = CLOUD_PHASE_CONNECTING;
@@ -46,7 +47,7 @@ void cloudSyncTick() {
       tft.setTextColor(TFT_RED, TFT_BLACK);
       tft.setCursor(10, 105); tft.println("GAGAL konek WiFi");
       WiFi.disconnect();
-      WiFi.mode(WIFI_STA);
+      radioSetMode(RADIO_STA);
       g_cloudPhase = CLOUD_PHASE_DONE;
       g_cloudTimer = millis();
     }
@@ -69,7 +70,7 @@ void cloudSyncTick() {
     else { tft.setTextColor(TFT_RED, TFT_BLACK); tft.println("FAIL HTTP " + String(code)); }
 
     WiFi.disconnect();
-    WiFi.mode(WIFI_STA);
+    radioSetMode(RADIO_STA);
     g_cloudPhase = CLOUD_PHASE_DONE;
     g_cloudTimer = millis();
   } else if (g_cloudPhase == CLOUD_PHASE_DONE) {
@@ -102,7 +103,7 @@ void startFetchCustomTemplate() {
   tft.setCursor(10, 40); tft.println("Mengambil template");
   tft.setCursor(10, 60); tft.println("dari hosting...");
 
-  WiFi.mode(WIFI_STA);
+  radioSetMode(RADIO_STA);
   WiFi.begin(cfg_wifi_ssid.c_str(), cfg_wifi_pass.c_str());
   g_tplPhase = TPL_PHASE_CONNECTING;
   g_tplTimer = millis();
@@ -114,7 +115,7 @@ void templateFetchTick() {
       g_tplPhase = TPL_PHASE_GETTING;
     } else if (millis() - g_tplTimer > 12000) {
       WiFi.disconnect();
-      WiFi.mode(WIFI_STA);
+      radioSetMode(RADIO_STA);
       useCustomTemplate = false;
       selectedTemplateIdx = 0;
       currentState = EVIL_TWIN_RUNNING;
@@ -136,7 +137,7 @@ void templateFetchTick() {
     }
     http.end();
     WiFi.disconnect();
-    WiFi.mode(WIFI_STA);
+    radioSetMode(RADIO_STA);
 
     if (ok) {
       selectedTemplateIdx = 5;

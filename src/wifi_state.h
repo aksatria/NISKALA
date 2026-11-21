@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <esp_wifi.h>
+#include "radio_manager.h"
 
 extern uint8_t g_originalApMac[6];
 
@@ -18,7 +19,7 @@ inline void resetWifiStateAfterAttack() {
   esp_wifi_set_promiscuous(false);
   WiFi.softAPdisconnect(true);
   restoreOriginalApMac();
-  WiFi.mode(WIFI_STA);
+  radioSetMode(RADIO_STA);
 }
 
 #endif

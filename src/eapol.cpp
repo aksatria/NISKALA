@@ -74,10 +74,10 @@ void startEapolCapture() {
     return;
   }
 
-  WiFi.mode(WIFI_STA);
+  radioSetMode(RADIO_STA);
   esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
   esp_wifi_set_promiscuous_rx_cb(eapolCaptureCb);
-  esp_wifi_set_promiscuous(true);
+  radioSetPromiscuous(true, g_targetChannel);
 
   isEapolRunning = true;
   eapolStartTime = millis();
@@ -91,7 +91,7 @@ void startEapolCapture() {
 
 void stopEapolCapture() {
   esp_wifi_set_promiscuous(false);
-  WiFi.mode(WIFI_STA);
+  radioSetMode(RADIO_STA);
   isEapolRunning = false;
   Serial.println("[EAPOL] Capture stop");
 }
