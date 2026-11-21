@@ -95,7 +95,7 @@ void startMacro(int idx) {
   macroPhaseStart = millis();
   isMacroRunning = true;
   currentState = MACRO_RUNNING;
-  const MacroStep* steps = (idx == 0) ? MACRO_RECON : MACRO_ASSAULT;
+  const MacroStep* steps = (idx == 0) ? MACRO_RECON : (idx == 1 ? MACRO_ASSAULT : MACRO_HANDSHAKE);
   macroStartStep(steps[0].action);
   drawMacroRunning(0);
   Serial.printf("[MACRO] Mulai %s\n", MACRO_NAMES[idx]);
