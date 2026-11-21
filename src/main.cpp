@@ -660,9 +660,6 @@ void stopWebRemote() {
   Serial.println("[WEB] Remote control berhenti");
 }
 
-// ------------------------------------------------------------------
-// BLE Scanner & MAC Tracking
-// ------------------------------------------------------------------
 // Cloud Sync (kirim hasil ke hosting)
 // ------------------------------------------------------------------
 String buildSyncJson() {
@@ -1033,11 +1030,7 @@ void updateVerification() {
 // ═══════════════════════════════════════════════
 // Navigation
 // ═══════════════════════════════════════════════
-void startClientMonitor();
-void stopClientMonitor();
-void drawClientMonitor();
-void startNetworkRecon();
-void stopNetworkRecon();
+
 
 void handleAPListNavigation() {
   if (digitalRead(BTN_TOP) == LOW) {
@@ -1304,9 +1297,6 @@ void showDisclaimerFlow() {
 // ═══════════════════════════════════════════════
 // Setup
 // ═══════════════════════════════════════════════
-// ------------------------------------------------------------------
-// Macro / Attack Sequence
-// ------------------------------------------------------------------
 
 
 void setup() {

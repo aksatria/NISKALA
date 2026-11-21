@@ -116,18 +116,6 @@ void drawScanAnimation(int frame) {
 // ═══════════════════════════════════════════════
 // Main menu
 // ═══════════════════════════════════════════════
-int readBatteryPercent() {
-  float v = (float)analogReadMilliVolts(BAT_PIN) / 1000.0f * 2.0f;
-  int pct = (int)((v - 3.3f) / (4.2f - 3.3f) * 100.0f);
-  if (pct < 0) pct = 0;
-  if (pct > 100) pct = 100;
-  return pct;
-}
-
-float readBatteryVoltage() {
-  return (float)analogReadMilliVolts(BAT_PIN) / 1000.0f * 2.0f;
-}
-
 void drawMainMenu() {
   tft.fillScreen(TFT_BLACK);
   String pwdCount = String(prefs.getInt("pwd_count", 0));
