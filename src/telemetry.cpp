@@ -1,8 +1,7 @@
 #include "telemetry.h"
 #include "state_machine.h"
 #include "attack_engine.h"
-
-#define BAT_PIN 34
+#include "pins.h"
 
 int readBatteryPercent() {
   float v = (float)analogReadMilliVolts(BAT_PIN) / 1000.0f * 2.0f;

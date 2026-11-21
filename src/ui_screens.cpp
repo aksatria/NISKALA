@@ -12,8 +12,8 @@
 #include "telemetry.h"
 #include "ui_icons.h"
 #include "templates.h"
+#include "pins.h"
 
-#define BAT_PIN 34
 #define MAX_VERIFY_ATTEMPTS 5
 
 extern int menuSelection;
