@@ -516,12 +516,17 @@ void startAuthFlood() {
   resetPacketCounters();
   isAuthFloodRunning = true;
   setAttackMode(ATK_AUTH_FLOOD);
+  Serial.printf("[AUTH] Flood ke BSSID=%02X:%02X:%02X:%02X:%02X:%02X ch=%d burst=%d\n",
+                g_targetBSSID[0], g_targetBSSID[1], g_targetBSSID[2],
+                g_targetBSSID[3], g_targetBSSID[4], g_targetBSSID[5],
+                g_targetChannel, cfg_auth_burst);
 }
 
 void stopAuthFlood() {
   isAuthFloodRunning = false;
   setAttackMode(ATK_IDLE);
   resetWifiStateAfterAttack();
+  Serial.println("[AUTH] Flood dihentikan");
 }
 
 void startGlobalDeauth() {
