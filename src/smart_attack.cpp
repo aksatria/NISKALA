@@ -87,6 +87,7 @@ void startSmartRecommendedAttack() {
 // ---------------------------------------------------------------------------
 static volatile bool g_pmfFound = false;
 static volatile bool g_pmfEnabled = false;
+static volatile uint32_t g_pmfBeaconCount = 0;
 static uint8_t g_pmfBSSID[6] = {0};
 
 static void pmfCaptureCb(void* buf, wifi_promiscuous_pkt_type_t type) {
@@ -98,6 +99,7 @@ static void pmfCaptureCb(void* buf, wifi_promiscuous_pkt_type_t type) {
 
   uint8_t subtype = (p[0] >> 4) & 0x0F;
   if (subtype != 0x08) return; // beacon
+  g_pmfBeaconCount++;
   if (memcmp(&p[16], g_pmfBSSID, 6) != 0) return;
 
   int pos = 36; // 24 header + 12 fixed params
@@ -131,28 +133,31 @@ static void pmfCaptureCb(void* buf, wifi_promiscuous_pkt_type_t type) {
 static bool detectPMFExact(const uint8_t* bssid, uint8_t channel) {
   g_pmfFound = false;
   g_pmfEnabled = false;
+  g_pmfBeaconCount = 0;
   memcpy(g_pmfBSSID, bssid, 6);
 
-  // Promiscuous sniff hanya bekerja di mode STA -> AP kontrol sempat turun.
+  // Promiscuous sniff bekerja di mode STA (sama seperti EAPOL capture).
   radioSetMode(RADIO_STA);
   delay(80);
   esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
   delay(40);
 
-  wifi_promiscuous_filter_t filter;
-  filter.filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT;
-  esp_wifi_set_promiscuous_filter(&filter);
   esp_wifi_set_promiscuous_rx_cb(pmfCaptureCb);
   esp_wifi_set_promiscuous(true);
+  Serial.printf("[PMF] sniff ch=%u bssid=%02X:%02X:%02X:%02X:%02X:%02X\n",
+                channel, bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
 
   unsigned long start = millis();
-  while (!g_pmfFound && (millis() - start) < 900) {
+  while (!g_pmfFound && (millis() - start) < 1200) {
     if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) break;
     delay(10);
   }
 
   esp_wifi_set_promiscuous(false);
   esp_wifi_set_promiscuous_rx_cb(nullptr);
+  Serial.printf("[PMF] done beacons=%u found=%d enabled=%d elapsed=%lu\n",
+                (unsigned)g_pmfBeaconCount, (int)g_pmfFound, (int)g_pmfEnabled,
+                (unsigned long)(millis() - start));
   return g_pmfEnabled;
 }
 

@@ -306,8 +306,10 @@ inline void setupWebRemote() {
     for (int i = 0; i < 6; i++) mac[i] = (uint8_t)values[i];
     uint8_t ch = constrain(server.arg("ch").toInt(), 1, 14);
 
+    Serial.printf("[PMF] req mac=%s ch=%u ssid=%s\n", macStr.c_str(), ch, server.hasArg("ssid") ? server.arg("ssid").c_str() : "-");
     bool found = false;
     bool pmf = detectPMFByBssid(mac, ch, &found);
+    Serial.printf("[PMF] result pmf=%d found=%d\n", (int)pmf, (int)found);
 
     if (server.hasArg("ssid")) targetSSID = server.arg("ssid").substring(0, 32);
 
