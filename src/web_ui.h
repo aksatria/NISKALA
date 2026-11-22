@@ -91,10 +91,10 @@ $('scanResult').addEventListener('click',e=>{
 function checkPmf(){
   if(!selTarget)return;
   const b=$('btnPmf');b.disabled=true;b.textContent='Mengecek...';
-  $('pmfResult').innerHTML='<span style="color:var(--amber)">Menangkap beacon target... jika terputus, sambungkan ulang ke NISKALA_CTRL.</span>';
+  $('pmfResult').innerHTML='<span style="color:var(--amber)">Menangkap beacon... AP kontrol sempat turun ~1 dtk. Hasil muncul di layar board & web.</span>';
   apiFetch('/api/pmf?mac='+encodeURIComponent(selTarget.mac)+'&ch='+encodeURIComponent(selTarget.ch)+'&ssid='+encodeURIComponent(selTarget.ssid)).then(r=>r.json()).then(d=>{if(d&&typeof d.pmf==='boolean'){renderPmf(d.pmf,d.found);stopPmfPoll();}else{startPmfPoll();}}).catch(()=>startPmfPoll());
 }
-function startPmfPoll(){let tries=0;pmfPollTimer=setInterval(()=>{tries++;apiFetch('/api/pmf-result').then(r=>r.json()).then(d=>{if(d&&d.checked){renderPmf(d.pmf,d.found);stopPmfPoll();}else if(tries>=6){renderPmfUnknown();stopPmfPoll();}}).catch(()=>{if(tries>=6){renderPmfUnknown();stopPmfPoll();}});},1500);}
+function startPmfPoll(){let tries=0;pmfPollTimer=setInterval(()=>{tries++;apiFetch('/api/pmf-result').then(r=>r.json()).then(d=>{if(d&&d.checked){renderPmf(d.pmf,d.found);stopPmfPoll();}else if(tries>=24){renderPmfUnknown();stopPmfPoll();}}).catch(()=>{if(tries>=24){renderPmfUnknown();stopPmfPoll();}});},1500);}
 function stopPmfPoll(){if(pmfPollTimer){clearInterval(pmfPollTimer);pmfPollTimer=null;}const b=$('btnPmf');if(b){b.disabled=false;b.textContent='Cek PMF';}}
 function renderPmf(pmf,found){if(!found){$('pmfResult').innerHTML='<span style="color:var(--amber)">Beacon tidak ditemukan pada kanal itu. Pastikan target 2.4 GHz lalu scan ulang.</span>';return;}if(pmf){$('pmfResult').innerHTML='<span style="color:#ff9aa2">PMF: YA (802.11w aktif). Deauth tidak akan memutus.</span>';}else{$('pmfResult').innerHTML='<span style="color:#78f09b">PMF: TIDAK (data asli beacon). Deauth bisa dicoba.</span>';}}
 function renderPmfUnknown(){$('pmfResult').innerHTML='<span style="color:var(--amber)">Cek PMF gagal / timeout. Periksa koneksi ke NISKALA_CTRL lalu coba lagi.</span>';}

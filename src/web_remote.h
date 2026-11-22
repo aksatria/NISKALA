@@ -313,15 +313,14 @@ inline void setupWebRemote() {
 
     if (server.hasArg("ssid")) targetSSID = server.arg("ssid").substring(0, 32);
 
-    // Sniff memakai STA -> AP kontrol sempat turun; pulihkan kembali.
+    // Sniff memakai STA -> AP kontrol sempat turun; pulihkan kembali secepatnya.
     radioSetMode(RADIO_AP_STA);
     delay(80);
     restoreOriginalApMac();
     WiFi.softAP("NISKALA_CTRL", "niskala123", 1, 0, 4);
-    delay(200);
+    delay(150);
     isWebRemoteRunning = true;
 
-    // Tampilkan hasil di layar board agar tetap terlihat walau HP sempat putus.
     g_pmfShowResult = true;
     g_pmfShowUntil = millis() + 5000;
     drawPmfResultScreen(pmf, found);

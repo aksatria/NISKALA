@@ -136,7 +136,7 @@ static bool detectPMFExact(const uint8_t* bssid, uint8_t channel) {
   g_pmfBeaconCount = 0;
   memcpy(g_pmfBSSID, bssid, 6);
 
-  // Promiscuous sniff bekerja di mode STA (sama seperti EAPOL capture).
+  // Promiscuous hanya menangkap beacon eksternal di mode STA (AP sempat turun).
   radioSetMode(RADIO_STA);
   delay(80);
   esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
