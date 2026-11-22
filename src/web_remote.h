@@ -69,6 +69,21 @@ extern String buildBleJson();
 extern bool g_bleScanning;
 extern bool isEapolRunning;
 
+inline String wifiAuthName(int auth) {
+  switch (auth) {
+    case WIFI_AUTH_OPEN: return "OPEN";
+    case WIFI_AUTH_WEP: return "WEP";
+    case WIFI_AUTH_WPA_PSK: return "WPA";
+    case WIFI_AUTH_WPA2_PSK: return "WPA2";
+    case WIFI_AUTH_WPA_WPA2_PSK: return "WPA/WPA2";
+    case WIFI_AUTH_WPA2_ENTERPRISE: return "WPA2-EAP";
+    case WIFI_AUTH_WPA3_PSK: return "WPA3";
+    case WIFI_AUTH_WPA2_WPA3_PSK: return "WPA2/WPA3";
+    case WIFI_AUTH_WPA3_ENT_192: return "WPA3-ENT";
+    default: return "UNKNOWN";
+  }
+}
+
 // HTML UI
 
 
@@ -149,7 +164,8 @@ inline void setupWebRemote() {
     String json = "[";
     for (int i = 0; i < n; i++) {
       if (i > 0) json += ",";
-      json += "{\"mac\":\"" + jsonEscape(WiFi.BSSIDstr(i)) + "\",\"ssid\":\"" + jsonEscape(WiFi.SSID(i)) + "\",\"rssi\":" + String(WiFi.RSSI(i)) + ",\"ch\":" + String(WiFi.channel(i)) + "}";
+      int auth = (int)WiFi.encryptionType(i);
+      json += "{\"mac\":\"" + jsonEscape(WiFi.BSSIDstr(i)) + "\",\"ssid\":\"" + jsonEscape(WiFi.SSID(i)) + "\",\"rssi\":" + String(WiFi.RSSI(i)) + ",\"ch\":" + String(WiFi.channel(i)) + ",\"auth\":" + String(auth) + ",\"enc\":\"" + wifiAuthName(auth) + "\"}";
     }
     WiFi.scanDelete();
     json += "]";
