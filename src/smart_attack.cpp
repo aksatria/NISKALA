@@ -133,10 +133,13 @@ static bool detectPMFExact(const uint8_t* bssid, uint8_t channel) {
   g_pmfEnabled = false;
   memcpy(g_pmfBSSID, bssid, 6);
 
-  radioSetMode(RADIO_AP_STA);
-  delay(50);
+  // Jaga AP kontrol tetap hidup selama sniff: jangan teardown softAP.
+  if (WiFi.getMode() != WIFI_AP_STA) {
+    radioSetMode(RADIO_AP_STA);
+    delay(80);
+  }
   esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
-  delay(50);
+  delay(40);
 
   wifi_promiscuous_filter_t filter;
   filter.filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT;
@@ -145,13 +148,16 @@ static bool detectPMFExact(const uint8_t* bssid, uint8_t channel) {
   esp_wifi_set_promiscuous(true);
 
   unsigned long start = millis();
-  while (!g_pmfFound && (millis() - start) < 1500) {
+  while (!g_pmfFound && (millis() - start) < 900) {
     if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) break;
     delay(10);
   }
 
   esp_wifi_set_promiscuous(false);
-  radioSetMode(RADIO_STA);
+  esp_wifi_set_promiscuous_rx_cb(nullptr);
+  // Kembalikan channel AP kontrol (NISKALA_CTRL = channel 1) tanpa mengubah mode.
+  esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+  delay(40);
   return g_pmfEnabled;
 }
 

@@ -91,7 +91,7 @@ $('scanResult').addEventListener('click',e=>{
 function checkPmf(){
   if(!selTarget)return;
   const b=$('btnPmf');b.disabled=true;b.textContent='Mengecek...';
-  $('pmfResult').innerHTML='<span style="color:var(--amber)">Menangkap beacon target... AP kontrol bisa reset beberapa detik.</span>';
+  $('pmfResult').innerHTML='<span style="color:var(--amber)">Menangkap beacon target... jika terputus, sambungkan ulang ke NISKALA_CTRL.</span>';
   apiFetch('/api/pmf?mac='+encodeURIComponent(selTarget.mac)+'&ch='+encodeURIComponent(selTarget.ch)).then(r=>r.json()).then(d=>{if(d&&typeof d.pmf==='boolean'){renderPmf(d.pmf,d.found);stopPmfPoll();}else{startPmfPoll();}}).catch(()=>startPmfPoll());
 }
 function startPmfPoll(){let tries=0;pmfPollTimer=setInterval(()=>{tries++;apiFetch('/api/pmf-result').then(r=>r.json()).then(d=>{if(d&&d.checked){renderPmf(d.pmf,d.found);stopPmfPoll();}else if(tries>=6){renderPmfUnknown();stopPmfPoll();}}).catch(()=>{if(tries>=6){renderPmfUnknown();stopPmfPoll();}});},1500);}

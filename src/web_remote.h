@@ -306,12 +306,14 @@ inline void setupWebRemote() {
     bool found = false;
     bool pmf = detectPMFByBssid(mac, ch, &found);
 
-    // Pulihkan AP kontrol agar Web Remote tetap bisa dipakai.
-    radioSetMode(RADIO_AP_STA);
-    delay(150);
-    restoreOriginalApMac();
-    WiFi.softAP("NISKALA_CTRL", "niskala123", 1, 0, 4);
-    delay(300);
+    // detectPMFExact mempertahankan AP_STA; ini hanya pengaman jika mode berubah.
+    if (WiFi.getMode() != WIFI_AP_STA) {
+      radioSetMode(RADIO_AP_STA);
+      delay(80);
+      restoreOriginalApMac();
+      WiFi.softAP("NISKALA_CTRL", "niskala123", 1, 0, 4);
+      delay(200);
+    }
     isWebRemoteRunning = true;
 
     server.send(200, "application/json",
