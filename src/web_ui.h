@@ -16,7 +16,7 @@ const char HTML_REMOTE[] PROGMEM = R"rawliteral(
 <div class="topbar"><div class="brand"><div class="brand-mark">N</div><div><strong>NISKALA</strong><small>Wireless security lab console</small></div></div><div class="connection"><i></i> AP CONTROL ONLINE</div></div>
 <div class="hero"><div class="hero-card"><div class="eyebrow">WEB REMOTE · V3.1</div><h1>Kontrol yang <span>lebih jelas</span>.</h1><p>Monitor status board, pilih modul, lihat hasil scan, dan simpan konfigurasi dari satu panel yang ringkas.</p></div><div class="hero-side"><div class="panel status-card"><span class="status-label">Status sesi</span><strong class="status-value" id="info">Idle</strong><span class="status-meta">Terhubung lokal melalui NISKALA_CTRL</span></div><div class="token-row"><input id="web_token" type="password" placeholder="Token Web Remote" aria-label="Token Web Remote"><button class="btn btn-primary" onclick="saveToken()">Simpan</button></div></div></div>
 <div class="section-head"><h2>Control center</h2><p>Gunakan hanya pada perangkat/jaringan berizin.</p></div>
-<div class="grid"><section class="panel span-8"><div class="panel-title"><div class="icon-title"><span class="icon">◎</span><strong>WiFi discovery</strong></div><span id="scan-count">Pasif</span></div><div class="scan-toolbar"><button class="btn btn-primary" onclick="scanWifi()">⌕ &nbsp; Scan WiFi</button><button class="btn btn-danger" onclick="stopAll()">■ &nbsp; Stop</button></div><div id="scanResult" class="ap-list"></div><div id="targetNote"></div><p class="scan-note">Board hanya mendeteksi 2.4 GHz. Target/klien di 5G TIDAK terpengaruh deauth 2.4 GHz.</p></section>
+<div class="grid"><section class="panel span-8"><div class="panel-title"><div class="icon-title"><span class="icon">◎</span><strong>WiFi discovery</strong></div><span id="scan-count">Pasif</span></div><div class="scan-toolbar"><button class="btn btn-primary" onclick="scanWifi()">⌕ &nbsp; Scan WiFi</button><button class="btn btn-danger" onclick="stopAll()">■ &nbsp; Stop</button></div><div id="scanResult" class="ap-list"></div><div id="targetNote"></div><div id="targetPanel" style="display:none;margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#0b1722"><div class="panel-title" style="margin-bottom:8px"><div class="icon-title"><span class="icon">◉</span><strong id="t-ssid">-</strong></div><span id="t-meta"></span></div><div id="pmfResult" style="font-size:12px;color:var(--muted);margin-bottom:9px">PMF belum dicek. Tekan "Cek PMF" untuk data asli dari beacon.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-quiet" id="btnPmf" onclick="checkPmf()">Cek PMF</button><button class="btn btn-primary" id="launchBtn" onclick="launchAttack()">Mulai DEAUTH</button></div></div><p class="scan-note">Board hanya mendeteksi 2.4 GHz. Target/klien di 5G TIDAK terpengaruh deauth 2.4 GHz.</p></section>
 <section class="panel span-4"><div class="panel-title"><div class="icon-title"><span class="icon">⚙</span><strong>Mode pengujian</strong></div><span id="mode-label">DEAUTH</span></div><div class="mode-grid"><button class="mode active" id="m_deauth" onclick="setMode('deauth')">DEAUTH</button><button class="mode" id="m_evil" onclick="setMode('evil')">EVIL TWIN</button><button class="mode" id="m_auth" onclick="setMode('auth')">AUTH FLOOD</button><button class="mode" id="m_csa" onclick="setMode('csa')">CSA</button></div><p class="danger-note">Mode aktif memutus Web Remote dan mengganggu koneksi target. Gunakan lab terisolasi; berhenti pakai tombol board.</p></section>
 <section class="panel span-4"><div class="panel-title"><div class="icon-title"><span class="icon">✦</span><strong>Quick actions</strong></div><span>Modul</span></div><div class="action-grid"><button class="btn" onclick="start('beacon')"><b>Beacon Spam</b><span>Memutus Web Remote</span></button><button class="btn" onclick="start('probe')"><b>Probe Sniff</b><span>Memutus Web Remote</span></button><button class="btn" onclick="start('global')"><b>Global Deauth</b><span>Memutus Web Remote</span></button><button class="btn" onclick="start('karma')"><b>Karma</b><span>Memutus Web Remote</span></button><button class="btn" onclick="start('ble')"><b>BLE Spam</b><span>WiFi OFF + Remote putus</span></button><button class="btn btn-danger" onclick="stopAll()"><b>Stop All</b><span>Hentikan modul</span></button></div></section>
 <section class="panel span-8"><div class="panel-title"><div class="icon-title"><span class="icon">▥</span><strong>System telemetry</strong></div><button class="btn btn-quiet" onclick="loadTelemetry()">Refresh</button></div><div class="chart-wrap"><canvas id="chart" width="640" height="180"></canvas></div><div class="metrics"><div class="metric"><b id="metric-packets">0</b><span>Packets</span></div><div class="metric"><b id="metric-errors">0</b><span>TX errors</span></div><div class="metric"><b id="metric-heap">—</b><span>Free heap</span></div><div class="metric"><b id="metric-battery">—</b><span>Battery</span></div></div><div id="telemetryPanel" class="data-box" style="margin-top:10px">Tekan Refresh untuk membaca telemetri.</div></section>
@@ -31,7 +31,7 @@ function apiFetch(url,opts){opts=opts||{};opts.headers=Object.assign({},opts.hea
 function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>el.classList.remove('show'),2400)}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function saveToken(){WEB_TOKEN=$('web_token').value.trim();localStorage.setItem('niskala_token',WEB_TOKEN);toast('Token disimpan di browser')}
-function setMode(m){attackMode=m;['deauth','evil','auth','csa'].forEach(x=>{const b=$('m_'+x);if(b)b.classList.toggle('active',x===m)});$('mode-label').textContent=m.toUpperCase()}
+function setMode(m){attackMode=m;['deauth','evil','auth','csa'].forEach(x=>{const b=$('m_'+x);if(b)b.classList.toggle('active',x===m)});$('mode-label').textContent=m.toUpperCase();if($('launchBtn'))$('launchBtn').textContent='Mulai '+m.toUpperCase()}
 function rssiPct(v){return Math.max(4,Math.min(100,((Number(v)+90)/60)*100))}
 function scanWifi(){
   const list=$('scanResult');
@@ -44,7 +44,7 @@ function scanWifi(){
   }).then(data=>{
     if(!Array.isArray(data))throw Error();
     let html='';
-    data.forEach(ap=>{const ssid=ap.ssid||'(hidden)';const auth=Number(ap.auth||0);const enc=ap.enc||'?';let cls='other';let label=enc;if(auth===6||auth===7||auth===9){cls='wpa3';label='PMF ? '+enc;}else if(auth===3||auth===4||auth===5){cls='wpa2';label='PMF? ? '+enc;}else if(auth===0){cls='open';label='OPEN';}html+=`<div class="ap-item" data-mac="${esc(ap.mac)}" data-ch="${esc(ap.ch)}" data-ssid="${esc(ssid)}" data-auth="${auth}" data-enc="${esc(enc)}"><div><b>${esc(ssid)}</b><small>${esc(ap.mac)} | Ch ${esc(ap.ch)}</small></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><small>${esc(ap.rssi)} dBm</small><span class="enc-badge ${cls}">${esc(label)}</span></div><div class="signal"><i style="width:${rssiPct(ap.rssi)}%"></i></div></div>`});
+    data.forEach(ap=>{const ssid=ap.ssid||'(hidden)';const auth=Number(ap.auth||0);const enc=ap.enc||'?';let cls='other';let label=enc;if(auth===6||auth===7||auth===9){cls='wpa3';label='PMF · '+enc;}else if(auth===3||auth===4||auth===5){cls='wpa2';label=enc;}else if(auth===0){cls='open';label='OPEN';}html+=`<div class="ap-item" data-mac="${esc(ap.mac)}" data-ch="${esc(ap.ch)}" data-ssid="${esc(ssid)}" data-auth="${auth}" data-enc="${esc(enc)}"><div><b>${esc(ssid)}</b><small>${esc(ap.mac)} | Ch ${esc(ap.ch)}</small></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><small>${esc(ap.rssi)} dBm</small><span class="enc-badge ${cls}">${esc(label)}</span></div><div class="signal"><i style="width:${rssiPct(ap.rssi)}%"></i></div></div>`});
     list.innerHTML=html;
     $('scan-count').textContent=(data.length?data.length+' AP ditemukan':'Tidak ada AP');
     if(!data.length)list.innerHTML='<div class="ap-item"><div><b>Tidak ada jaringan ditemukan</b><small>Board hanya mendeteksi 2.4 GHz. Pindah posisi lalu scan ulang.</small></div></div>';
@@ -69,20 +69,40 @@ function loadEapol(){apiFetch('/api/eapol').then(r=>r.json()).then(e=>{$('e-m1')
 function loadLog(){apiFetch('/api/log').then(r=>r.text()).then(t=>{$('logPanel').textContent=t||'(kosong)'}).catch(()=>{$('logPanel').textContent='Gagal mengambil event log'})}
 function downloadExport(url,name){apiFetch(url).then(r=>{if(!r.ok)throw Error();return r.blob()}).then(blob=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('Export '+name+' siap')}).catch(()=>toast('Export gagal'))}
 function poll(){apiFetch('/api/status').then(r=>r.json()).then(s=>{$('info').textContent='Mode '+(s.mode??'-')+' · '+(s.packets??0)+' pkt · '+(s.heap??0)+' B';pktSamples.push(Number(s.packets)||0);if(pktSamples.length>60)pktSamples.shift();drawChart(pktSamples);loadTelemetry();loadEapol()}).catch(()=>{$('info').textContent='Menunggu board…'})}
+let selTarget=null,pmfPollTimer=null;
 $('scanResult').addEventListener('click',e=>{
   const item=e.target.closest('.ap-item');if(!item)return;
   const mac=item.dataset.mac,ch=item.dataset.ch,ssid=item.dataset.ssid;
   const auth=Number(item.dataset.auth||0),enc=item.dataset.enc||'?';
+  selTarget={mac:mac,ch:ch,ssid:ssid,auth:auth,enc:enc};
   const isWpa3=(auth===6||auth===7||auth===9);
   const isWpa2=(auth===3||auth===4||auth===5);
+  $('t-ssid').textContent=ssid;$('t-meta').textContent=mac+' | Ch '+ch+' | '+enc;
+  $('targetPanel').style.display='block';
+  $('launchBtn').textContent='Mulai '+attackMode.toUpperCase();
+  if(isWpa3){$('pmfResult').innerHTML='<span style="color:#ff9aa2">PMF: YA (WPA3 wajib PMF). Deauth tidak akan berhasil.</span>';}
+  else{$('pmfResult').innerHTML='PMF belum dicek. Tekan "Cek PMF" untuk data asli dari beacon.';}
   let warn='';
-  if(isWpa3){warn=`Target ${enc} = WPA3/PMF. Deauth TIDAK akan berhasil. Gunakan CSA Attack dari board (2.4 GHz).`;}
-  else if(isWpa2){warn=`Target ${enc}. Jika deauth tidak memutus, PMF/802.11w mungkin aktif di hotspot.`;}
+  if(isWpa3){warn='WPA3/PMF wajib aktif. Deauth 2.4 GHz TIDAK akan berhasil. Gunakan CSA dari board.';}
+  else if(isWpa2){warn='WPA2 bisa saja mengaktifkan PMF. Cek PMF dulu sebelum deauth.';}
   $('targetNote').innerHTML=warn?`<div class="target-warn${isWpa2?' amber':''}">${esc(warn)}</div>`:'';
   $('info').textContent='Target: '+ssid;
-  if(warn && !confirm(warn+(isWpa3?'\n\nTetap jalankan deauth?':'\n\nLanjutkan?')))return;
-  apiFetch('/api/attack?mac='+encodeURIComponent(mac)+'&ch='+encodeURIComponent(ch)+'&ssid='+encodeURIComponent(ssid)+'&mode='+encodeURIComponent(attackMode)).then(()=>toast(attackMode.toUpperCase()+' dimulai')).catch(()=>toast('Gagal memulai mode'));
-})
+});
+function checkPmf(){
+  if(!selTarget)return;
+  const b=$('btnPmf');b.disabled=true;b.textContent='Mengecek...';
+  $('pmfResult').innerHTML='<span style="color:var(--amber)">Menangkap beacon target... AP kontrol bisa reset beberapa detik.</span>';
+  apiFetch('/api/pmf?mac='+encodeURIComponent(selTarget.mac)+'&ch='+encodeURIComponent(selTarget.ch)).then(r=>r.json()).then(d=>{if(d&&typeof d.pmf==='boolean'){renderPmf(d.pmf,d.found);stopPmfPoll();}else{startPmfPoll();}}).catch(()=>startPmfPoll());
+}
+function startPmfPoll(){let tries=0;pmfPollTimer=setInterval(()=>{tries++;apiFetch('/api/pmf-result').then(r=>r.json()).then(d=>{if(d&&d.checked){renderPmf(d.pmf,d.found);stopPmfPoll();}else if(tries>=6){renderPmfUnknown();stopPmfPoll();}}).catch(()=>{if(tries>=6){renderPmfUnknown();stopPmfPoll();}});},1500);}
+function stopPmfPoll(){if(pmfPollTimer){clearInterval(pmfPollTimer);pmfPollTimer=null;}const b=$('btnPmf');if(b){b.disabled=false;b.textContent='Cek PMF';}}
+function renderPmf(pmf,found){if(!found){$('pmfResult').innerHTML='<span style="color:var(--amber)">Beacon tidak ditemukan pada kanal itu. Pastikan target 2.4 GHz lalu scan ulang.</span>';return;}if(pmf){$('pmfResult').innerHTML='<span style="color:#ff9aa2">PMF: YA (802.11w aktif). Deauth tidak akan memutus.</span>';}else{$('pmfResult').innerHTML='<span style="color:#78f09b">PMF: TIDAK (data asli beacon). Deauth bisa dicoba.</span>';}}
+function renderPmfUnknown(){$('pmfResult').innerHTML='<span style="color:var(--amber)">Cek PMF gagal / timeout. Periksa koneksi ke NISKALA_CTRL lalu coba lagi.</span>';}
+function launchAttack(){
+  if(!selTarget)return;
+  if((selTarget.auth===6||selTarget.auth===7||selTarget.auth===9)&&!confirm('Target WPA3/PMF. Deauth TIDAK akan berhasil. Tetap jalankan '+attackMode.toUpperCase()+'?'))return;
+  apiFetch('/api/attack?mac='+encodeURIComponent(selTarget.mac)+'&ch='+encodeURIComponent(selTarget.ch)+'&ssid='+encodeURIComponent(selTarget.ssid)+'&mode='+encodeURIComponent(attackMode)).then(()=>toast(attackMode.toUpperCase()+' dimulai')).catch(()=>toast('Gagal memulai mode'));
+}
 
 function start(m){$('info').textContent='Starting '+m+'…';apiFetch('/api/start/'+m).then(()=>toast(m.toUpperCase()+' dimulai')).catch(()=>toast('Gagal memulai '+m))}
 function loadConfig(){apiFetch('/api/config').then(r=>r.json()).then(c=>{['deauth','auth','hop','beacon','reason','autosync'].forEach(k=>{if($("cfg_"+k))$("cfg_"+k).value=c[k]??0});$('cfg_wifi').value=c.wifi||'';$('cfg_wifipass').value=c.wifipass||'';$('cfg_url').value=c.url||'';$('cfg_tpl').value=c.tpl||''}).catch(()=>{})}

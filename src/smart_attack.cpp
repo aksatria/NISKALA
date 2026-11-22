@@ -12,6 +12,10 @@
 
 int g_smartRecommendation = 0;
 
+volatile bool g_pmfChecked = false;
+volatile bool g_pmfResult = false;
+volatile bool g_pmfFoundFlag = false;
+
 static const char* authName(wifi_auth_mode_t m) {
   switch (m) {
     case WIFI_AUTH_OPEN: return "OPEN";
@@ -149,6 +153,15 @@ static bool detectPMFExact(const uint8_t* bssid, uint8_t channel) {
   esp_wifi_set_promiscuous(false);
   radioSetMode(RADIO_STA);
   return g_pmfEnabled;
+}
+
+bool detectPMFByBssid(const uint8_t* bssid, uint8_t channel, bool* found) {
+  bool pmf = detectPMFExact(bssid, channel);
+  g_pmfChecked = true;
+  g_pmfResult = pmf;
+  g_pmfFoundFlag = g_pmfFound;
+  if (found) *found = g_pmfFound;
+  return pmf;
 }
 
 bool detectPMF(int idx) {

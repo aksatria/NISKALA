@@ -8,6 +8,7 @@
 #include "web_utils.h"
 #include "web_ui.h"
 #include "radio_manager.h"
+#include "wifi_state.h"
 
 extern WebServer server;
 #if __has_include("secrets.h")
@@ -68,6 +69,10 @@ extern String buildSyncJson();
 extern String buildBleJson();
 extern bool g_bleScanning;
 extern bool isEapolRunning;
+extern bool detectPMFByBssid(const uint8_t* bssid, uint8_t channel, bool* found);
+extern volatile bool g_pmfChecked;
+extern volatile bool g_pmfResult;
+extern volatile bool g_pmfFoundFlag;
 
 inline String wifiAuthName(int auth) {
   switch (auth) {
@@ -276,6 +281,52 @@ inline void setupWebRemote() {
     isWebRemoteRunning = false;
     currentState = KARMA_SCAN;
     startKarmaScan();
+  });
+
+  // Deteksi PMF (802.11w) presisi via beacon RSN
+  server.on("/api/pmf", []() {
+    REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
+    if (!server.hasArg("mac") || !server.hasArg("ch")) {
+      server.send(400, "application/json", "{\"ok\":false,\"msg\":\"missing args\"}");
+      return;
+    }
+    String macStr = server.arg("mac");
+    int values[6];
+    int parsed = sscanf(macStr.c_str(), "%x:%x:%x:%x:%x:%x",
+                        &values[0], &values[1], &values[2], &values[3], &values[4], &values[5]);
+    if (parsed != 6) {
+      server.send(400, "application/json", "{\"ok\":false,\"msg\":\"invalid mac\"}");
+      return;
+    }
+    uint8_t mac[6];
+    for (int i = 0; i < 6; i++) mac[i] = (uint8_t)values[i];
+    uint8_t ch = constrain(server.arg("ch").toInt(), 1, 14);
+
+    bool found = false;
+    bool pmf = detectPMFByBssid(mac, ch, &found);
+
+    // Pulihkan AP kontrol agar Web Remote tetap bisa dipakai.
+    radioSetMode(RADIO_AP_STA);
+    delay(150);
+    restoreOriginalApMac();
+    WiFi.softAP("NISKALA_CTRL", "niskala123", 1, 0, 4);
+    delay(300);
+    isWebRemoteRunning = true;
+
+    server.send(200, "application/json",
+      "{\"ok\":true,\"pmf\":" + String(pmf ? "true" : "false") +
+      ",\"found\":" + String(found ? "true" : "false") + "}");
+  });
+
+  // Hasil deteksi PMF terakhir (untuk polling setelah AP sempat reset)
+  server.on("/api/pmf-result", []() {
+    REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
+    server.send(200, "application/json",
+      "{\"checked\":" + String(g_pmfChecked ? "true" : "false") +
+      ",\"pmf\":" + String(g_pmfResult ? "true" : "false") +
+      ",\"found\":" + String(g_pmfFoundFlag ? "true" : "false") + "}");
   });
 
   // BLE scan JSON
