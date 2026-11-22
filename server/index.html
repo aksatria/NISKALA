@@ -142,11 +142,11 @@
   .step p{font-size:13px;color:var(--muted);font-weight:600}
 
   /* showcase */
-  .showcase-grid{display:grid;grid-template-columns:1.25fr 1fr;grid-template-rows:repeat(2,minmax(0,1fr));gap:16px}
+  .showcase-grid{display:grid;grid-template-columns:1.25fr 1fr 1fr;grid-template-rows:repeat(2,minmax(0,1fr));gap:16px}
   .showcase-item{position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:18px;min-height:0}
   .showcase-item:first-child{grid-row:span 2}
-  .showcase-item img{display:block;width:100%;height:100%;min-height:230px;object-fit:cover;transition:transform .35s ease,filter .35s ease}
-  .showcase-item:first-child img{min-height:480px}
+  .showcase-item img{display:block;width:100%;height:100%;min-height:220px;object-fit:cover;transition:transform .35s ease,filter .35s ease}
+  .showcase-item:first-child img{min-height:460px}
   .showcase-item:hover img{transform:scale(1.035);filter:saturate(1.08) contrast(1.03)}
   .showcase-caption{position:absolute;left:0;right:0;bottom:0;padding:34px 18px 16px;background:linear-gradient(transparent,rgba(0,0,0,.84));color:#fff}
   .showcase-caption strong{display:block;font-size:16px;font-weight:900}
@@ -518,9 +518,11 @@
       <p>Dokumentasi langsung dari unit NISKALA: mulai dari layar peringatan, menu utama, hingga pengoperasian modul.</p>
     </div>
     <div class="showcase-grid">
-      <figure class="showcase-item anim"><img src="assets/product/board-menu.jpg" alt="NISKALA menampilkan menu Deauth Manual pada board TTGO T-Display" loading="lazy"><figcaption class="showcase-caption"><strong>Menu Utama &amp; Modul</strong><span>Antarmuka langsung di board TTGO T-Display</span></figcaption></figure>
-      <figure class="showcase-item anim" style="animation-delay:.05s"><img src="assets/product/board-disclaimer.jpg" alt="Layar peringatan hukum NISKALA pada board" loading="lazy"><figcaption class="showcase-caption"><strong>Penggunaan Bertanggung Jawab</strong><span>Disclaimer sebelum masuk ke menu utama</span></figcaption></figure>
-      <figure class="showcase-item anim" style="animation-delay:.1s"><img src="assets/product/board-warning.jpg" alt="Layar konfirmasi tanggung jawab NISKALA" loading="lazy"><figcaption class="showcase-caption"><strong>Konfirmasi Pengguna</strong><span>Perlindungan awal sebelum pengujian</span></figcaption></figure>
+      <figure class="showcase-item anim"><img src="assets/product/device-hero.jpg" alt="NISKALA dalam casing hijau dengan layar peringatan hukum" loading="lazy"><figcaption class="showcase-caption"><strong>NISKALA Portable Device</strong><span>Perangkat utama dengan casing custom</span></figcaption></figure>
+      <figure class="showcase-item anim" style="animation-delay:.05s"><img src="assets/product/device-top.jpg" alt="Tampilan atas perangkat NISKALA" loading="lazy"><figcaption class="showcase-caption"><strong>Detail Perangkat</strong><span>Desain ringkas dan siap dibawa</span></figcaption></figure>
+      <figure class="showcase-item anim" style="animation-delay:.1s"><img src="assets/product/device-handheld.jpg" alt="NISKALA dipegang dengan satu tangan" loading="lazy"><figcaption class="showcase-caption"><strong>Handheld</strong><span>Nyaman digunakan di lapangan</span></figcaption></figure>
+      <figure class="showcase-item anim" style="animation-delay:.15s"><img src="assets/product/device-bag.jpg" alt="NISKALA tergantung pada tas" loading="lazy"><figcaption class="showcase-caption"><strong>Field Ready</strong><span>Mudah dibawa saat audit lapangan</span></figcaption></figure>
+      <figure class="showcase-item anim" style="animation-delay:.2s"><img src="assets/product/device-hands.jpg" alt="NISKALA digunakan dengan dua tangan" loading="lazy"><figcaption class="showcase-caption"><strong>Kontrol Langsung</strong><span>Navigasi melalui dua tombol fisik</span></figcaption></figure>
     </div>
   </div>
 </section>
