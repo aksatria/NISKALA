@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /data/
+Disallow: /config.php
+Disallow: /sync.php
+Disallow: /status.php
+Disallow: /view.php
+
+Sitemap: https://niskalasys.my.id/sitemap.xml
