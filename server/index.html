@@ -141,6 +141,16 @@
   .step h3{font-size:16px;font-weight:800;margin:8px 0 6px;color:#fff}
   .step p{font-size:13px;color:var(--muted);font-weight:600}
 
+  /* showcase */
+  .showcase-grid{display:grid;grid-template-columns:1.25fr 1fr;grid-template-rows:repeat(2,minmax(0,1fr));gap:16px}
+  .showcase-item{position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:18px;min-height:0}
+  .showcase-item:first-child{grid-row:span 2}
+  .showcase-item img{display:block;width:100%;height:100%;min-height:230px;object-fit:cover;transition:transform .35s ease,filter .35s ease}
+  .showcase-item:first-child img{min-height:480px}
+  .showcase-item:hover img{transform:scale(1.035);filter:saturate(1.08) contrast(1.03)}
+  .showcase-caption{position:absolute;left:0;right:0;bottom:0;padding:34px 18px 16px;background:linear-gradient(transparent,rgba(0,0,0,.84));color:#fff}
+  .showcase-caption strong{display:block;font-size:16px;font-weight:900}
+  .showcase-caption span{display:block;margin-top:3px;color:#b9c5d3;font-size:12.5px;font-weight:700}
   /* specs */
   .specs-wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center}
   .specs{display:grid;gap:12px}
@@ -258,6 +268,10 @@
     .sec-head h2{font-size:26px;line-height:1.2}
     .sec-head p{font-size:14px;line-height:1.55}
     .values,.steps{grid-template-columns:1fr;gap:12px}
+    .showcase-grid{display:flex;gap:12px;overflow-x:auto;overflow-y:hidden;padding:4px 2px 14px;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none}
+    .showcase-grid::-webkit-scrollbar{display:none}
+    .showcase-item,.showcase-item:first-child{flex:0 0 86%;min-height:0;height:270px;grid-row:auto;scroll-snap-align:start;scroll-snap-stop:always}
+    .showcase-item img,.showcase-item:first-child img{min-height:0;height:100%}
     .feature-slider{margin-left:-2px;margin-right:-2px}
     .feature-grid{display:flex;gap:12px;overflow-x:auto;overflow-y:hidden;padding:4px 2px 14px;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none}
     .feature-grid::-webkit-scrollbar{display:none}
@@ -335,6 +349,7 @@
       <a href="#audience">Cocok Untuk</a>
       <a href="#features">Fitur</a>
       <a href="#workflow">Alur</a>
+      <a href="#showcase">Tampilan</a>
       <a href="#specs">Spesifikasi</a>
       <a href="#faq">FAQ</a>
       <a class="nav-cta" href="view.php">Dashboard</a>
@@ -491,6 +506,21 @@
         <h3>Sinkronkan Data</h3>
         <p>Kirim hasil ke Cloud Dashboard dan tinjau lewat browser.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="showcase">
+  <div class="wrap">
+    <div class="sec-head anim">
+      <div class="kicker">NISKALA in action</div>
+      <h2>Perangkat nyata, siap digunakan</h2>
+      <p>Dokumentasi langsung dari unit NISKALA: mulai dari layar peringatan, menu utama, hingga pengoperasian modul.</p>
+    </div>
+    <div class="showcase-grid">
+      <figure class="showcase-item anim"><img src="assets/product/board-menu.jpg" alt="NISKALA menampilkan menu Deauth Manual pada board TTGO T-Display" loading="lazy"><figcaption class="showcase-caption"><strong>Menu Utama &amp; Modul</strong><span>Antarmuka langsung di board TTGO T-Display</span></figcaption></figure>
+      <figure class="showcase-item anim" style="animation-delay:.05s"><img src="assets/product/board-disclaimer.jpg" alt="Layar peringatan hukum NISKALA pada board" loading="lazy"><figcaption class="showcase-caption"><strong>Penggunaan Bertanggung Jawab</strong><span>Disclaimer sebelum masuk ke menu utama</span></figcaption></figure>
+      <figure class="showcase-item anim" style="animation-delay:.1s"><img src="assets/product/board-warning.jpg" alt="Layar konfirmasi tanggung jawab NISKALA" loading="lazy"><figcaption class="showcase-caption"><strong>Konfirmasi Pengguna</strong><span>Perlindungan awal sebelum pengujian</span></figcaption></figure>
     </div>
   </div>
 </section>
