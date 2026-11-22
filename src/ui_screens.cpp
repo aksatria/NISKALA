@@ -798,6 +798,39 @@ void drawWebRemoteScreen() {
   drawFooter("TOMBOL = STOP & KEMBALI");
 }
 
+void drawPmfResultScreen(bool pmf, bool found) {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("CEK PMF", pmf ? TFT_RED : TFT_GREEN);
+  tft.setTextFont(2);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 30);
+  tft.print("Target: ");
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.println(targetSSID.length() ? targetSSID.substring(0, 18) : "(target)");
+
+  tft.setCursor(10, 54);
+  if (!found) {
+    tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+    tft.println("Beacon: TIDAK ADA");
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setCursor(10, 74);
+    tft.println("Pastikan 2.4 GHz");
+  } else if (pmf) {
+    tft.setTextColor(TFT_RED, TFT_BLACK);
+    tft.println("PMF: YA (802.11w)");
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setCursor(10, 74);
+    tft.println("Deauth tdk memutus");
+  } else {
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.println("PMF: TIDAK");
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setCursor(10, 74);
+    tft.println("Deauth bisa dicoba");
+  }
+  drawFooter("TOMBOL = KEMBALI");
+}
+
 void setBacklight(uint8_t duty) {
   static bool blInit = false;
   if (!blInit) {

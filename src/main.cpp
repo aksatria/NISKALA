@@ -151,6 +151,8 @@ bool isAuthFloodRunning = false;
 bool isBTSpamRunning = false;
 bool isCSARunning = false;             // [CSA]
 bool isWebRemoteRunning = false;
+bool g_pmfShowResult = false;
+unsigned long g_pmfShowUntil = 0;
 bool isMacroRunning = false;
 int macroIndex = 0;
 int macroPhase = 0;
@@ -1655,6 +1657,10 @@ void loop() {
     }
     dnsServer.processNextRequest();
     server.handleClient();
+    if (g_pmfShowResult && millis() > g_pmfShowUntil) {
+      g_pmfShowResult = false;
+      drawWebRemoteScreen();
+    }
     if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
       delay(300);
       stopWebRemote();

@@ -73,6 +73,9 @@ extern bool detectPMFByBssid(const uint8_t* bssid, uint8_t channel, bool* found)
 extern volatile bool g_pmfChecked;
 extern volatile bool g_pmfResult;
 extern volatile bool g_pmfFoundFlag;
+extern bool g_pmfShowResult;
+extern unsigned long g_pmfShowUntil;
+void drawPmfResultScreen(bool pmf, bool found);
 
 inline String wifiAuthName(int auth) {
   switch (auth) {
@@ -306,15 +309,20 @@ inline void setupWebRemote() {
     bool found = false;
     bool pmf = detectPMFByBssid(mac, ch, &found);
 
-    // detectPMFExact mempertahankan AP_STA; ini hanya pengaman jika mode berubah.
-    if (WiFi.getMode() != WIFI_AP_STA) {
-      radioSetMode(RADIO_AP_STA);
-      delay(80);
-      restoreOriginalApMac();
-      WiFi.softAP("NISKALA_CTRL", "niskala123", 1, 0, 4);
-      delay(200);
-    }
+    if (server.hasArg("ssid")) targetSSID = server.arg("ssid").substring(0, 32);
+
+    // Sniff memakai STA -> AP kontrol sempat turun; pulihkan kembali.
+    radioSetMode(RADIO_AP_STA);
+    delay(80);
+    restoreOriginalApMac();
+    WiFi.softAP("NISKALA_CTRL", "niskala123", 1, 0, 4);
+    delay(200);
     isWebRemoteRunning = true;
+
+    // Tampilkan hasil di layar board agar tetap terlihat walau HP sempat putus.
+    g_pmfShowResult = true;
+    g_pmfShowUntil = millis() + 5000;
+    drawPmfResultScreen(pmf, found);
 
     server.send(200, "application/json",
       "{\"ok\":true,\"pmf\":" + String(pmf ? "true" : "false") +
