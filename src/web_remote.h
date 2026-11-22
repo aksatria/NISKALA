@@ -170,6 +170,7 @@ inline void setupWebRemote() {
 
       if (mode == "evil") {
         stopAllAttacks();
+        isWebRemoteRunning = false;
         selectedTemplateIdx = 0;
         verifyAttempts = 0;
         verifyState = 0;
