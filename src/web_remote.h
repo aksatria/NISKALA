@@ -188,13 +188,16 @@ inline void setupWebRemote() {
         currentState = EVIL_TWIN_RUNNING;
         startEvilTwinWithDeauth();
       } else {
-        stopAttacksKeepWebRemote();
-        currentState = WEB_REMOTE;
+        stopAllAttacks();
+        isWebRemoteRunning = false;
         if (mode == "auth") {
+          currentState = AUTH_FLOOD_RUNNING;
           startAuthFlood();
         } else if (mode == "csa") {
+          currentState = CSA_RUNNING;
           startCSAAttack();
         } else {
+          currentState = DEAUTH_MENU;
           startDeauthEngine();
         }
       }
@@ -216,25 +219,28 @@ inline void setupWebRemote() {
   server.on("/api/start/beacon", []() {
     REQUIRE_WEB_AUTH();
     REQUIRE_WEB_MODE();
-    server.send(200, "text/plain", "Beacon Started");
-    stopAttacksKeepWebRemote();
-    currentState = WEB_REMOTE;
+    server.send(200, "text/plain", "Beacon Started - Web Remote disconnected");
+    stopAllAttacks();
+    isWebRemoteRunning = false;
+    currentState = BEACON_SPAM;
     startBeaconSpam();
   });
   server.on("/api/start/global", []() {
     REQUIRE_WEB_AUTH();
     REQUIRE_WEB_MODE();
-    server.send(200, "text/plain", "Global Started");
-    stopAttacksKeepWebRemote();
-    currentState = WEB_REMOTE;
+    server.send(200, "text/plain", "Global Started - Web Remote disconnected");
+    stopAllAttacks();
+    isWebRemoteRunning = false;
+    currentState = GLOBAL_DEAUTH;
     startGlobalDeauth();
   });
   server.on("/api/start/probe", []() {
     REQUIRE_WEB_AUTH();
     REQUIRE_WEB_MODE();
-    server.send(200, "text/plain", "Probe Started");
-    stopAttacksKeepWebRemote();
-    currentState = WEB_REMOTE;
+    server.send(200, "text/plain", "Probe Started - Web Remote disconnected");
+    stopAllAttacks();
+    isWebRemoteRunning = false;
+    currentState = PROBE_SNIFF;
     startProbeSniffer();
   });
   server.on("/api/start/ble", []() {
@@ -249,9 +255,10 @@ inline void setupWebRemote() {
   server.on("/api/start/karma", []() {
     REQUIRE_WEB_AUTH();
     REQUIRE_WEB_MODE();
-    server.send(200, "text/plain", "Karma Started");
-    stopAttacksKeepWebRemote();
-    currentState = WEB_REMOTE;
+    server.send(200, "text/plain", "Karma Started - Web Remote disconnected");
+    stopAllAttacks();
+    isWebRemoteRunning = false;
+    currentState = KARMA_SCAN;
     startKarmaScan();
   });
 
