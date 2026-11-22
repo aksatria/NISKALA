@@ -465,7 +465,7 @@ void startDeauthEngine() {
   if (isWebRemoteRunning) {
     if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
   } else {
-    radioSetMode(RADIO_OFF);
+    radioSetMode(RADIO_STA);
     delay(50);
     uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
     if (memcmp(mac, g_targetBSSID, 6) != 0) {
