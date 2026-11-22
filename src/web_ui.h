@@ -3,247 +3,50 @@
 
 #include <Arduino.h>
 const char HTML_REMOTE[] PROGMEM = R"rawliteral(
-<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NISKALA Web Control</title>
+<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>NISKALA · Web Remote</title>
 <style>
-body{font-family:sans-serif;background:#121212;color:#fff;margin:0;padding:16px;text-align:center}
-h2{color:#00ff00;margin:0 0 8px}
-.info{font-size:12px;color:#aaa;margin:0 0 14px}
-.btn{display:block;width:100%;padding:14px;margin:10px 0;border:none;border-radius:8px;background:#333;color:#fff;font-size:16px;font-weight:bold;cursor:pointer;text-decoration:none}
-.btn:active{background:#555}
-.btn-red{background:#b30000}.btn-red:active{background:#ff0000}
-.btn-green{background:#006600}.btn-green:active{background:#00aa00}
-.mbtn{flex:1;min-width:70px;padding:10px;border:none;border-radius:6px;background:#333;color:#fff;font-size:13px;font-weight:bold;cursor:pointer}
-.mbtn.active{background:#006600}
-.ap-list{text-align:left;background:#1e1e1e;border-radius:8px;padding:10px;margin-top:16px;max-height:300px;overflow-y:auto}
-.ap-item{padding:10px;border-bottom:1px solid #333;cursor:pointer}
-.ap-item:hover{background:#333}
-.ap-item b{color:#00ff00}
-.note{font-size:12px;color:#ffcc00;margin-top:16px;line-height:1.4}
-</style></head><body>
-<h2>NISKALA Web Control</h2>
-<p class="info" id="info">Status: Idle</p>
-<div style="text-align:left;margin:0 0 8px">
-<input id="web_token" type="password" placeholder="Token Web" style="width:calc(100% - 90px);padding:8px;border:none;border-radius:5px;background:#333;color:#fff;font-size:13px">
-<button class="btn" style="width:80px;padding:8px;margin:0" onclick="saveToken()">TOKEN</button>
-</div><canvas id="chart" width="320" height="90" style="width:100%;background:#1e1e1e;border-radius:8px;margin:0 0 12px"></canvas>
-<div style="text-align:left;margin:0 0 8px">
-<p style="color:#00ff00;font-weight:bold;margin:0 0 4px">MODE ATTACK:</p>
-<div style="display:flex;gap:6px;flex-wrap:wrap">
-<button class="mbtn" id="m_deauth" onclick="setMode('deauth')">DEAUTH</button>
-<button class="mbtn" id="m_evil" onclick="setMode('evil')">EVIL TWIN</button>
-<button class="mbtn" id="m_auth" onclick="setMode('auth')">AUTH FLOOD</button>
-<button class="mbtn" id="m_csa" onclick="setMode('csa')">CSA</button>
-</div>
-</div>
-<button class="btn btn-green" onclick="scanWifi()">SCAN WIFI</button>
-<div id="scanResult" class="ap-list" style="display:none"></div>
-<button class="btn btn-red" onclick="stopAll()">STOP ALL</button>
-<div style="text-align:left;margin-top:14px">
-<p style="color:#00ff00;font-weight:bold;margin:0 0 4px">QUICK START (HP akan putus):</p>
-<button class="btn" onclick="start('beacon')">START BEACON SPAM</button>
-<button class="btn" onclick="start('global')">START GLOBAL DEAUTH</button>
-<button class="btn" onclick="start('probe')">START PROBE SNIFF</button>
-<button class="btn" onclick="start('ble')">START BLE SPAM</button>
-<button class="btn" onclick="start('karma')">START KARMA</button>
-</div>
-<div style="text-align:left;margin-top:14px;background:#1e1e1e;border-radius:8px;padding:12px">
-<p style="color:#00ff00;font-weight:bold;margin:0 0 8px">TELEMETRI</p>
-<button class="btn" onclick="loadTelemetry()">REFRESH TELEMETRI</button>
-<div id="telemetryPanel" style="font-size:13px;color:#aaa;margin-top:8px;white-space:pre-wrap"></div>
-</div>
-<div style="text-align:left;margin-top:14px;background:#1e1e1e;border-radius:8px;padding:12px">
-<p style="color:#00ff00;font-weight:bold;margin:0 0 8px">EAPOL CAPTURE</p>
-<button class="btn" onclick="loadEapol()">REFRESH EAPOL</button>
-<div id="eapolPanel" style="font-size:13px;color:#aaa;margin-top:8px;white-space:pre-wrap"></div>
-</div>
-<div style="text-align:left;margin-top:14px;background:#1e1e1e;border-radius:8px;padding:12px">
-<p style="color:#00ff00;font-weight:bold;margin:0 0 8px">EVENT LOG</p>
-<button class="btn" onclick="loadLog()">REFRESH LOG</button>
-<div id="logPanel" style="font-size:12px;color:#0f0;margin-top:8px;white-space:pre-wrap;max-height:160px;overflow-y:auto"></div>
-</div>
-<div style="text-align:left;margin-top:6px">
-<p style="color:#aaa;font-size:13px;margin:0 0 4px">EXPORT DATA:</p>
-<a class="btn" href="/api/export/probe" download>Download Probe CSV</a>
-<a class="btn" href="/api/export/karma" download>Download Karma CSV</a>
-<a class="btn" href="/api/export/passwords" download>Download Passwords CSV</a>
-</div>
-<div style="text-align:left;margin-top:14px;background:#1e1e1e;border-radius:8px;padding:12px">
-<p style="color:#00ff00;font-weight:bold;margin:0 0 8px">CONFIG ATTACK</p>
-<label style="font-size:12px;color:#aaa">Deauth burst</label>
-<input id="cfg_deauth" type="number" min="1" max="100" style="width:100%;padding:8px;margin:4px 0 10px;border:none;border-radius:5px;background:#333;color:#fff;font-size:14px">
-<label style="font-size:12px;color:#aaa">Auth burst</label>
-<input id="cfg_auth" type="number" min="1" max="200" style="width:100%;padding:8px;margin:4px 0 10px;border:none;border-radius:5px;background:#333;color:#fff;font-size:14px">
-<label style="font-size:12px;color:#aaa">Hop interval (ms)</label>
-<input id="cfg_hop" type="number" min="20" max="2000" style="width:100%;padding:8px;margin:4px 0 10px;border:none;border-radius:5px;background:#333;color:#fff;font-size:14px">
-<label style="font-size:12px;color:#aaa">Beacon hop (ms)</label>
-<input id="cfg_beacon" type="number" min="20" max="2000" style="width:100%;padding:8px;margin:4px 0 10px;border:none;border-radius:5px;background:#333;color:#fff;font-size:14px">
-<label style="font-size:12px;color:#aaa">Deauth reason (0=rotasi)</label>
-<input id="cfg_reason" type="number" min="0" max="16" style="width:100%;padding:8px;margin:4px 0 10px;border:none;border-radius:5px;background:#333;color:#fff;font-size:14px">
-<label style="font-size:12px;color:#aaa">WiFi SSID (untuk sync)</label>
-<input id="cfg_wifi" type="text" style="width:100%;padding:8px;margin:4px 0 10px;border:none;border-radius:5px;background:#333;color:#fff;font-size:14px">
-<label style="font-size:12px;color:#aaa">WiFi Password</label>
-<input id="cfg_wifipass" type="password" style="width:100%;padding:8px;margin:4px 0 10px;border:none;border-radius:5px;background:#333;color:#fff;font-size:14px">
-<label style="font-size:12px;color:#aaa">Server URL</label>
-<input id="cfg_url" type="text" placeholder="https://domain/sync.php" style="width:100%;padding:8px;margin:4px 0 10px;border:none;border-radius:5px;background:#333;color:#fff;font-size:14px">
-<label style="font-size:12px;color:#aaa">Template URL (hosting)</label>
-<input id="cfg_tpl" type="text" placeholder="https://domain/template.html" style="width:100%;padding:8px;margin:4px 0 10px;border:none;border-radius:5px;background:#333;color:#fff;font-size:14px">
-<label style="font-size:12px;color:#aaa">Auto-sync (menit, 0=off)</label>
-<input id="cfg_autosync" type="number" min="0" max="1440" style="width:100%;padding:8px;margin:4px 0 10px;border:none;border-radius:5px;background:#333;color:#fff;font-size:14px">
-<button class="btn" onclick="saveConfig()">SAVE CONFIG</button>
-</div>
-<div class="note">Mulai Deauth = HP terputus dari AP ini. Berhenti pakai tombol board.</div>
+:root{--bg:#071018;--bg2:#0b1520;--panel:#101d2a;--panel2:#132435;--line:rgba(184,215,232,.13);--text:#ecf7fb;--muted:#8da6b5;--green:#78f09b;--cyan:#62dbea;--blue:#73a7ff;--amber:#ffd166;--red:#ff6e78;--shadow:0 18px 45px rgba(0,0,0,.25);--r:18px}
+*{box-sizing:border-box}html{background:var(--bg);overflow-x:hidden}body{margin:0;min-width:0;background:radial-gradient(circle at 8% -4%,rgba(120,240,155,.16),transparent 32%),radial-gradient(circle at 98% 8%,rgba(98,219,234,.13),transparent 30%),linear-gradient(150deg,var(--bg),#09131e 60%,#071018);color:var(--text);font:500 14px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:hidden}.app{width:min(1080px,100%);margin:auto;padding:18px 18px 40px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:17px}.brand{display:flex;align-items:center;gap:11px}.brand-mark{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:#04120a;background:linear-gradient(135deg,var(--green),var(--cyan));font-weight:1000;box-shadow:0 8px 28px rgba(98,219,234,.18)}.brand strong{display:block;font-size:18px;letter-spacing:.13em;font-weight:900}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:1px}.connection{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(120,240,155,.28);border-radius:99px;padding:7px 10px;color:var(--green);background:rgba(120,240,155,.07);font-size:11px;font-weight:800}.connection i{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor}.hero{display:grid;grid-template-columns:minmax(0,1fr) 295px;gap:14px;align-items:stretch;margin-bottom:14px}.hero-card,.panel{border:1px solid var(--line);background:linear-gradient(145deg,rgba(16,29,42,.97),rgba(13,25,36,.96));border-radius:var(--r);box-shadow:var(--shadow)}.hero-card{position:relative;overflow:hidden;padding:25px}.hero-card:after{content:"";position:absolute;width:210px;height:210px;right:-80px;top:-95px;border-radius:50%;background:radial-gradient(circle,rgba(120,240,155,.24),transparent 68%);pointer-events:none}.eyebrow{position:relative;z-index:1;color:var(--green);font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:900}.hero h1{position:relative;z-index:1;margin:9px 0 7px;font-size:clamp(25px,5vw,39px);line-height:1.05;letter-spacing:-.035em}.hero h1 span{color:var(--green)}.hero p{position:relative;z-index:1;color:var(--muted);max-width:580px;margin:0;font-size:13px}.hero-side{display:flex;flex-direction:column;gap:10px}.status-card{padding:18px}.status-label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.11em;font-weight:900}.status-value{display:block;color:#fff;font-size:22px;font-weight:900;margin-top:3px}.status-meta{display:block;color:var(--muted);font-size:12px;margin-top:4px}.token-row{display:flex;gap:7px;padding:11px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.035)}.token-row input{min-width:0;flex:1}.input,.token-row input{width:100%;border:1px solid rgba(184,215,232,.14);border-radius:10px;background:#09141e;color:var(--text);padding:10px 11px;font:600 13px inherit;outline:none}.input:focus,.token-row input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(98,219,234,.1)}
+.btn{border:0;border-radius:11px;padding:11px 13px;color:var(--text);background:#1a2c3b;font:800 12px inherit;cursor:pointer;transition:transform .16s,background .16s,border-color .16s,box-shadow .16s}.btn:hover{transform:translateY(-1px);background:#243c50}.btn:active{transform:translateY(0)}.btn-primary{color:#06130b;background:linear-gradient(135deg,var(--green),#45d985);box-shadow:0 8px 22px rgba(120,240,155,.17)}.btn-primary:hover{background:linear-gradient(135deg,#91ffae,#5be69a)}.btn-danger{background:rgba(255,110,120,.15);border:1px solid rgba(255,110,120,.32);color:#ffb0b5}.btn-danger:hover{background:rgba(255,110,120,.25)}.btn-quiet{background:transparent;border:1px solid var(--line);color:var(--muted)}.btn-quiet:hover{color:var(--text);border-color:var(--cyan)}.full{width:100%}.section-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:22px 2px 10px}.section-head h2{margin:0;font-size:15px;font-weight:900;letter-spacing:.02em}.section-head p{margin:0;color:var(--muted);font-size:11px}.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px}.span-8{grid-column:span 8}.span-4{grid-column:span 4}.span-6{grid-column:span 6}.panel{padding:17px}.panel-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}.panel-title strong{font-size:13px;font-weight:900}.panel-title span{color:var(--muted);font-size:11px}.icon-title{display:flex;align-items:center;gap:9px}.icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:rgba(98,219,234,.11);color:var(--cyan);font-size:15px}.mode-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.mode{padding:10px 6px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.025);color:var(--muted);font-size:11px;font-weight:900;cursor:pointer}.mode:hover{border-color:rgba(98,219,234,.45);color:var(--text)}.mode.active{color:#06130b;border-color:var(--green);background:var(--green)}.action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.action-grid .btn{text-align:left;min-height:48px}.action-grid .btn b{display:block;font-size:12px}.action-grid .btn span{display:block;margin-top:2px;color:var(--muted);font-size:10px;font-weight:600}.action-grid .btn:hover span{color:#c8dbe5}.scan-toolbar{display:flex;gap:8px;margin-bottom:10px}.scan-toolbar .btn:first-child{flex:1}.ap-list{display:grid;gap:7px;max-height:285px;overflow:auto}.ap-list:empty:after{content:"Belum ada hasil. Jalankan scan WiFi.";color:var(--muted);font-size:12px;padding:14px 4px;text-align:center}.ap-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#0b1722;cursor:pointer}.ap-item:hover{border-color:rgba(120,240,155,.45);background:#102333}.ap-item b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font-size:12px}.ap-item small{color:var(--muted);font-size:10px}.ap-item .signal{grid-column:1/-1;height:4px;border-radius:10px;background:#203342;overflow:hidden}.ap-item .signal i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--cyan),var(--green))}.scan-note{color:var(--muted);font-size:11px;margin:10px 0 0}.danger-note{color:var(--amber);font-size:11px;margin:10px 0 0}
+.chart-wrap{border:1px solid var(--line);border-radius:13px;background:#09141e;padding:7px}.chart-wrap canvas{display:block;width:100%;height:90px}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:10px}.metric{padding:10px 8px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.025)}.metric b{display:block;color:#fff;font-size:16px;font-weight:900}.metric span{display:block;color:var(--muted);font-size:10px;margin-top:1px}.data-box{min-height:75px;max-height:190px;overflow:auto;white-space:pre-wrap;color:#b9d6df;font:600 11px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;border:1px solid var(--line);border-radius:12px;background:#09141e;padding:12px}.eapol-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-bottom:10px}.eapol-stat{padding:9px 8px;text-align:center;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.025)}.eapol-stat b{display:block;color:var(--cyan);font-size:16px}.eapol-stat span{color:var(--muted);font-size:10px}.exports{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.exports a{text-align:center;text-decoration:none}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}.field label{display:block;color:var(--muted);font-size:10px;font-weight:800;margin:0 0 5px}.field.full-field{grid-column:1/-1}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:13px}.toast{position:fixed;left:50%;bottom:18px;z-index:50;transform:translate(-50%,15px);opacity:0;pointer-events:none;transition:.2s;padding:11px 14px;border:1px solid rgba(120,240,155,.3);border-radius:11px;background:#10251b;color:#d7ffe2;font-size:12px;font-weight:800;box-shadow:var(--shadow)}.toast.show{opacity:1;transform:translate(-50%,0)}.footer-note{text-align:center;color:#6e8795;font-size:10px;margin-top:20px}.footer-note b{color:var(--green)}
+@media(max-width:780px){.app{padding:13px 12px 28px}.hero{grid-template-columns:1fr}.hero-side{display:grid;grid-template-columns:1fr 1fr}.status-card{min-height:84px}.token-row{grid-column:1/-1}.span-8,.span-4,.span-6{grid-column:1/-1}.section-head{margin-top:17px}.panel{padding:14px}}
+@media(max-width:500px){.topbar{align-items:flex-start}.connection{font-size:10px;padding:6px 8px}.brand strong{font-size:16px}.brand small{font-size:10px}.hero-card{padding:19px}.hero h1{font-size:28px}.hero-side{display:flex}.mode-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.action-grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.eapol-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.exports{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.field.full-field{grid-column:auto}.form-actions{display:grid;grid-template-columns:1fr 1fr}.section-head h2{font-size:14px}}
+</style></head><body><div class="app">
+<div class="topbar"><div class="brand"><div class="brand-mark">N</div><div><strong>NISKALA</strong><small>Wireless security lab console</small></div></div><div class="connection"><i></i> AP CONTROL ONLINE</div></div>
+<div class="hero"><div class="hero-card"><div class="eyebrow">WEB REMOTE · V3.1</div><h1>Kontrol yang <span>lebih jelas</span>.</h1><p>Monitor status board, pilih modul, lihat hasil scan, dan simpan konfigurasi dari satu panel yang ringkas.</p></div><div class="hero-side"><div class="panel status-card"><span class="status-label">Status sesi</span><strong class="status-value" id="info">Idle</strong><span class="status-meta">Terhubung lokal melalui NISKALA_CTRL</span></div><div class="token-row"><input id="web_token" type="password" placeholder="Token Web Remote" aria-label="Token Web Remote"><button class="btn btn-primary" onclick="saveToken()">Simpan</button></div></div></div>
+<div class="section-head"><h2>Control center</h2><p>Gunakan hanya pada perangkat/jaringan berizin.</p></div>
+<div class="grid"><section class="panel span-8"><div class="panel-title"><div class="icon-title"><span class="icon">◎</span><strong>WiFi discovery</strong></div><span id="scan-count">Pasif</span></div><div class="scan-toolbar"><button class="btn btn-primary" onclick="scanWifi()">⌕ &nbsp; Scan WiFi</button><button class="btn btn-danger" onclick="stopAll()">■ &nbsp; Stop</button></div><div id="scanResult" class="ap-list"></div><p class="scan-note">Pilih salah satu hasil untuk mengisi target pengujian.</p></section>
+<section class="panel span-4"><div class="panel-title"><div class="icon-title"><span class="icon">⚙</span><strong>Mode pengujian</strong></div><span id="mode-label">DEAUTH</span></div><div class="mode-grid"><button class="mode active" id="m_deauth" onclick="setMode('deauth')">DEAUTH</button><button class="mode" id="m_evil" onclick="setMode('evil')">EVIL TWIN</button><button class="mode" id="m_auth" onclick="setMode('auth')">AUTH FLOOD</button><button class="mode" id="m_csa" onclick="setMode('csa')">CSA</button></div><p class="danger-note">Mode aktif dapat mengganggu koneksi. Gunakan lab terisolasi.</p></section>
+<section class="panel span-4"><div class="panel-title"><div class="icon-title"><span class="icon">✦</span><strong>Quick actions</strong></div><span>Modul</span></div><div class="action-grid"><button class="btn" onclick="start('beacon')"><b>Beacon Spam</b><span>Iklan WiFi uji</span></button><button class="btn" onclick="start('probe')"><b>Probe Sniff</b><span>Observasi pasif</span></button><button class="btn" onclick="start('global')"><b>Global Deauth</b><span>Lab terisolasi</span></button><button class="btn" onclick="start('karma')"><b>Karma</b><span>Simulasi awareness</span></button><button class="btn" onclick="start('ble')"><b>BLE Spam</b><span>WiFi dapat terputus</span></button><button class="btn btn-danger" onclick="stopAll()"><b>Stop All</b><span>Hentikan modul</span></button></div></section>
+<section class="panel span-8"><div class="panel-title"><div class="icon-title"><span class="icon">▥</span><strong>System telemetry</strong></div><button class="btn btn-quiet" onclick="loadTelemetry()">Refresh</button></div><div class="chart-wrap"><canvas id="chart" width="640" height="180"></canvas></div><div class="metrics"><div class="metric"><b id="metric-packets">0</b><span>Packets</span></div><div class="metric"><b id="metric-errors">0</b><span>TX errors</span></div><div class="metric"><b id="metric-heap">—</b><span>Free heap</span></div><div class="metric"><b id="metric-battery">—</b><span>Battery</span></div></div><div id="telemetryPanel" class="data-box" style="margin-top:10px">Tekan Refresh untuk membaca telemetri.</div></section>
+<section class="panel span-6"><div class="panel-title"><div class="icon-title"><span class="icon">◈</span><strong>EAPOL capture</strong></div><button class="btn btn-quiet" onclick="loadEapol()">Refresh</button></div><div class="eapol-grid"><div class="eapol-stat"><b id="e-m1">0</b><span>M1</span></div><div class="eapol-stat"><b id="e-m2">0</b><span>M2</span></div><div class="eapol-stat"><b id="e-m3">0</b><span>M3</span></div><div class="eapol-stat"><b id="e-m4">0</b><span>M4</span></div></div><div id="eapolPanel" class="data-box">Belum ada data EAPOL.</div></section>
+<section class="panel span-6"><div class="panel-title"><div class="icon-title"><span class="icon">≡</span><strong>Event log</strong></div><button class="btn btn-quiet" onclick="loadLog()">Refresh</button></div><div id="logPanel" class="data-box">Log masih kosong.</div></section>
+<section class="panel span-6"><div class="panel-title"><div class="icon-title"><span class="icon">⇩</span><strong>Export data</strong></div><span>CSV / JSON</span></div><div class="exports"><button class="btn" onclick="downloadExport('/api/export/probe','probe.csv')">Probe CSV</button><button class="btn" onclick="downloadExport('/api/export/karma','karma.csv')">Karma CSV</button><button class="btn" onclick="downloadExport('/api/export/passwords','passwords.csv')">Password CSV</button></div><p class="scan-note">Simpan hasil hanya untuk analisis yang sah dan terkontrol.</p></section>
+<section class="panel span-6"><div class="panel-title"><div class="icon-title"><span class="icon">⚙</span><strong>Konfigurasi</strong></div><span>NVS</span></div><div class="form-grid"><div class="field"><label for="cfg_deauth">Deauth burst</label><input class="input" id="cfg_deauth" type="number" min="1" max="100"></div><div class="field"><label for="cfg_auth">Auth burst</label><input class="input" id="cfg_auth" type="number" min="1" max="200"></div><div class="field"><label for="cfg_hop">Hop interval (ms)</label><input class="input" id="cfg_hop" type="number" min="20" max="2000"></div><div class="field"><label for="cfg_beacon">Beacon hop (ms)</label><input class="input" id="cfg_beacon" type="number" min="20" max="2000"></div><div class="field"><label for="cfg_reason">Deauth reason</label><input class="input" id="cfg_reason" type="number" min="0" max="16"></div><div class="field"><label for="cfg_autosync">Auto-sync (menit)</label><input class="input" id="cfg_autosync" type="number" min="0" max="1440"></div><div class="field"><label for="cfg_wifi">WiFi SSID sync</label><input class="input" id="cfg_wifi" type="text"></div><div class="field"><label for="cfg_wifipass">WiFi password sync</label><input class="input" id="cfg_wifipass" type="password"></div><div class="field full-field"><label for="cfg_url">Server URL</label><input class="input" id="cfg_url" type="url" placeholder="https://domain/sync.php"></div><div class="field full-field"><label for="cfg_tpl">Template URL</label><input class="input" id="cfg_tpl" type="url" placeholder="https://domain/template.html"></div></div><div class="form-actions"><button class="btn btn-quiet" onclick="loadConfig()">Muat ulang</button><button class="btn btn-primary" onclick="saveConfig()">Simpan config</button></div></section></div>
+<div class="footer-note"><b>AUTHORIZED USE ONLY</b> · NISKALA local control panel · WiFi dan BLE berbagi radio</div></div><div id="toast" class="toast"></div>
 <script>
-let WEB_TOKEN = localStorage.getItem('niskala_token') || '';
-function apiFetch(url, opts) {
-  opts = opts || {};
-  opts.headers = Object.assign({}, opts.headers || {}, {'X-NISKALA-TOKEN': WEB_TOKEN});
-  return fetch(url, opts);
-}
-function saveToken() {
-  WEB_TOKEN = document.getElementById('web_token').value;
-  localStorage.setItem('niskala_token', WEB_TOKEN);
-  document.getElementById('info').innerText = 'Token tersimpan';
-}
-function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function rssiBar(rssi) {
-  const pct = Math.max(0, Math.min(100, (rssi + 90) / 60 * 100));
-  const col = pct > 66 ? '#00ff00' : (pct > 33 ? '#ffcc00' : '#ff0000');
-  return '<div style="height:6px;background:#333;border-radius:3px;margin-top:4px"><div style="height:6px;width:' + pct + '%;background:' + col + ';border-radius:3px"></div></div>';
-}
-let attackMode = 'deauth';
-function setMode(m) {
-  attackMode = m;
-  ['deauth','evil','auth','csa'].forEach(x => {
-    document.getElementById('m_' + x).className = 'mbtn' + (x === m ? ' active' : '');
-  });
-  document.getElementById('info').innerText = 'Mode: ' + m.toUpperCase();
-}
-function scanWifi() {
-  document.getElementById('info').innerText = 'Status: Scanning...';
-  document.getElementById('scanResult').style.display = 'none';
-  apiFetch('/api/scan').then(r => r.json()).then(data => {
-    let html = '';
-    data.forEach((ap, i) => {
-      html += `<div class="ap-item" data-mac="${esc(ap.mac)}" data-ch="${ap.ch}" data-ssid="${esc(ap.ssid)}">
-        <b>${esc(ap.ssid)}</b> (Ch: ${ap.ch}) - ${ap.rssi} dBm
-        ${rssiBar(ap.rssi)}
-      </div>`;
-    });
-    document.getElementById('scanResult').innerHTML = html;
-    document.getElementById('scanResult').style.display = 'block';
-    document.getElementById('info').innerText = 'Status: ' + data.length + ' AP ditemukan';
-  });
-}
-function stopAll() {
-  apiFetch('/api/stop').then(() => {
-    document.getElementById('info').innerText = 'Status: Stopped';
-    document.getElementById('scanResult').style.display = 'none';
-  });
-}
-const pktSamples = [];
-function drawChart(data) {
-  const c = document.getElementById('chart');
-  if (!c) return;
-  const ctx = c.getContext('2d');
-  const w = c.width, h = c.height;
-  ctx.fillStyle = '#1e1e1e'; ctx.fillRect(0, 0, w, h);
-  if (data.length < 2) return;
-  const max = Math.max.apply(null, data) || 1;
-  ctx.strokeStyle = '#00e676'; ctx.lineWidth = 2; ctx.beginPath();
-  for (let i = 0; i < data.length; i++) {
-    const x = 5 + (i / (data.length - 1)) * (w - 10);
-    const y = h - 5 - (data[i] / max) * (h - 10);
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-}
-function loadTelemetry() {
-  apiFetch('/api/telemetry').then(r => r.json()).then(t => {
-    document.getElementById('telemetryPanel').innerText =
-      'State: ' + (t.state ?? '-') + '  Mode: ' + (t.mode ?? '-') +
-      '\nPackets: ' + (t.packets ?? 0) + '  Errors: ' + (t.tx_errors ?? 0) +
-      '\nHeap: ' + (t.heap ?? 0) + ' B  Stack: ' + (t.stack ?? 0) + ' B' +
-      '\nBattery: ' + (t.battery ?? 0) + '%  Voltage: ' + (t.battery_v ?? 0) + ' V' +
-      '\nTemp: ' + (t.temp ?? 0) + ' C  Uptime: ' + (t.uptime_s ?? 0) + ' s';
-  }).catch(() => { document.getElementById('telemetryPanel').innerText = 'Gagal ambil telemetri'; });
-}
-function loadEapol() {
-  apiFetch('/api/eapol').then(r => r.json()).then(e => {
-    document.getElementById('eapolPanel').innerText =
-      'Target: ' + (e.target || '-') +
-      '\nBSSID: ' + (e.bssid || '-') +
-      '\nChannel: ' + (e.channel || 0) +
-      '\nM1: ' + (e.m1 || 0) + '  M2: ' + (e.m2 || 0) + '  M3: ' + (e.m3 || 0) + '  M4: ' + (e.m4 || 0) +
-      '\nFULL: ' + (e.full || 0) + ' | EAPOL: ' + (e.packets || 0) +
-      '\nUptime: ' + (e.uptime_s || 0) + 's';
-  }).catch(() => { document.getElementById('eapolPanel').innerText = 'Gagal ambil data EAPOL'; });
-}
-function loadLog() {
-  apiFetch('/api/log').then(r => r.text()).then(t => {
-    document.getElementById('logPanel').innerText = t || '(kosong)';
-  }).catch(() => { document.getElementById('logPanel').innerText = 'Gagal ambil log'; });
-}
-function poll() {
-  apiFetch('/api/status').then(r => r.json()).then(s => {
-    document.getElementById('info').innerText = 'mode ' + s.mode + ' | pkt ' + s.packets + ' | err ' + s.txerrors + ' | heap ' + s.heap + 'B | stack ' + (s.stack||0) + 'B | bat ' + (s.battery||0) + '% | t ' + (s.temp||0) + 'C | up ' + s.uptime + 's | ' + s.target;
-    pktSamples.push(s.packets);
-    if (pktSamples.length > 60) pktSamples.shift();
-    drawChart(pktSamples);
-    loadEapol();
-    loadTelemetry();
-  }).catch(() => {});
-}
-document.getElementById('scanResult').addEventListener('click', function(e) {
-  const item = e.target.closest('.ap-item');
-  if (!item) return;
-  const mac = item.getAttribute('data-mac');
-  const ch = item.getAttribute('data-ch');
-  const ssid = item.getAttribute('data-ssid');
-  document.getElementById('info').innerText = 'Status: Attacking ' + ssid;
-  apiFetch(`/api/attack?mac=${encodeURIComponent(mac)}&ch=${encodeURIComponent(ch)}&ssid=${encodeURIComponent(ssid)}&mode=${encodeURIComponent(attackMode)}`)
-    .then(() => alert(attackMode.toUpperCase() + ' dimulai ke ' + ssid));
-});
-function start(m) {
-  document.getElementById('info').innerText = 'Status: Starting ' + m;
-  apiFetch('/api/start/' + m).then(() => alert('Started ' + m + '. HP terputus; stop pakai tombol board.'));
-}
-function loadConfig() {
-  apiFetch('/api/config').then(r => r.json()).then(c => {
-    document.getElementById('cfg_deauth').value = c.deauth;
-    document.getElementById('cfg_auth').value = c.auth;
-    document.getElementById('cfg_hop').value = c.hop;
-    document.getElementById('cfg_beacon').value = c.beacon;
-    document.getElementById('cfg_reason').value = c.reason || 0;
-    document.getElementById('cfg_wifi').value = c.wifi || '';
-    document.getElementById('cfg_wifipass').value = c.wifipass || '';
-    document.getElementById('cfg_url').value = c.url || '';
-    document.getElementById('cfg_tpl').value = c.tpl || '';
-    document.getElementById('cfg_autosync').value = c.autosync || 0;
-  }).catch(() => {});
-}
-function saveConfig() {
-  const d = document.getElementById('cfg_deauth').value;
-  const a = document.getElementById('cfg_auth').value;
-  const h = document.getElementById('cfg_hop').value;
-  const b = document.getElementById('cfg_beacon').value;
-  const r = document.getElementById('cfg_reason').value;
-  const w = document.getElementById('cfg_wifi').value;
-  const wp = document.getElementById('cfg_wifipass').value;
-  const u = document.getElementById('cfg_url').value;
-  const t = document.getElementById('cfg_tpl').value;
-  const as = document.getElementById('cfg_autosync').value;
-  apiFetch('/api/config', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: 'deauth=' + encodeURIComponent(d) + '&auth=' + encodeURIComponent(a) + '&hop=' + encodeURIComponent(h) + '&beacon=' + encodeURIComponent(b) + '&reason=' + encodeURIComponent(r) + '&wifi=' + encodeURIComponent(w) + '&wifipass=' + encodeURIComponent(wp) + '&url=' + encodeURIComponent(u) + '&tpl=' + encodeURIComponent(t) + '&autosync=' + encodeURIComponent(as)
-  }).then(() => alert('Config tersimpan'));
-}
-setMode('deauth');
-loadConfig();
-setInterval(poll, 2000);
-</script>
-</body></html>
+let WEB_TOKEN=localStorage.getItem('niskala_token')||'';let attackMode='deauth';const $=id=>document.getElementById(id);const pktSamples=[];
+function apiFetch(url,opts){opts=opts||{};opts.headers=Object.assign({},opts.headers||{}, {'X-NISKALA-TOKEN':WEB_TOKEN});return fetch(url,opts)}
+function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>el.classList.remove('show'),2400)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function saveToken(){WEB_TOKEN=$('web_token').value.trim();localStorage.setItem('niskala_token',WEB_TOKEN);toast('Token disimpan di browser')}
+function setMode(m){attackMode=m;['deauth','evil','auth','csa'].forEach(x=>{const b=$('m_'+x);if(b)b.classList.toggle('active',x===m)});$('mode-label').textContent=m.toUpperCase()}
+function rssiPct(v){return Math.max(4,Math.min(100,((Number(v)+90)/60)*100))}
+function scanWifi(){ $('scan-count').textContent='Memindai…';$('scanResult').innerHTML='';apiFetch('/api/scan').then(r=>{if(!r.ok)throw Error();return r.json()}).then(data=>{let html='';data.forEach(ap=>{const ssid=ap.ssid||'(hidden)';html+=`<div class="ap-item" data-mac="${esc(ap.mac)}" data-ch="${esc(ap.ch)}" data-ssid="${esc(ssid)}"><div><b>${esc(ssid)}</b><small>${esc(ap.mac)} · Ch ${esc(ap.ch)}</small></div><small>${esc(ap.rssi)} dBm</small><div class="signal"><i style="width:${rssiPct(ap.rssi)}%"></i></div></div>`});$('scanResult').innerHTML=html;$('scan-count').textContent=data.length+' AP ditemukan';toast('Scan selesai')}).catch(()=>{$('scan-count').textContent='Gagal scan';toast('Tidak dapat membaca scan')})}
+function stopAll(){apiFetch('/api/stop').then(()=>{toast('Semua modul dihentikan');$('info').textContent='Stopped';}).catch(()=>toast('Stop gagal'))}
+function drawChart(data){const c=$('chart'),ctx=c.getContext('2d'),w=c.width,h=c.height;ctx.clearRect(0,0,w,h);ctx.strokeStyle='rgba(184,215,232,.1)';ctx.lineWidth=1;for(let y=1;y<4;y++){ctx.beginPath();ctx.moveTo(0,y*h/4);ctx.lineTo(w,y*h/4);ctx.stroke()}if(data.length<2)return;const max=Math.max(...data,1);ctx.beginPath();data.forEach((v,i)=>{const x=8+i/(data.length-1)*(w-16),y=h-10-(v/max)*(h-20);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.strokeStyle='#78f09b';ctx.lineWidth=3;ctx.stroke()}
+function loadTelemetry(){apiFetch('/api/telemetry').then(r=>r.json()).then(t=>{$('metric-packets').textContent=t.packets??0;$('metric-errors').textContent=t.tx_errors??0;$('metric-heap').textContent=(t.heap??0)+' B';$('metric-battery').textContent=(t.battery??0)+'%';$('telemetryPanel').textContent='State: '+(t.state??'-')+'  ·  Mode: '+(t.mode??'-')+'\nHeap min: '+(t.heap_min??0)+' B  ·  Stack: '+(t.stack??0)+' B\nVoltage: '+(t.battery_v??0)+' V  ·  Temp: '+(t.temp??0)+' °C\nWiFi mode: '+(t.wifi_mode??'-')+'  ·  Channel: '+(t.wifi_channel??'-')+'\nUptime: '+(t.uptime_s??0)+' s'}).catch(()=>{$('telemetryPanel').textContent='Gagal mengambil telemetri'})}
+function loadEapol(){apiFetch('/api/eapol').then(r=>r.json()).then(e=>{$('e-m1').textContent=e.m1??0;$('e-m2').textContent=e.m2??0;$('e-m3').textContent=e.m3??0;$('e-m4').textContent=e.m4??0;$('eapolPanel').textContent='Target: '+(e.target||'-')+'\nBSSID: '+(e.bssid||'-')+'  ·  Channel: '+(e.channel??0)+'\nFULL: '+(e.full??0)+'  ·  EAPOL: '+(e.packets??0)+'\nUptime: '+(e.uptime_s??0)+' s'}).catch(()=>{$('eapolPanel').textContent='Gagal mengambil data EAPOL'})}
+function loadLog(){apiFetch('/api/log').then(r=>r.text()).then(t=>{$('logPanel').textContent=t||'(kosong)'}).catch(()=>{$('logPanel').textContent='Gagal mengambil event log'})}
+function downloadExport(url,name){apiFetch(url).then(r=>{if(!r.ok)throw Error();return r.blob()}).then(blob=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('Export '+name+' siap')}).catch(()=>toast('Export gagal'))}
+function poll(){apiFetch('/api/status').then(r=>r.json()).then(s=>{$('info').textContent='Mode '+(s.mode??'-')+' · '+(s.packets??0)+' pkt · '+(s.heap??0)+' B';pktSamples.push(Number(s.packets)||0);if(pktSamples.length>60)pktSamples.shift();drawChart(pktSamples);loadTelemetry();loadEapol()}).catch(()=>{$('info').textContent='Menunggu board…'})}
+$('scanResult').addEventListener('click',e=>{const item=e.target.closest('.ap-item');if(!item)return;const mac=item.dataset.mac,ch=item.dataset.ch,ssid=item.dataset.ssid;$('info').textContent='Target: '+ssid;apiFetch('/api/attack?mac='+encodeURIComponent(mac)+'&ch='+encodeURIComponent(ch)+'&ssid='+encodeURIComponent(ssid)+'&mode='+encodeURIComponent(attackMode)).then(()=>toast(attackMode.toUpperCase()+' dimulai')).catch(()=>toast('Gagal memulai mode'))})
+function start(m){$('info').textContent='Starting '+m+'…';apiFetch('/api/start/'+m).then(()=>toast(m.toUpperCase()+' dimulai')).catch(()=>toast('Gagal memulai '+m))}
+function loadConfig(){apiFetch('/api/config').then(r=>r.json()).then(c=>{['deauth','auth','hop','beacon','reason','autosync'].forEach(k=>{if($("cfg_"+k))$("cfg_"+k).value=c[k]??0});$('cfg_wifi').value=c.wifi||'';$('cfg_wifipass').value=c.wifipass||'';$('cfg_url').value=c.url||'';$('cfg_tpl').value=c.tpl||''}).catch(()=>{})}
+function saveConfig(){const p=new URLSearchParams();[['deauth','cfg_deauth'],['auth','cfg_auth'],['hop','cfg_hop'],['beacon','cfg_beacon'],['reason','cfg_reason'],['wifi','cfg_wifi'],['wifipass','cfg_wifipass'],['url','cfg_url'],['tpl','cfg_tpl'],['autosync','cfg_autosync']].forEach(([k,id])=>p.set(k,$(id).value));apiFetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()}).then(()=>toast('Konfigurasi tersimpan')).catch(()=>toast('Gagal menyimpan konfigurasi'))}
+$('web_token').value=WEB_TOKEN;setMode('deauth');loadConfig();loadTelemetry();loadEapol();setInterval(poll,3000);
+</script></body></html>
 )rawliteral";
 
 #endif
