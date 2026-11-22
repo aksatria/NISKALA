@@ -534,12 +534,14 @@ void startGlobalDeauth() {
   resetPacketCounters();
   isGlobalDeauthRunning = true;
   setAttackMode(ATK_DEAUTH_GLOBAL);
+  Serial.println("[GLOBAL] Deauth semua kanal dimulai");
 }
 
 void stopGlobalDeauth() {
   isGlobalDeauthRunning = false;
   setAttackMode(ATK_IDLE);
   resetWifiStateAfterAttack();
+  Serial.println("[GLOBAL] Deauth dihentikan");
 }
 
 void startBeaconSpam() {
