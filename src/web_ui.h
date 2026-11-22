@@ -37,7 +37,11 @@ function scanWifi(){
   const list=$('scanResult');
   $('scan-count').textContent='Memindai...';
   list.innerHTML='<div class="ap-item"><div><b>Memindai jaringan...</b><small>Tunggu hingga 5 detik</small></div></div>';
-  apiFetch('/api/scan').then(r=>{if(!r.ok)throw Error();return r.json()}).then(data=>{
+  apiFetch('/api/scan').then(r=>{
+    if(r.status===403)throw Object.assign(new Error('auth'),{auth:true});
+    if(!r.ok)throw Error();
+    return r.json();
+  }).then(data=>{
     if(!Array.isArray(data))throw Error();
     let html='';
     data.forEach(ap=>{const ssid=ap.ssid||'(hidden)';html+=`<div class="ap-item" data-mac="${esc(ap.mac)}" data-ch="${esc(ap.ch)}" data-ssid="${esc(ssid)}"><div><b>${esc(ssid)}</b><small>${esc(ap.mac)} | Ch ${esc(ap.ch)}</small></div><small>${esc(ap.rssi)} dBm</small><div class="signal"><i style="width:${rssiPct(ap.rssi)}%"></i></div></div>`});
@@ -45,7 +49,17 @@ function scanWifi(){
     $('scan-count').textContent=(data.length?data.length+' AP ditemukan':'Tidak ada AP');
     if(!data.length)list.innerHTML='<div class="ap-item"><div><b>Tidak ada jaringan ditemukan</b><small>Coba pindah posisi board lalu scan ulang.</small></div></div>';
     toast('Scan selesai');
-  }).catch(()=>{list.innerHTML='<div class="ap-item"><div><b>Scan gagal</b><small>Periksa koneksi ke NISKALA_CTRL dan token.</small></div></div>';$('scan-count').textContent='Gagal scan';toast('Tidak dapat membaca scan')});
+  }).catch(err=>{
+    if(err && err.auth){
+      list.innerHTML='<div class="ap-item"><div><b>Token Web Remote belum sesuai</b><small>Isi token di kolom atas, lalu tekan Simpan, baru scan ulang.</small></div></div>';
+      $('scan-count').textContent='Perlu token';
+      toast('Token Web Remote diperlukan');
+    }else{
+      list.innerHTML='<div class="ap-item"><div><b>Scan gagal</b><small>Pastikan perangkat terhubung ke NISKALA_CTRL.</small></div></div>';
+      $('scan-count').textContent='Gagal scan';
+      toast('Tidak dapat membaca scan');
+    }
+  });
 }
 
 function stopAll(){apiFetch('/api/stop').then(()=>{toast('Semua modul dihentikan');$('info').textContent='Stopped';}).catch(()=>toast('Stop gagal'))}
