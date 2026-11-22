@@ -12,6 +12,7 @@
 #include "wifi_state.h"
 #include "allowlist.h"
 #include "client_monitor.h"
+#include "ui_screens.h"
 
 static String cliBuf = "";
 int hexNibble(char c) {
@@ -65,6 +66,7 @@ void cliPrintHelp() {
   Serial.println("  log");
   Serial.println("  scan");
   Serial.println("  stop");
+  Serial.println("  web [stop]   mulai atau hentikan Web Remote");
   Serial.println("  beacon | probe | karma | global | blespam | blescan");
   Serial.println("  deauth <AA:BB:CC:DD:EE:FF>");
   Serial.println("  ble-raw <hex>");
@@ -102,10 +104,40 @@ void processCliCommand(String line) {
     WiFi.scanDelete();
   }
   else if (cmd == "stop") {
-    stopAllAttacks();
+    if (isWebRemoteRunning) {
+      stopAttacksKeepWebRemote();
+      stopWebRemote();
+    } else {
+      stopAllAttacks();
+    }
     currentState = MAIN_MENU;
     drawMainMenu();
-    Serial.println("[CLI] Semua berhenti");
+    Serial.println("[CLI] Semua modul berhenti");
+  }
+  else if (cmd == "web" || cmd == "remote") {
+    arg.trim();
+    arg.toLowerCase();
+    if (arg == "stop") {
+      if (isWebRemoteRunning) {
+        stopAttacksKeepWebRemote();
+        stopWebRemote();
+      } else {
+        stopAllAttacks();
+      }
+      currentState = MAIN_MENU;
+      drawMainMenu();
+      Serial.println("[CLI] Web Remote berhenti");
+    } else if (isWebRemoteRunning) {
+      currentState = WEB_REMOTE;
+      drawWebRemoteScreen();
+      Serial.println("[CLI] Web Remote sudah aktif di http://192.168.4.1/rc");
+    } else {
+      stopAllAttacks();
+      currentState = WEB_REMOTE;
+      startWebRemote();
+      Serial.println("[CLI] Web Remote aktif di http://192.168.4.1/rc");
+      logEvent("CLI web remote ON");
+    }
   }
   else if (cmd == "beacon") {
     stopAllAttacks();

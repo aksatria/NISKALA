@@ -425,6 +425,9 @@ Menu utama NISKALA berisi 20 modul. Berikut pengelompokannya agar mudah dipahami
 
 # 9. Serial CLI (Lengkap)
 
+> Dokumentasi web lengkap tersedia di [docs.html](https://niskalasys.my.id/docs.html), termasuk tabel menu, troubleshooting, API, dan glosarium.
+
+
 **Apa itu Serial CLI?** Cara mengendalikan board lewat teks (terminal), tanpa layar/tombol.
 
 **Cara membuka:** colok USB, buka Serial Monitor 115200, ketik perintah lalu Enter.
@@ -438,6 +441,8 @@ Menu utama NISKALA berisi 20 modul. Berikut pengelompokannya agar mudah dipahami
 | `log` | Lihat event log (riwayat kejadian) |
 | `scan` | Scan WiFi + tampilkan SSID/BSSID/channel/RSSI |
 | `stop` | Hentikan semua modul |
+| `web` | Mulai Web Remote tanpa tombol fisik |
+| `web stop` | Tutup Web Remote dan kembali ke menu |
 | `beacon` | Mulai Beacon Spam |
 | `probe` | Mulai Probe Sniff |
 | `karma` | Mulai Karma Attack |
