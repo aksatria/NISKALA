@@ -10,6 +10,9 @@
 <meta property="og:title" content="NISKALA — Network Intrusion &amp; Security Kit">
 <meta property="og:description" content="Platform audit keamanan WiFi &amp; Bluetooth berbasis ESP32 untuk edukasi dan pengujian berizin.">
 <meta property="og:url" content="https://niskalasys.my.id/">
+<meta property="og:image" content="https://niskalasys.my.id/assets/product/device-hero.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -151,6 +154,11 @@
   .showcase-caption{position:absolute;left:0;right:0;bottom:0;padding:34px 18px 16px;background:linear-gradient(transparent,rgba(0,0,0,.84));color:#fff}
   .showcase-caption strong{display:block;font-size:16px;font-weight:900}
   .showcase-caption span{display:block;margin-top:3px;color:#b9c5d3;font-size:12.5px;font-weight:700}
+  /* software layer */
+  .software-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.software-card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:18px;padding:20px;overflow:hidden}.software-card h3{font-size:17px;font-weight:900;margin:14px 0 6px;color:#fff}.software-card p{font-size:13px;line-height:1.55;color:var(--muted);font-weight:600}.mini-screen{height:130px;border:1px solid rgba(0,230,118,.22);border-radius:12px;background:#050b0c;padding:10px;overflow:hidden;box-shadow:inset 0 0 30px rgba(0,230,118,.05)}.mini-bar{height:12px;border-radius:4px;background:linear-gradient(90deg,rgba(0,230,118,.8),rgba(34,211,238,.5));margin-bottom:10px}.mini-line{height:8px;border-radius:99px;background:rgba(255,255,255,.12);margin:8px 0}.mini-line.green{background:rgba(0,230,118,.5);width:78%}.mini-line.cyan{background:rgba(34,211,238,.45);width:58%}.mini-line.short{width:38%}.mini-chart{height:45px;display:flex;align-items:end;gap:5px;margin-top:10px}.mini-chart i{display:block;flex:1;border-radius:3px 3px 0 0;background:linear-gradient(var(--green),rgba(0,230,118,.15));height:var(--h)}.software-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:13px}.software-tags span{font-size:10px;font-weight:800;color:var(--muted);border:1px solid var(--line-2);border-radius:999px;padding:4px 8px}
+  .timeline{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;position:relative}.timeline::before{content:"";position:absolute;left:8%;right:8%;top:22px;height:1px;background:linear-gradient(90deg,var(--green),var(--cyan),var(--violet));opacity:.35}.milestone{position:relative;z-index:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;text-align:center}.milestone .m-dot{width:16px;height:16px;margin:0 auto 14px;border-radius:50%;background:var(--green);border:4px solid var(--bg);box-shadow:0 0 0 1px rgba(0,230,118,.5)}.milestone strong{display:block;color:#fff;font-size:15px;font-weight:900}.milestone span{display:block;color:var(--muted);font-size:12px;margin-top:5px;font-weight:700}.milestone p{color:var(--muted);font-size:12px;line-height:1.5;margin-top:10px;font-weight:600}
+  .lightbox{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;padding:24px}.lightbox.open{display:flex}.lightbox-content{position:relative;width:min(100%,1100px);max-height:92vh;text-align:center}.lightbox-content img{max-width:100%;max-height:82vh;border-radius:14px;object-fit:contain;box-shadow:0 20px 80px rgba(0,0,0,.55)}.lightbox-caption{color:#fff;font-size:14px;font-weight:800;margin-top:10px}.lightbox-close,.lightbox-prev,.lightbox-next{position:absolute;border:1px solid rgba(255,255,255,.2);background:rgba(7,10,15,.8);color:#fff;border-radius:50%;width:40px;height:40px;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center}.lightbox-close{right:-8px;top:-8px}.lightbox-prev{left:10px;top:50%;transform:translateY(-50%)}.lightbox-next{right:10px;top:50%;transform:translateY(-50%)}.lightbox-close:hover,.lightbox-prev:hover,.lightbox-next:hover{background:rgba(0,230,118,.25);border-color:var(--green)}
+
   /* specs */
   .specs-wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center}
   .specs{display:grid;gap:12px}
@@ -205,12 +213,7 @@
 
   .legal-section{padding:18px 0 30px}
   .legal-section .notice{max-width:920px;margin:0 auto}
-  .site-footer{width:100%;margin-top:auto;border-top:1px solid var(--line);padding:24px 0 28px;text-align:center;position:relative}
-  .foot-brand{font-weight:900;font-size:22px;letter-spacing:2px;color:#fff}
-  .foot-brand span{color:var(--green)}
-  .foot-tags{margin:14px 0 6px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-  .tag{font-size:11.5px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);padding:4px 12px;border-radius:999px;letter-spacing:.03em;font-weight:700}
-  .foot-copy{font-size:12.5px;color:var(--muted-2);margin-top:10px;font-weight:600}
+  .site-footer{width:100%;margin-top:auto;border-top:1px solid var(--line);padding:34px 0 28px;position:relative}.footer-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:28px}.footer-brand{font-weight:900;font-size:22px;letter-spacing:2px;color:#fff}.footer-brand span{color:var(--green)}.footer-grid h4{font-size:12px;color:var(--green);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;font-weight:900}.footer-grid p,.footer-grid a{display:block;color:var(--muted);font-size:12.5px;line-height:1.7;font-weight:600}.footer-grid a:hover{color:var(--green)}.foot-tags{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap}.tag{font-size:11px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);padding:4px 10px;border-radius:999px;letter-spacing:.03em;font-weight:700}.foot-copy{border-top:1px solid var(--line);padding-top:16px;margin-top:24px;color:var(--muted-2);font-size:12px;font-weight:600;text-align:center}
 
   @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
   @keyframes sweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
@@ -268,6 +271,7 @@
     .sec-head h2{font-size:26px;line-height:1.2}
     .sec-head p{font-size:14px;line-height:1.55}
     .values,.steps{grid-template-columns:1fr;gap:12px}
+    .software-grid{grid-template-columns:1fr;gap:12px}.software-card{padding:17px}.mini-screen{height:120px}.timeline{grid-template-columns:1fr;gap:10px}.timeline::before{left:18px;right:auto;top:18px;bottom:18px;width:1px;height:auto;background:linear-gradient(var(--green),var(--cyan),var(--violet))}.milestone{display:grid;grid-template-columns:30px 1fr;text-align:left;align-items:start;gap:8px;padding:14px}.milestone .m-dot{margin:3px 0 0}.milestone strong,.milestone span,.milestone p{grid-column:2}.milestone strong{margin-top:-2px}
     .showcase-grid{display:flex;gap:12px;overflow-x:auto;overflow-y:hidden;padding:4px 2px 14px;scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none}
     .showcase-grid::-webkit-scrollbar{display:none}
     .showcase-item,.showcase-item:first-child{flex:0 0 86%;min-height:0;height:270px;grid-row:auto;scroll-snap-align:start;scroll-snap-stop:always}
@@ -323,7 +327,7 @@
     .notice{flex-direction:column;padding:16px;gap:10px}
     .notice p{font-size:13px;line-height:1.55}
     .legal-section{padding:10px 0 20px}
-    .site-footer{padding:22px 0 24px}
+    .site-footer{padding:28px 0 22px}.footer-grid{grid-template-columns:1fr;gap:20px}.footer-grid h4{margin-bottom:5px}.foot-copy{text-align:left}.lightbox{padding:12px}.lightbox-prev{left:4px}.lightbox-next{right:4px}.lightbox-close{right:0;top:0}
     .back-top{right:14px;bottom:14px}
   }
   @media(max-width:360px){
@@ -350,7 +354,8 @@
       <a href="#features">Fitur</a>
       <a href="#workflow">Alur</a>
       <a href="#showcase">Tampilan</a>
-      <a href="#specs">Spesifikasi</a>
+      <a href="#software">Software</a>
+      <a href="#timeline">Roadmap</a>
       <a href="#faq">FAQ</a>
       <a class="nav-cta" href="view.php">Dashboard</a>
     </div>
@@ -527,6 +532,8 @@
   </div>
 </section>
 
+<section id="software"><div class="wrap"><div class="sec-head anim"><div class="kicker">Software layer</div><h2>Kontrol, data, dan observabilitas</h2><p>Selain perangkat fisik, NISKALA memiliki lapisan software untuk mengendalikan, memantau, dan menganalisis hasil pengujian.</p></div><div class="software-grid"><article class="software-card anim"><div class="mini-screen"><div class="mini-bar"></div><div class="mini-line green"></div><div class="mini-line cyan"></div><div class="mini-line short"></div><div class="mini-chart"><i style="--h:35%"></i><i style="--h:68%"></i><i style="--h:48%"></i><i style="--h:84%"></i><i style="--h:58%"></i><i style="--h:92%"></i></div></div><h3>Web Remote</h3><p>Kontrol browser untuk scan, mode pengujian, konfigurasi, dan status perangkat.</p><div class="software-tags"><span>Scan</span><span>Control</span><span>Telemetry</span></div></article><article class="software-card anim"><div class="mini-screen"><div class="mini-bar" style="background:linear-gradient(90deg,rgba(34,211,238,.8),rgba(77,163,255,.5))"></div><div class="mini-line cyan"></div><div class="mini-line green"></div><div class="mini-line short"></div><div class="mini-chart"><i style="--h:42%"></i><i style="--h:55%"></i><i style="--h:76%"></i><i style="--h:51%"></i><i style="--h:88%"></i><i style="--h:64%"></i></div></div><h3>Cloud Dashboard</h3><p>Hasil pengujian dikirim ke dashboard web untuk ditinjau dan diekspor.</p><div class="software-tags"><span>Sync</span><span>Export</span><span>History</span></div></article><article class="software-card anim"><div class="mini-screen"><div class="mini-bar" style="background:linear-gradient(90deg,rgba(167,139,250,.8),rgba(0,230,118,.5))"></div><div class="mini-line green"></div><div class="mini-line cyan"></div><div class="mini-line short"></div><div class="mini-chart"><i style="--h:28%"></i><i style="--h:44%"></i><i style="--h:36%"></i><i style="--h:72%"></i><i style="--h:62%"></i><i style="--h:80%"></i></div></div><h3>Telemetry &amp; Event Log</h3><p>Memantau heap, suhu, baterai, channel, counter TX, dan riwayat kejadian.</p><div class="software-tags"><span>Heap</span><span>Logs</span><span>Diagnostics</span></div></article></div></div></section>
+
 <section id="specs">
   <div class="wrap">
     <div class="sec-head anim">
@@ -565,6 +572,8 @@
     </div>
   </div>
 </section>
+
+<section id="timeline"><div class="wrap"><div class="sec-head anim"><div class="kicker">Perjalanan project</div><h2>Dibangun bertahap, terus berkembang</h2><p>Perkembangan NISKALA dari prototype hingga firmware modular dengan observabilitas dan Cloud Sync.</p></div><div class="timeline"><div class="milestone anim"><div class="m-dot"></div><div><strong>v1.0 · Prototype</strong><span>Fondasi ESP32</span><p>UI dasar, tombol, WiFi scan, dan eksperimen radio awal.</p></div></div><div class="milestone anim"><div class="m-dot"></div><div><strong>v2.0 · Connected</strong><span>Web Remote &amp; BLE</span><p>Kontrol browser, BLE scan, dan modul tambahan.</p></div></div><div class="milestone anim"><div class="m-dot"></div><div><strong>v3.0 · Modular</strong><span>State &amp; Radio Manager</span><p>Engine terpisah dan transisi radio terpusat.</p></div></div><div class="milestone anim"><div class="m-dot"></div><div><strong>v3.1 · Observability</strong><span>Telemetry &amp; Cloud</span><p>Mutex, event log, EAPOL, Cloud Sync, dan stabilitas.</p></div></div></div></div></section>
 
 <section class="profile-section">
   <div class="wrap">
@@ -629,15 +638,11 @@
   </div>
 </section>
 
+<div class="lightbox" id="galleryLightbox" role="dialog" aria-modal="true" aria-label="Preview gambar NISKALA"><div class="lightbox-content"><button class="lightbox-close" type="button" aria-label="Tutup">×</button><button class="lightbox-prev" type="button" aria-label="Gambar sebelumnya">‹</button><img src="" alt=""><button class="lightbox-next" type="button" aria-label="Gambar berikutnya">›</button><div class="lightbox-caption"></div></div></div>
+
 <a class="back-top" href="#top" aria-label="Kembali ke atas">↑</a>
 
-<footer class="site-footer">
-  <div class="wrap">
-    <div class="foot-brand">NIS<span>KALA</span></div>
-    <div class="foot-tags"><span class="tag">v3.1</span><span class="tag">ESP32</span><span class="tag">Educational Use Only</span></div>
-    <p class="foot-copy">&copy; 2024 NISKALA — Dibuat untuk belajar, bukan untuk menyakiti.</p>
-  </div>
-</footer>
+<footer class="site-footer"><div class="wrap"><div class="footer-grid"><div><div class="footer-brand">NIS<span>KALA</span></div><p style="margin-top:8px">Platform audit WiFi &amp; BLE berbasis ESP32 untuk edukasi dan pengujian berizin.</p><div class="foot-tags"><span class="tag">v3.1</span><span class="tag">ESP32</span><span class="tag">Open Source</span></div></div><div><h4>Jelajahi</h4><a href="#features">Fitur</a><a href="#showcase">Tampilan perangkat</a><a href="#software">Software layer</a><a href="#timeline">Perjalanan project</a></div><div><h4>Resources</h4><a href="https://github.com/aksatria/NISKALA" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/aksatria/NISKALA#panduan-cepat-untuk-pemula" target="_blank" rel="noopener">Dokumentasi</a><a href="view.php">Cloud Dashboard</a><a href="#faq">FAQ</a></div></div><p class="foot-copy">&copy; 2024 NISKALA — Dibuat untuk belajar, bukan untuk menyakiti.</p></div></footer>
 
 <script>
   (function(){
@@ -682,6 +687,7 @@
       if(best!==current){current=best;update();}
     },{passive:true});
   })();
+  (function(){const box=document.getElementById('galleryLightbox'),image=box&&box.querySelector('img'),caption=box&&box.querySelector('.lightbox-caption'),items=[...document.querySelectorAll('.showcase-item')];if(!box||!image||!items.length)return;let index=0;const show=i=>{index=(i+items.length)%items.length;const img=items[index].querySelector('img'),cap=items[index].querySelector('strong');image.src=img.src;image.alt=img.alt;caption.textContent=cap?cap.textContent:'';box.classList.add('open')};items.forEach((item,i)=>item.addEventListener('click',()=>show(i)));box.querySelector('.lightbox-close').addEventListener('click',()=>box.classList.remove('open'));box.querySelector('.lightbox-prev').addEventListener('click',()=>show(index-1));box.querySelector('.lightbox-next').addEventListener('click',()=>show(index+1));box.addEventListener('click',e=>{if(e.target===box)box.classList.remove('open')});document.addEventListener('keydown',e=>{if(!box.classList.contains('open'))return;if(e.key==='Escape')box.classList.remove('open');if(e.key==='ArrowLeft')show(index-1);if(e.key==='ArrowRight')show(index+1)})})();
 </script>
 </body>
 </html>
