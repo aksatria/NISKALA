@@ -23,6 +23,7 @@ inline bool webAuthOK() {
   return server.hasHeader("X-NISKALA-TOKEN") && server.header("X-NISKALA-TOKEN") == String(WEB_PASS);
 }
 #define REQUIRE_WEB_AUTH() if (!webAuthOK()) { server.send(403, "text/plain", "Forbidden"); return; }
+#define REQUIRE_WEB_MODE() if (!isWebRemoteRunning) { server.send(404, "text/plain", "Web Remote off"); return; }
 extern State currentState;
 extern void startDeauthEngine();
 extern void startBeaconSpam();
@@ -74,12 +75,18 @@ extern bool isEapolRunning;
 inline void setupWebRemote() {
   // Halaman utama remote control
   server.on("/rc", []() {
+    if (!isWebRemoteRunning) {
+      server.sendHeader("Location", "/", true);
+      server.send(302, "text/plain", "");
+      return;
+    }
     server.send_P(200, "text/html", HTML_REMOTE);
   });
 
   // Status live untuk UI
   server.on("/api/status", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     String json = "{\"uptime\":" + String(millis() / 1000UL) +
                   ",\"heap\":" + String(ESP.getFreeHeap()) +
                   ",\"packets\":" + String((uint32_t)getPacketsSent()) +
@@ -95,6 +102,7 @@ inline void setupWebRemote() {
   // Config attack (read)
   server.on("/api/config", HTTP_GET, []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     String json = "{\"deauth\":" + String(cfg_deauth_burst) +
                   ",\"auth\":" + String(cfg_auth_burst) +
                   ",\"hop\":" + String(cfg_hop_interval_ms) +
@@ -111,6 +119,7 @@ inline void setupWebRemote() {
   // Config attack (save)
   server.on("/api/config", HTTP_POST, []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     if (server.hasArg("deauth")) cfg_deauth_burst = constrain(server.arg("deauth").toInt(), 1, 100);
     if (server.hasArg("auth"))   cfg_auth_burst = constrain(server.arg("auth").toInt(), 1, 200);
     if (server.hasArg("hop"))    cfg_hop_interval_ms = constrain(server.arg("hop").toInt(), 20, 2000);
@@ -128,10 +137,11 @@ inline void setupWebRemote() {
   // Scan WiFi
   server.on("/api/scan", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     esp_wifi_set_promiscuous(false);
     if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
     WiFi.scanDelete();
-    int n = WiFi.scanNetworks(false, true, 4500);
+    int n = WiFi.scanNetworks(false, true, false, 350, 0);
     if (n < 0) {
       server.send(200, "application/json", "[]");
       return;
@@ -149,6 +159,7 @@ inline void setupWebRemote() {
   // Mulai Deauth ke target
   server.on("/api/attack", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     if (server.hasArg("mac") && server.hasArg("ch") && server.hasArg("ssid")) {
       String macStr = server.arg("mac");
       String ssid = server.arg("ssid");
@@ -195,6 +206,7 @@ inline void setupWebRemote() {
   // Stop semua
   server.on("/api/stop", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
     server.send(200, "text/plain", "Stopped");
@@ -203,6 +215,7 @@ inline void setupWebRemote() {
   // Quick start modul lain
   server.on("/api/start/beacon", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     server.send(200, "text/plain", "Beacon Started");
     stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
@@ -210,6 +223,7 @@ inline void setupWebRemote() {
   });
   server.on("/api/start/global", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     server.send(200, "text/plain", "Global Started");
     stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
@@ -217,6 +231,7 @@ inline void setupWebRemote() {
   });
   server.on("/api/start/probe", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     server.send(200, "text/plain", "Probe Started");
     stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
@@ -224,13 +239,16 @@ inline void setupWebRemote() {
   });
   server.on("/api/start/ble", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     server.send(200, "text/plain", "BLE Started - WiFi off, Web Remote disconnected");
     stopAllAttacks();
+    isWebRemoteRunning = false;
     currentState = BT_SPAM;
     startBTSpam();
   });
   server.on("/api/start/karma", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     server.send(200, "text/plain", "Karma Started");
     stopAttacksKeepWebRemote();
     currentState = WEB_REMOTE;
@@ -240,6 +258,7 @@ inline void setupWebRemote() {
   // BLE scan JSON
   server.on("/api/ble", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     if (!g_bleScanning) {
       server.send(200, "application/json", "[]");
       return;
@@ -250,30 +269,35 @@ inline void setupWebRemote() {
   // Telemetry lengkap
   server.on("/api/telemetry", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     server.send(200, "application/json", buildTelemetryJson());
   });
 
   // Event log (observability)
   server.on("/api/log", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     server.send(200, "text/plain", dumpEventLog());
   });
 
   // EAPOL status/export
   server.on("/api/eapol", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     server.send(200, "application/json", buildEapolJson());
   });
 
   // Export semua log sebagai JSON
   server.on("/api/export/logs.json", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     server.send(200, "application/json", buildSyncJson());
   });
 
   // Export Probe Sniff CSV
   server.on("/api/export/probe", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     String csv = "mac,rssi,ssid\r\n";
     portENTER_CRITICAL(&g_probeLogMux);
     int cnt = g_probeLogCount;
@@ -299,6 +323,7 @@ inline void setupWebRemote() {
   // Export Karma CSV
   server.on("/api/export/karma", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     String csv = "ssid,probe_count,auth_count\r\n";
     for (int i = 0; i < g_karmaSSIDCount; i++) {
       csv += csvField(String(g_karmaSSIDs[i].ssid)) + "," + String(g_karmaSSIDs[i].probeCount) + "," + String(g_karmaSSIDs[i].authCount) + "\r\n";
@@ -310,6 +335,7 @@ inline void setupWebRemote() {
   // Export Password Vault CSV
   server.on("/api/export/passwords", []() {
     REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
     int total = prefs.getInt("pwd_count", 0);
     String csv = "email,password,verified\r\n";
     for (int i = 0; i < total; i++) {
