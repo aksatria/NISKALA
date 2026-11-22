@@ -7,6 +7,7 @@
 #include "attack_engine.h"
 #include "web_utils.h"
 #include "web_ui.h"
+#include "radio_manager.h"
 
 extern WebServer server;
 #if __has_include("secrets.h")
@@ -64,6 +65,7 @@ extern String buildTelemetryJson();
 extern String dumpEventLog();
 extern String buildSyncJson();
 extern String buildBleJson();
+extern bool g_bleScanning;
 extern bool isEapolRunning;
 
 // HTML UI
@@ -126,12 +128,20 @@ inline void setupWebRemote() {
   // Scan WiFi
   server.on("/api/scan", []() {
     REQUIRE_WEB_AUTH();
-    int n = WiFi.scanNetworks();
+    esp_wifi_set_promiscuous(false);
+    if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
+    WiFi.scanDelete();
+    int n = WiFi.scanNetworks(false, true, 4500);
+    if (n < 0) {
+      server.send(200, "application/json", "[]");
+      return;
+    }
     String json = "[";
     for (int i = 0; i < n; i++) {
       if (i > 0) json += ",";
       json += "{\"mac\":\"" + jsonEscape(WiFi.BSSIDstr(i)) + "\",\"ssid\":\"" + jsonEscape(WiFi.SSID(i)) + "\",\"rssi\":" + String(WiFi.RSSI(i)) + ",\"ch\":" + String(WiFi.channel(i)) + "}";
     }
+    WiFi.scanDelete();
     json += "]";
     server.send(200, "application/json", json);
   });
@@ -229,6 +239,10 @@ inline void setupWebRemote() {
   // BLE scan JSON
   server.on("/api/ble", []() {
     REQUIRE_WEB_AUTH();
+    if (!g_bleScanning) {
+      server.send(200, "application/json", "[]");
+      return;
+    }
     server.send(200, "application/json", buildBleJson());
   });
 

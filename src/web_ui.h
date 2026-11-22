@@ -33,7 +33,21 @@ function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function saveToken(){WEB_TOKEN=$('web_token').value.trim();localStorage.setItem('niskala_token',WEB_TOKEN);toast('Token disimpan di browser')}
 function setMode(m){attackMode=m;['deauth','evil','auth','csa'].forEach(x=>{const b=$('m_'+x);if(b)b.classList.toggle('active',x===m)});$('mode-label').textContent=m.toUpperCase()}
 function rssiPct(v){return Math.max(4,Math.min(100,((Number(v)+90)/60)*100))}
-function scanWifi(){ $('scan-count').textContent='Memindai…';$('scanResult').innerHTML='';apiFetch('/api/scan').then(r=>{if(!r.ok)throw Error();return r.json()}).then(data=>{let html='';data.forEach(ap=>{const ssid=ap.ssid||'(hidden)';html+=`<div class="ap-item" data-mac="${esc(ap.mac)}" data-ch="${esc(ap.ch)}" data-ssid="${esc(ssid)}"><div><b>${esc(ssid)}</b><small>${esc(ap.mac)} · Ch ${esc(ap.ch)}</small></div><small>${esc(ap.rssi)} dBm</small><div class="signal"><i style="width:${rssiPct(ap.rssi)}%"></i></div></div>`});$('scanResult').innerHTML=html;$('scan-count').textContent=data.length+' AP ditemukan';toast('Scan selesai')}).catch(()=>{$('scan-count').textContent='Gagal scan';toast('Tidak dapat membaca scan')})}
+function scanWifi(){
+  const list=$('scanResult');
+  $('scan-count').textContent='Memindai...';
+  list.innerHTML='<div class="ap-item"><div><b>Memindai jaringan...</b><small>Tunggu hingga 5 detik</small></div></div>';
+  apiFetch('/api/scan').then(r=>{if(!r.ok)throw Error();return r.json()}).then(data=>{
+    if(!Array.isArray(data))throw Error();
+    let html='';
+    data.forEach(ap=>{const ssid=ap.ssid||'(hidden)';html+=`<div class="ap-item" data-mac="${esc(ap.mac)}" data-ch="${esc(ap.ch)}" data-ssid="${esc(ssid)}"><div><b>${esc(ssid)}</b><small>${esc(ap.mac)} | Ch ${esc(ap.ch)}</small></div><small>${esc(ap.rssi)} dBm</small><div class="signal"><i style="width:${rssiPct(ap.rssi)}%"></i></div></div>`});
+    list.innerHTML=html;
+    $('scan-count').textContent=(data.length?data.length+' AP ditemukan':'Tidak ada AP');
+    if(!data.length)list.innerHTML='<div class="ap-item"><div><b>Tidak ada jaringan ditemukan</b><small>Coba pindah posisi board lalu scan ulang.</small></div></div>';
+    toast('Scan selesai');
+  }).catch(()=>{list.innerHTML='<div class="ap-item"><div><b>Scan gagal</b><small>Periksa koneksi ke NISKALA_CTRL dan token.</small></div></div>';$('scan-count').textContent='Gagal scan';toast('Tidak dapat membaca scan')});
+}
+
 function stopAll(){apiFetch('/api/stop').then(()=>{toast('Semua modul dihentikan');$('info').textContent='Stopped';}).catch(()=>toast('Stop gagal'))}
 function drawChart(data){const c=$('chart'),ctx=c.getContext('2d'),w=c.width,h=c.height;ctx.clearRect(0,0,w,h);ctx.strokeStyle='rgba(184,215,232,.1)';ctx.lineWidth=1;for(let y=1;y<4;y++){ctx.beginPath();ctx.moveTo(0,y*h/4);ctx.lineTo(w,y*h/4);ctx.stroke()}if(data.length<2)return;const max=Math.max(...data,1);ctx.beginPath();data.forEach((v,i)=>{const x=8+i/(data.length-1)*(w-16),y=h-10-(v/max)*(h-20);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.strokeStyle='#78f09b';ctx.lineWidth=3;ctx.stroke()}
 function loadTelemetry(){apiFetch('/api/telemetry').then(r=>r.json()).then(t=>{$('metric-packets').textContent=t.packets??0;$('metric-errors').textContent=t.tx_errors??0;$('metric-heap').textContent=(t.heap??0)+' B';$('metric-battery').textContent=(t.battery??0)+'%';$('telemetryPanel').textContent='State: '+(t.state??'-')+'  ·  Mode: '+(t.mode??'-')+'\nHeap min: '+(t.heap_min??0)+' B  ·  Stack: '+(t.stack??0)+' B\nVoltage: '+(t.battery_v??0)+' V  ·  Temp: '+(t.temp??0)+' °C\nWiFi mode: '+(t.wifi_mode??'-')+'  ·  Channel: '+(t.wifi_channel??'-')+'\nUptime: '+(t.uptime_s??0)+' s'}).catch(()=>{$('telemetryPanel').textContent='Gagal mengambil telemetri'})}
