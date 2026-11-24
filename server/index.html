@@ -38,7 +38,7 @@
   .nav-brand{font-size:18px;font-weight:900;letter-spacing:1.5px;color:#fff;white-space:nowrap}
   .nav-brand span{color:var(--green)}
   .nav-links{display:flex;align-items:center;justify-content:flex-end;gap:4px;flex-wrap:wrap}
-  .nav-links a{font-size:12.5px;font-weight:800;color:var(--muted);padding:7px 10px;border-radius:8px;transition:color .15s,background .15s}
+  .nav-links a{font-size:12.5px;font-weight:800;color:var(--muted);padding:11px 13px;border-radius:8px;transition:color .15s,background .15s}
   .nav-links a:hover{color:var(--green);background:rgba(0,230,118,.08)}
   .nav-links .nav-cta{color:#04140b;background:var(--green);padding:8px 13px}
   .nav-links .nav-cta:hover{color:#04140b;background:#27f58b}
@@ -296,8 +296,8 @@
     .slider-button{width:36px;height:36px;border:1px solid rgba(0,230,118,.32);border-radius:10px;background:rgba(0,230,118,.08);color:var(--green);font-size:20px;font-weight:900;line-height:1;cursor:pointer}
     .slider-button:active{transform:scale(.96);background:rgba(0,230,118,.18)}
     .slider-dots{display:flex;justify-content:center;gap:5px;flex:1}
-    .slider-dot{width:6px;height:6px;border:0;border-radius:50%;background:rgba(255,255,255,.22);padding:0;cursor:pointer;transition:width .2s,background .2s}
-    .slider-dot.active{width:18px;border-radius:99px;background:var(--green)}
+    .slider-dot{width:44px;height:44px;border:0;border-radius:50%;background:transparent;padding:0;cursor:pointer;display:grid;place-items:center}
+    .slider-dot::before{content:"";width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.25);transition:width .2s,background .2s}.slider-dot.active::before{width:20px;border-radius:99px;background:var(--green)}
     .card,.value,.step{padding:18px}
     .card h3,.value h3,.step h3{font-size:15px}
     .card p,.value p,.step p{font-size:13px;line-height:1.55}
@@ -450,6 +450,7 @@
     </div>
   </div>
 </header>
+<main id="main">
 
 <section id="why">
   <div class="wrap">
@@ -696,7 +697,7 @@
     <div class="notice anim">
       <div class="nicon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M12 8v4M12 16h.01"/></svg></div>
       <div>
-        <h4>Penggunaan yang bertanggung jawab</h4>
+        <h3>Penggunaan yang bertanggung jawab</h3>
         <p>Gunakan hanya pada perangkat dan jaringan milik sendiri atau dengan izin tertulis. Jangan mengganggu jaringan publik, mencuri data, atau menguji target tanpa otorisasi. Pengguna bertanggung jawab penuh atas penggunaannya.</p>
       </div>
     </div>
@@ -707,7 +708,8 @@
 
 <a class="back-top" href="#top" aria-label="Kembali ke atas">↑</a>
 
-<footer class="site-footer"><div class="wrap"><div class="footer-grid"><div><div class="footer-brand">NIS<span>KALA</span></div><p style="margin-top:8px">Platform audit WiFi &amp; BLE berbasis ESP32 untuk edukasi dan pengujian berizin.</p><div class="foot-tags"><span class="tag">v3.1</span><span class="tag">ESP32</span><span class="tag">Open Source</span></div></div><div><h4>Jelajahi</h4><a href="#features">Fitur</a><a href="#showcase">Tampilan perangkat</a><a href="#software">Software layer</a><a href="#timeline">Perjalanan project</a></div><div><h4>Resources</h4><a href="https://github.com/aksatria/NISKALA" target="_blank" rel="noopener">GitHub</a><a href="docs.html">Dokumentasi</a><a href="privacy.html">Privacy &amp; Authorized Use</a><a href="view.php">Cloud Dashboard</a><a href="#faq">FAQ</a></div></div><p class="foot-copy">&copy; 2024 NISKALA — Dibuat untuk belajar, bukan untuk menyakiti.</p></div></footer>
+</main>
+<footer class="site-footer"><div class="wrap"><div class="footer-grid"><div><div class="footer-brand">NIS<span>KALA</span></div><p style="margin-top:8px">Platform audit WiFi &amp; BLE berbasis ESP32 untuk edukasi dan pengujian berizin.</p><div class="foot-tags"><span class="tag">v3.1</span><span class="tag">ESP32</span><span class="tag">Open Source</span></div></div><div><h3>Jelajahi</h3><a href="#features">Fitur</a><a href="#showcase">Tampilan perangkat</a><a href="#software">Software layer</a><a href="#timeline">Perjalanan project</a></div><div><h3>Resources</h3><a href="https://github.com/aksatria/NISKALA" target="_blank" rel="noopener">GitHub</a><a href="docs.html">Dokumentasi</a><a href="privacy.html">Privacy &amp; Authorized Use</a><a href="view.php">Cloud Dashboard</a><a href="#faq">FAQ</a></div></div><p class="foot-copy">&copy; 2024 NISKALA — Dibuat untuk belajar, bukan untuk menyakiti.</p></div></footer>
 
 <script>
   (function(){
