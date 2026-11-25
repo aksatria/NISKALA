@@ -258,12 +258,41 @@ Menu utama NISKALA berisi 20 modul. Berikut pengelompokannya agar mudah dipahami
 
 **Cara pakai:**
 1. Pilih `EVIL TWIN` → scan → pilih AP target.
-2. Pilih template login (Generic, IndiHome, Facebook, dll.).
-3. Korban (dengan izin) menghubungkan ke WiFi palsu.
-4. Saat korban memasukkan password, NISKALA memverifikasi ke WiFi asli.
-5. Hasil tersimpan di `PASSWORD`.
+2. Pilih **mode** (lihat tabel di bawah): `1 BOARD` atau `2 BOARD`.
+3. Pilih template login (Generic, IndiHome, Facebook, dll.).
+4. Korban (dengan izin) menghubungkan ke WiFi palsu.
+5. Saat korban memasukkan password, NISKALA memverifikasi ke WiFi asli.
+6. Hasil tersimpan di `PASSWORD`.
 
 **Yang akan kamu lihat:** Korban melihat halaman login; hasil (email/password, benar/salah) muncul di `PASSWORD`.
+
+#### Mode Evil Twin
+
+| Mode | Deauth sendiri | Clone MAC AP asli | Kapan dipakai |
+|---|---|---|---|
+| **1 BOARD** | Ya | Ya | Pakai 1 perangkat saja |
+| **2 BOARD** | Tidak | Tidak | Dua perangkat dibagi tugas |
+
+#### 7.2.1 Mode 2 BOARD (Jammer + Evil Twin)
+
+**Kenapa butuh 2 board?** ESP32 hanya punya **1 radio**. Dalam mode 1 board, radio harus bergantian tiga tugas: (1) jadi AP palsu, (2) deauth AP asli, (3) verifikasi password. Ketiganya saling berebut — begitu board jadi AP (layani korban), deauth berhenti; begitu verifikasi password, AP palsu sempat drop. Akibatnya deauth putus-putus dan AP palsu tidak stabil.
+
+**Solusi:** pisahkan tugas ke 2 board.
+
+| Board | Menu | Tugas |
+|---|---|---|
+| **A (Jammer)** | `DEAUTH MANUAL` | Deauth AP asli + kliennya terus-menerus tanpa berhenti |
+| **B (Evil Twin)** | `EVIL TWIN` → mode `2 BOARD` | AP palsu + portal + tangkap & verifikasi password |
+
+**Kenapa mode 2 BOARD tidak clone MAC?** Kalau Board B memakai MAC sama dengan AP asli, deauth dari Board A (yang menyasar MAC AP asli) akan ikut memutus korban yang sudah terhubung ke AP palsu Board B. Kedua board jadi "perang" sendiri. Dengan MAC sendiri, deauth Board A tidak menyentuh korban di AP palsu.
+
+**Kenapa mode 2 BOARD tidak deauth sendiri?** Deauth sudah jadi tugas Board A. Kalau Board B ikut deauth di channel yang sama, frame dobel/tabrakan, dan jadwal radio Board B jadi tidak stabil (AP palsu drop).
+
+**Hasil akhir:** deauth kuat & kontinu (Board A) + AP palsu stabil & verifikasi akurat (Board B).
+
+**Cara pakai 2 board:**
+1. Board A → `DEAUTH MANUAL` → pilih AP asli → biarkan menyala.
+2. Board B → `EVIL TWIN` → pilih SSID yang sama → mode `2 BOARD` → pilih template → mulai.
 
 ### 7.3 BEACON SPAM
 **Apa fungsinya :** Menyiarkan banyak nama WiFi palsu sekaligus.
