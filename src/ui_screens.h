@@ -16,6 +16,7 @@ void drawBackIcon(int cx, int cy, uint16_t color);
 void drawTemplateIconBig(int idx, int cx, int cy, uint16_t color);
 void drawAPList();
 void drawTemplateSelect();
+void drawEvilTwinModeSelect();
 void drawDeauthMenu();
 void drawAuthFlood(int frame);
 void drawGlobalDeauth(int frame);

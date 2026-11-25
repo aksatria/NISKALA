@@ -68,7 +68,9 @@ extern String dumpEventLog();
 extern String buildSyncJson();
 extern String buildBleJson();
 extern bool g_bleScanning;
+extern void startBLEScan();
 extern bool isEapolRunning;
+extern bool g_evilTwinCoop;
 extern bool detectPMFByBssid(const uint8_t* bssid, uint8_t channel, bool* found);
 extern volatile bool g_pmfChecked;
 extern volatile bool g_pmfResult;
@@ -209,6 +211,7 @@ inline void setupWebRemote() {
         selectedTemplateIdx = 0;
         verifyAttempts = 0;
         verifyState = 0;
+        g_evilTwinCoop = false;
         currentState = EVIL_TWIN_RUNNING;
         startEvilTwinWithDeauth();
       } else {
@@ -286,6 +289,16 @@ inline void setupWebRemote() {
     startKarmaScan();
   });
 
+  server.on("/api/start/blescan", []() {
+    REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
+    server.send(200, "text/plain", "BLE Scan Started - WiFi off, Web Remote disconnected");
+    stopAllAttacks();
+    isWebRemoteRunning = false;
+    currentState = BLE_SCAN;
+    startBLEScan();
+  });
+
   // Deteksi PMF (802.11w) presisi via beacon RSN
   server.on("/api/pmf", []() {
     REQUIRE_WEB_AUTH();
@@ -344,10 +357,6 @@ inline void setupWebRemote() {
   server.on("/api/ble", []() {
     REQUIRE_WEB_AUTH();
     REQUIRE_WEB_MODE();
-    if (!g_bleScanning) {
-      server.send(200, "application/json", "[]");
-      return;
-    }
     server.send(200, "application/json", buildBleJson());
   });
 

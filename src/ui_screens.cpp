@@ -24,6 +24,8 @@ extern const char* menuItems[];
 extern int selectedIdx;
 extern int apCount;
 extern int templateSelection;
+extern int evilTwinModeSelection;
+extern bool g_evilTwinCoop;
 
 extern bool isDeauthRunning;
 extern bool isReleasing;
@@ -236,6 +238,38 @@ void drawAPList() {
 // ═══════════════════════════════════════════════
 // Template select
 // ═══════════════════════════════════════════════
+void drawEvilTwinModeSelect() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("MODE EVIL TWIN", TFT_DARKCYAN);
+
+  int mode = evilTwinModeSelection;
+  const char* names[2] = { "1 BOARD", "2 BOARD" };
+  const char* desc[2] = {
+    "Deauth + Clone MAC sendiri",
+    "Tanpa deauth, tanpa clone MAC"
+  };
+
+  // dua kartu pilihan
+  for (int i = 0; i < 2; i++) {
+    int y = 36 + i * 40;
+    bool sel = (i == mode);
+    uint16_t border = sel ? TFT_GREEN : TFT_DARKGREY;
+    uint16_t txtCol = sel ? TFT_WHITE : TFT_DARKGREY;
+
+    drawCornerBrackets(12, y, 216, 34, border);
+    tft.setTextDatum(ML_DATUM);
+    tft.setTextFont(2);
+    tft.setTextColor(sel ? TFT_GREEN : TFT_WHITE, TFT_BLACK);
+    tft.drawString(names[i], 24, y + 10);
+    tft.setTextFont(1);
+    tft.setTextColor(txtCol, TFT_BLACK);
+    tft.drawString(desc[i], 24, y + 26);
+  }
+
+  tft.setTextDatum(TL_DATUM);
+  drawFooter("ATAS: Pilih | BAWAH: OK");
+}
+
 void drawTemplateSelect() {
   tft.fillScreen(TFT_BLACK);
   drawHeader("PILIH TEMPLATE PORTAL", TFT_DARKCYAN);
@@ -541,9 +575,9 @@ void drawEvilTwinRunning(int frame) {
   }
 
   tft.fillScreen(TFT_BLACK);
-  drawHeader("EVIL TWIN AKTIF", TFT_MAGENTA);
+  drawHeader(g_evilTwinCoop ? "EVIL TWIN 2 BOARD" : "EVIL TWIN AKTIF", g_evilTwinCoop ? TFT_DARKCYAN : TFT_MAGENTA);
   tft.setTextFont(2); tft.setTextColor(TFT_CYAN, TFT_BLACK);
-  tft.setCursor(10, 30); tft.print("Clone: ");
+  tft.setCursor(10, 30); tft.print(g_evilTwinCoop ? "AP: " : "Clone: ");
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   String ssid = targetSSID;
   if (ssid.length() > 14) ssid = ssid.substring(0, 14);
@@ -577,6 +611,10 @@ void drawEvilTwinRunning(int frame) {
       tft.setTextColor(TFT_CYAN, TFT_BLACK);
       tft.setCursor(10, 85);
       tft.print("Menyiarkan SSID...");
+    } else if (g_evilTwinCoop) {
+      tft.setTextColor(TFT_CYAN, TFT_BLACK);
+      tft.setCursor(10, 85);
+      tft.print("Menunggu korban...");
     } else {
       tft.setTextColor(TFT_RED, TFT_BLACK);
       tft.setCursor(10, 85);

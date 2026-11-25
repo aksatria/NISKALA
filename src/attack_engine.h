@@ -47,6 +47,7 @@ inline void setVictimMac(const uint8_t* mac) { portENTER_CRITICAL(&g_stateMux); 
 extern uint8_t g_targetBSSID[6];
 extern volatile uint8_t g_targetChannel;
 extern unsigned long evilTwinStartTime;
+extern bool g_evilTwinCoop;
 
 // CSA target SSID (diisi oleh main.cpp saat start)
 extern char g_csaTargetSSID[33];

