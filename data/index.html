@@ -146,7 +146,7 @@ function rssiPct(v){return Math.max(4,Math.min(100,((Number(v)+90)/60)*100))}fun
     let html='';
     data.forEach(ap=>{const ssid=ap.ssid||'(hidden)';const auth=Number(ap.auth||0);const enc=ap.enc||'?';let cls='other';let label=enc;if(auth===6||auth===7||auth===9){cls='wpa3';label='PMF '+enc;}else if(auth===3||auth===4||auth===5){cls='wpa2';label=enc;}else if(auth===0){cls='open';label='OPEN';}html+='<div class="ap-item'+(selTarget&&selTarget.mac===ap.mac?' sel':'')+'" data-mac="'+esc(ap.mac)+'" data-ch="'+esc(ap.ch)+'" data-ssid="'+esc(ssid)+'" data-auth="'+auth+'" data-enc="'+esc(enc)+'"><div><b>'+esc(ssid)+'</b><small>'+esc(ap.mac)+' | Ch '+esc(ap.ch)+'</small></div><div class="right"><small>'+esc(ap.rssi)+' dBm</small><span class="enc-badge '+cls+'">'+esc(label)+'</span></div><div class="signal"><i style="width:'+rssiPct(ap.rssi)+'%"></i></div></div>'});
     list.innerHTML=html;
-    $('scan-count').textContent=(data.length?data.length+' AP ditemukan':window.__t('Tidak ada AP'));
+    $('scan-count').textContent=(data.length?data.length+' '+window.__t('AP ditemukan'):window.__t('Tidak ada AP'));
     if(!data.length)list.innerHTML='<div class="ap-item"><div><b>Tidak ada jaringan ditemukan</b><small>Board hanya 2.4 GHz. Pindah posisi lalu scan ulang.</small></div></div>';
     toast('Scan selesai');
   }).catch(err=>{
@@ -155,9 +155,9 @@ function rssiPct(v){return Math.max(4,Math.min(100,((Number(v)+90)/60)*100))}fun
   });
 }
 function stopAll(){apiFetch('/api/stop').then(()=>{toast('Semua modul dihentikan');$('hs-mode').textContent='Stopped';}).catch(()=>toast('Stop gagal'))}
-function drawChart(data){const c=$('chart'),ctx=c.getContext('2d'),w=c.width,h=c.height;ctx.clearRect(0,0,w,h);ctx.strokeStyle='rgba(184,215,232,.1)';ctx.lineWidth=1;for(let y=1;y<4;y++){ctx.beginPath();ctx.moveTo(0,y*h/4);ctx.lineTo(w,y*h/4);ctx.stroke()}if(data.length<2)return;const max=Math.max(...data,1);ctx.beginPath();data.forEach((v,i)=>{const x=8+i/(data.length-1)*(w-16),y=h-10-(v/max)*(h-20);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.strokeStyle='#00ff66';ctx.lineWidth=3;ctx.stroke()}function loadTelemetry(){apiFetch('/api/telemetry').then(r=>r.json()).then(t=>{$('metric-packets').textContent=t.packets??0;$('metric-errors').textContent=t.tx_errors??0;$('metric-heap').textContent=(t.heap??0)+' B';$('metric-battery').textContent=(t.battery??0)+'%';$('telemetryPanel').textContent='State: '+(t.state??'-')+'  |  Mode: '+(t.mode??'-')+'\nHeap min: '+(t.heap_min??0)+' B  |  Stack: '+(t.stack??0)+' B\nVoltage: '+(t.battery_v??0)+' V  |  Temp: '+(t.temp??0)+' C\nWiFi mode: '+(t.wifi_mode??'-')+'  |  Channel: '+(t.wifi_channel??'-')+'\nUptime: '+(t.uptime_s??0)+' s'}).catch(()=>{$('telemetryPanel').textContent='Gagal mengambil telemetri'})}
-function loadEapol(){apiFetch('/api/eapol').then(r=>r.json()).then(e=>{$('e-m1').textContent=e.m1??0;$('e-m2').textContent=e.m2??0;$('e-m3').textContent=e.m3??0;$('e-m4').textContent=e.m4??0;$('eapolPanel').textContent='Target: '+(e.target||'-')+'\nBSSID: '+(e.bssid||'-')+'  |  Channel: '+(e.channel??0)+'\nFULL: '+(e.full??0)+'  |  EAPOL: '+(e.packets??0)+'\nUptime: '+(e.uptime_s??0)+' s'}).catch(()=>{$('eapolPanel').textContent='Gagal mengambil data EAPOL'})}
-function loadBle(){apiFetch('/api/ble').then(r=>r.json()).then(d=>{if(!Array.isArray(d)||!d.length){$('blePanel').textContent='Belum ada hasil BLE scan.';return;}let x='';d.forEach(b=>{x+=(b.mac||'-')+'  '+(b.rssi??'')+' dBm  '+(b.name||'')+'  seen '+(b.seen_count??0)+'\n'});$('blePanel').textContent=x;}).catch(()=>{$('blePanel').textContent='Gagal mengambil data BLE';})}
+function drawChart(data){const c=$('chart'),ctx=c.getContext('2d'),w=c.width,h=c.height;ctx.clearRect(0,0,w,h);ctx.strokeStyle='rgba(184,215,232,.1)';ctx.lineWidth=1;for(let y=1;y<4;y++){ctx.beginPath();ctx.moveTo(0,y*h/4);ctx.lineTo(w,y*h/4);ctx.stroke()}if(data.length<2)return;const max=Math.max(...data,1);ctx.beginPath();data.forEach((v,i)=>{const x=8+i/(data.length-1)*(w-16),y=h-10-(v/max)*(h-20);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.strokeStyle='#00ff66';ctx.lineWidth=3;ctx.stroke()}function loadTelemetry(){apiFetch('/api/telemetry').then(r=>r.json()).then(t=>{$('metric-packets').textContent=t.packets??0;$('metric-errors').textContent=t.tx_errors??0;$('metric-heap').textContent=(t.heap??0)+' B';$('metric-battery').textContent=(t.battery??0)+'%';$('telemetryPanel').textContent='State: '+(t.state??'-')+'  |  Mode: '+(t.mode??'-')+'\nHeap min: '+(t.heap_min??0)+' B  |  Stack: '+(t.stack??0)+' B\nVoltage: '+(t.battery_v??0)+' V  |  Temp: '+(t.temp??0)+' C\nWiFi mode: '+(t.wifi_mode??'-')+'  |  Channel: '+(t.wifi_channel??'-')+'\nUptime: '+(t.uptime_s??0)+' s'}).catch(()=>{$('telemetryPanel').textContent=window.__t('Gagal mengambil telemetri')})}
+function loadEapol(){apiFetch('/api/eapol').then(r=>r.json()).then(e=>{$('e-m1').textContent=e.m1??0;$('e-m2').textContent=e.m2??0;$('e-m3').textContent=e.m3??0;$('e-m4').textContent=e.m4??0;$('eapolPanel').textContent='Target: '+(e.target||'-')+'\nBSSID: '+(e.bssid||'-')+'  |  Channel: '+(e.channel??0)+'\nFULL: '+(e.full??0)+'  |  EAPOL: '+(e.packets??0)+'\nUptime: '+(e.uptime_s??0)+' s'}).catch(()=>{$('eapolPanel').textContent=window.__t('Gagal mengambil data EAPOL')})}
+function loadBle(){apiFetch('/api/ble').then(r=>r.json()).then(d=>{if(!Array.isArray(d)||!d.length){$('blePanel').textContent=window.__t('Belum ada hasil BLE scan.');return;}let x='';d.forEach(b=>{x+=(b.mac||'-')+'  '+(b.rssi??'')+' dBm  '+(b.name||'')+'  seen '+(b.seen_count??0)+'\n'});$('blePanel').textContent=x;}).catch(()=>{$('blePanel').textContent=window.__t('Gagal mengambil data BLE');})}
 function loadLog(){apiFetch('/api/log').then(r=>r.text()).then(t=>{const x=t||'(kosong)';$('homeLog').textContent=x;}).catch(()=>{})}
 function downloadExport(url,name){apiFetch(url).then(r=>{if(!r.ok)throw Error();return r.blob()}).then(blob=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('Export '+name+' siap')}).catch(()=>toast('Export gagal'))}
 function poll(){apiFetch('/api/status').then(r=>r.json()).then(s=>{$('hs-mode').textContent=s.mode??'Idle';$('hs-pkt').textContent=s.packets??0;$('hs-heap').textContent=(s.heap??0)+' B';$('hs-batt').textContent=(s.battery??0)+'%';$('hs-temp').textContent=(s.temp??0)+'C';$('hs-uptime').textContent=(s.uptime??0)+'s';$('hs-target').textContent=(s.target&&s.target.length?s.target:'-');pktSamples.push(Number(s.packets)||0);if(pktSamples.length>60)pktSamples.shift();drawChart(pktSamples)}).catch(()=>{})}
@@ -169,7 +169,7 @@ document.getElementById('scanResult').addEventListener('click',e=>{
   selTarget={mac:mac,ch:ch,ssid:ssid,auth:auth,enc:enc};
   document.querySelectorAll('#scanResult .ap-item').forEach(x=>x.classList.toggle('sel',x===item));
   $('t-ssid').textContent=ssid;$('t-meta').textContent=mac+' | Ch '+ch+' | '+enc;
-  $('pmfResult').innerHTML='PMF belum dicek.';
+  $('pmfResult').innerHTML=window.__t('PMF belum dicek.');
   const isWpa3=(auth===6||auth===7||auth===9);
   const isWpa2=(auth===3||auth===4||auth===5);
   if(isWpa3){$('pmfResult').innerHTML='<span style="color:#ff7b88">PMF: YA (WPA3 wajib PMF). Deauth tidak akan berhasil.</span>';}
@@ -294,7 +294,29 @@ setMode('deauth');loadConfig();loadLog();setInterval(poll,3000);poll();
     'Perlu token':'Token needed',
     'Pastikan terhubung ke NISKALA_CTRL.':'Connect to NISKALA_CTRL first.',
     'Gagal scan':'Scan failed',
-    'Tekan Refresh untuk membaca telemetri.':'Press Refresh to read telemetry.'
+    'Tekan Refresh untuk membaca telemetri.':'Press Refresh to read telemetry.',    'Memindai jaringan...':'Scanning networks...',
+    'Tunggu hingga 5 detik':'Wait up to 5 seconds',
+    'AP ditemukan':'APs found',
+    'Tidak ada jaringan ditemukan':'No networks found',
+    'Board hanya 2.4 GHz. Pindah posisi lalu scan ulang.':'Board is 2.4 GHz only. Move and rescan.',
+    'Token Web Remote belum sesuai':'Web Remote token mismatch',
+    'Isi token lalu scan ulang.':'Set token then rescan.',
+    'Scan gagal':'Scan failed',
+    'Pastikan terhubung ke NISKALA_CTRL.':'Connect to NISKALA_CTRL first.',
+    'PMF belum dicek.':'PMF not checked yet.',
+    'Beacon tidak ditemukan pada kanal itu. Pastikan target 2.4 GHz lalu scan ulang.':'Beacon not found on that channel. Make sure the target is 2.4 GHz and rescan.',
+    'PMF: YA (802.11w aktif). Deauth tidak akan memutus.':'PMF: YES (802.11w active). Deauth will not disconnect.',
+    'PMF: TIDAK (data asli beacon). Deauth bisa dicoba.':'PMF: NO (original beacon). Deauth can be tried.',
+    'Cek PMF gagal / timeout. Periksa koneksi lalu coba lagi.':'PMF check failed / timeout. Check connection and retry.',
+    'Gagal mengambil telemetri':'Failed to load telemetry',
+    'Gagal mengambil data EAPOL':'Failed to load EAPOL data',
+    'Belum ada hasil BLE scan.':'No BLE scan results yet.',
+    'Gagal mengambil data BLE':'Failed to load BLE data',
+    'Konfigurasi tersimpan':'Config saved',
+    'Gagal menyimpan konfigurasi':'Failed to save config',
+    'Export gagal':'Export failed',
+    'Pilih target WiFi di tab Scan dulu':'Pick a WiFi target in Scan tab first',
+    'Target:':'Target:'
   };
   function t(s){ var L=localStorage.getItem('niskala_lang')||'id'; return (L==='en' && EN[s]) ? EN[s] : s; }
   window.__t = t;
