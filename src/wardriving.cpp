@@ -1,4 +1,5 @@
 #include "wardriving.h"
+#include "oui.h"
 #include <WiFi.h>
 #include <LittleFS.h>
 #include <ESPAsyncWebServer.h>
@@ -46,7 +47,7 @@ static const char* authName(int auth) {
 }
 
 // Broadcast satu AP. Gunakan satu buffer + reserve untuk meminimalkan fragmentasi heap.
-static void broadcastAp(const String& mac, const String& ssid, int ch, int rssi, int auth) {
+static void broadcastAp(const String& mac, const String& ssid, int ch, int rssi, int auth, const char* vendor) {
   if (!isWardrivingRunning || wardWS.count() == 0) return; // skip bila tak ada client
 
   String json;
@@ -61,6 +62,8 @@ static void broadcastAp(const String& mac, const String& ssid, int ch, int rssi,
   json += String(rssi);
   json += ",\"enc\":\"";
   json += authName(auth);
+  json += "\",\"vendor\":\"";
+  json += vendor;
   json += "\"}";
 
   wardWS.textAll(json);
@@ -98,6 +101,43 @@ void wardrivingSetup() {
   wardWS.onEvent(onWsEvent);
   wardServer.addHandler(&wardWS);
   wardServer.serveStatic("/", LittleFS, "/").setDefaultFile("wardriving.html");
+
+  // Daftar file CSV yang tersimpan di LittleFS.
+  wardServer.on("/api/files", HTTP_GET, [](AsyncWebServerRequest* request) {
+    String out = "{\"files\":[";
+    bool first = true;
+    File dir = LittleFS.open("/");
+    if (dir) {
+      File f = dir.openNextFile();
+      while (f) {
+        String name = String(f.name());
+        if (name.endsWith(".csv")) {
+          if (!first) out += ",";
+          out += "\"" + name + "\"";
+          first = false;
+        }
+        f = dir.openNextFile();
+      }
+    }
+    out += "]}";
+    request->send(200, "application/json", out);
+  });
+
+  // Hapus file CSV berdasarkan nama.
+  wardServer.on("/api/files/delete", HTTP_POST, [](AsyncWebServerRequest* request) {
+    String name = request->hasParam("name", true) ? request->getParam("name", true)->value() : "";
+    if (name.length() == 0) {
+      request->send(400, "text/plain", "missing name");
+      return;
+    }
+    if (name.indexOf('/') >= 0 || name.indexOf('..') >= 0) {
+      request->send(400, "text/plain", "invalid name");
+      return;
+    }
+    String path = "/" + name;
+    if (LittleFS.remove(path)) request->send(200, "text/plain", "deleted");
+    else request->send(404, "text/plain", "not found");
+  });
 
   // Simpan CSV (dikirim browser) ke LittleFS agar backup di board.
   wardServer.on("/api/save", HTTP_POST,
@@ -177,7 +217,7 @@ void wardrivingLoop() {
     int n = WiFi.scanComplete();
     if (n >= 0) {
       for (int i = 0; i < n; i++) {
-        broadcastAp(WiFi.BSSIDstr(i), WiFi.SSID(i), WiFi.channel(i), WiFi.RSSI(i), (int)WiFi.encryptionType(i));
+        broadcastAp(WiFi.BSSIDstr(i), WiFi.SSID(i), WiFi.channel(i), WiFi.RSSI(i), (int)WiFi.encryptionType(i), ouiVendorFromMac(WiFi.BSSID(i)));
         yield(); // hindari burst loop panjang yang memicu WDT
       }
       WiFi.scanDelete();
