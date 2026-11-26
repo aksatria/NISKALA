@@ -41,6 +41,13 @@
   </div>
 
   <div class="card">
+    <div class="grid">
+      <div class="stat"><b id="statOpen">0</b><span>Open</span></div>
+      <div class="stat"><b id="statEnc">0</b><span>Encrypted</span></div>
+      <div class="stat"><b id="statAvg">-</b><span>Avg RSSI</span></div>
+    </div>
+  </div>
+  <div class="card">
     <h3 style="margin:0 0 8px">5 Jaringan Terakhir</h3>
     <table>
       <thead><tr><th>SSID</th><th>Ch</th><th>RSSI</th><th>Auth</th></tr></thead>
@@ -65,6 +72,9 @@ const wsStatus = document.getElementById('wsStatus');
 const gpsStatus = document.getElementById('gpsStatus');
 const gpsNote = document.getElementById('gpsNote');
 const netCount = document.getElementById('netCount');
+const statOpen = document.getElementById('statOpen');
+const statEnc = document.getElementById('statEnc');
+const statAvg = document.getElementById('statAvg');
 const recentTable = document.getElementById('recentTable');
 
 function setGpsMessage(msg, ok) {
@@ -108,9 +118,11 @@ function connectWS() {
         n.rssi = d.rssi ?? n.rssi;
         n.ch = d.ch ?? n.ch;
         n.ssid = d.ssid ?? n.ssid;
+        n.lastSeen = new Date();
         updateRecentRow(mac);
       }
       netCount.textContent = networks.size;
+      updateStats();
     } catch (e) {}
   };
 }
@@ -179,6 +191,18 @@ function startGPS() {
   );
 }
 
+function updateStats() {
+  let open = 0, enc = 0, sum = 0, cnt = 0;
+  networks.forEach((n) => {
+    const auth = String(n.enc || '').toUpperCase();
+    if (auth === 'OPEN') open++; else enc++;
+    if (n.rssi != null && !isNaN(n.rssi)) { sum += Number(n.rssi); cnt++; }
+  });
+  statOpen.textContent = open;
+  statEnc.textContent = enc;
+  statAvg.textContent = cnt ? Math.round(sum / cnt) + ' dBm' : '-';
+}
+
 function toWigleTime(d) {
   const p = (n) => String(n).padStart(2, '0');
   return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + ' ' +
@@ -203,7 +227,7 @@ function downloadWigleCSV() {
     const ssid = (n.ssid != null && n.ssid !== '') ? '"' + String(n.ssid).replace(/"/g, '""') + '"' : '';
     const num = (v, dec) => (v == null || isNaN(v)) ? '' : Number(v).toFixed(dec);
     lines.push([
-      n.mac || '',
+      (n.mac ? String(n.mac).toUpperCase() : ''),
       ssid,
       wigleAuth(n.enc),
       toWigleTime(n.firstSeen || new Date()),
