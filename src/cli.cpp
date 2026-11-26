@@ -13,6 +13,7 @@
 #include "allowlist.h"
 #include "client_monitor.h"
 #include "ui_screens.h"
+#include "config_store.h"
 #include "packet_monitor.h"
 
 static String cliBuf = "";
@@ -74,6 +75,7 @@ void cliPrintHelp() {
   Serial.println("  ble-ibeacon [major minor]");
   Serial.println("  ble-eddy");
   Serial.println("  config get | config set <ssid|pass|url|tpl> <nilai>");
+  Serial.println("  preset aggressive|normal|stealth");
   Serial.println("  apwifi add <SSID> <PASS> | apwifi list | apwifi del <index>");
   Serial.println("  pm [clear]   tampilkan/hapus log deteksi deauth (packet monitor)");
   Serial.println("  reboot");
@@ -303,6 +305,16 @@ void processCliCommand(String line) {
       } else {
         Serial.println("[CLI] Gunakan: config set <ssid|pass|url|tpl> <nilai>");
       }
+    }
+  }
+  else if (cmd == "preset") {
+    arg.trim();
+    if (applyAttackPreset(arg)) {
+      Serial.printf("[PRESET] %s diterapkan: deauth=%d auth=%d hop=%d beacon=%d reason=%d\n",
+        arg.c_str(), cfg_deauth_burst, cfg_auth_burst, cfg_hop_interval_ms, cfg_beacon_hop_ms, cfg_deauth_reason);
+      logEvent("preset %s", arg.c_str());
+    } else {
+      Serial.println("[PRESET] Pilihan tidak dikenal. Gunakan: aggressive | normal | stealth");
     }
   }
   else if (cmd == "allow") {

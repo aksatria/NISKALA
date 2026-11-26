@@ -49,3 +49,30 @@ void saveConfig() {
   prefs.putString("tpl_url", cfg_template_url);
   prefs.putInt("autosync", cfg_autosync_min);
 }
+bool applyAttackPreset(const String& preset) {
+  String p = preset;
+  p.toLowerCase();
+  if (p == "aggressive") {
+    cfg_deauth_burst = 20;
+    cfg_auth_burst = 80;
+    cfg_hop_interval_ms = 60;
+    cfg_beacon_hop_ms = 50;
+    cfg_deauth_reason = 0;
+  } else if (p == "normal") {
+    cfg_deauth_burst = 5;
+    cfg_auth_burst = 20;
+    cfg_hop_interval_ms = 120;
+    cfg_beacon_hop_ms = 100;
+    cfg_deauth_reason = 0;
+  } else if (p == "stealth") {
+    cfg_deauth_burst = 1;
+    cfg_auth_burst = 5;
+    cfg_hop_interval_ms = 300;
+    cfg_beacon_hop_ms = 300;
+    cfg_deauth_reason = 7;
+  } else {
+    return false;
+  }
+  saveConfig();
+  return true;
+}

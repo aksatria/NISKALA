@@ -20,5 +20,6 @@ void savePasswordToNVS(String email, String pass);
 void deletePasswordEntry(int idx);
 void updatePasswordVerification(bool ok);
 void saveConfig();
+bool applyAttackPreset(const String& preset);
 
 #endif
