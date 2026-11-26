@@ -14,6 +14,7 @@
 #include "client_monitor.h"
 #include "ui_screens.h"
 #include "config_store.h"
+#include "target_store.h"
 #include "packet_monitor.h"
 
 static String cliBuf = "";
@@ -76,6 +77,7 @@ void cliPrintHelp() {
   Serial.println("  ble-eddy");
   Serial.println("  config get | config set <ssid|pass|url|tpl> <nilai>");
   Serial.println("  preset aggressive|normal|stealth");
+  Serial.println("  target add <name> <MAC> [ch] | list | del <idx> | deauth <idx|name>");
   Serial.println("  apwifi add <SSID> <PASS> | apwifi list | apwifi del <index>");
   Serial.println("  pm [clear]   tampilkan/hapus log deteksi deauth (packet monitor)");
   Serial.println("  reboot");
@@ -315,6 +317,62 @@ void processCliCommand(String line) {
       logEvent("preset %s", arg.c_str());
     } else {
       Serial.println("[PRESET] Pilihan tidak dikenal. Gunakan: aggressive | normal | stealth");
+    }
+  }
+  else if (cmd == "target") {
+    arg.trim();
+    int s = arg.indexOf(' ');
+    String sub = (s > 0) ? arg.substring(0, s) : arg;
+    String rest = (s > 0) ? arg.substring(s + 1) : "";
+    sub.toLowerCase();
+
+    if (sub == "list") {
+      targetList();
+    } else if (sub == "add") {
+      rest.trim();
+      int s1 = rest.indexOf(' ');
+      if (s1 <= 0) { Serial.println("[TARGET] Gunakan: target add <name> <MAC> [ch]"); return; }
+      String name = rest.substring(0, s1);
+      String rest2 = rest.substring(s1 + 1);
+      rest2.trim();
+      int s2 = rest2.indexOf(' ');
+      String macStr = (s2 > 0) ? rest2.substring(0, s2) : rest2;
+      String chStr = (s2 > 0) ? rest2.substring(s2 + 1) : "";
+      uint8_t mac[6];
+      if (!macFromString(macStr.c_str(), mac)) { Serial.println("[TARGET] MAC tidak valid"); return; }
+      uint8_t ch = (chStr.length() > 0) ? (uint8_t)chStr.toInt() : 1;
+      if (targetAdd(name.c_str(), mac, ch)) {
+        Serial.printf("[TARGET] Tersimpan: %s ch=%d\n", name.c_str(), ch);
+        logEvent("target add %s", name.c_str());
+      } else {
+        Serial.println("[TARGET] Gagal simpan (penuh/argumen kosong)");
+      }
+    } else if (sub == "del" || sub == "delete") {
+      if (targetDelete(rest.toInt())) Serial.println("[TARGET] Dihapus");
+      else Serial.println("[TARGET] Index tidak valid");
+    } else if (sub == "deauth" || sub == "attack") {
+      rest.trim();
+      SavedTarget t;
+      bool found = false;
+      if (rest.length() > 0 && (rest[0] >= '0' && rest[0] <= '9')) {
+        targetStoreLoad();
+        int idx = rest.toInt();
+        if (idx >= 0 && idx < g_savedTargetCount) { t = g_savedTargets[idx]; found = true; }
+      } else {
+        found = targetFindByName(rest.c_str(), &t);
+      }
+      if (!found) { Serial.println("[TARGET] Target tidak ditemukan"); return; }
+      memcpy(g_targetBSSID, t.mac, 6);
+      g_targetChannel = t.channel;
+      targetSSID = String(t.name);
+      stopAllAttacks();
+      currentState = DEAUTH_MENU;
+      startDeauthEngine();
+      drawDeauthMenu();
+      Serial.printf("[TARGET] Deauth %s ch=%d\n", t.name, t.channel);
+      logEvent("target deauth %s", t.name);
+    } else {
+      Serial.println("[TARGET] Gunakan: add <name> <MAC> [ch] | list | del <idx> | deauth <idx|name>");
     }
   }
   else if (cmd == "allow") {
