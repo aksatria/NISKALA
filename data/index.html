@@ -228,4 +228,44 @@ setMode('deauth');loadConfig();loadLog();setInterval(poll,3000);poll();
   document.body.appendChild(btn);
   apply();
 })();
+</script><script>
+(function(){
+  var cfgCard = document.querySelector('#page-config .card');
+  if(!cfgCard) return;
+
+  // Preset buttons
+  var preset = document.createElement('div');
+  preset.innerHTML = '<div class="card-head" style="margin-top:14px"><h2>Preset</h2></div><div style="display:flex;gap:8px;margin:4px 0 12px"><button data-p="aggressive">Aggressive</button><button data-p="normal">Normal</button><button data-p="stealth">Stealth</button></div>';
+  cfgCard.appendChild(preset);
+  preset.querySelectorAll('button[data-p]').forEach(function(b){
+    b.style.cssText='flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:#0f1520;color:#e8edf4;cursor:pointer;font-weight:700';
+    b.addEventListener('click', function(){
+      apiFetch('/api/preset',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'name='+b.dataset.p}).then(function(){toast('Preset '+b.dataset.p+' applied');}).catch(function(){toast('Preset failed');});
+    });
+  });
+
+  // Targets list + delete
+  var target = document.createElement('div');
+  target.innerHTML = '<div class="card-head" style="margin-top:6px"><h2>Target Tersimpan</h2><button id="tgtRefresh" class="btn btn-quiet">Refresh</button></div><div id="tgtList" class="data-box" style="min-height:48px">Tekan Refresh.</div>';
+  cfgCard.appendChild(target);
+
+  window.__loadTargets = function(){
+    apiFetch('/api/targets').then(function(r){return r.json();}).then(function(d){
+      var list = d.targets||[];
+      var html = list.length ? '' : 'Belum ada target.';
+      list.forEach(function(t, idx){
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08)"><span>'+esc(t.name)+' <small style="color:#8b98a9">'+esc(t.mac)+' ch '+t.ch+'</small></span><button data-del="'+idx+'" style="background:transparent;border:1px solid rgba(255,82,82,.4);color:#ff5252;border-radius:8px;padding:4px 8px;cursor:pointer">Hapus</button></div>';
+      });
+      document.getElementById('tgtList').innerHTML = html;
+      document.querySelectorAll('#tgtList button[data-del]').forEach(function(b){
+        b.addEventListener('click', function(){
+          apiFetch('/api/targets/delete',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'idx='+b.dataset.del}).then(function(){window.__loadTargets();}).catch(function(){toast('Delete failed');});
+        });
+      });
+    }).catch(function(){ document.getElementById('tgtList').innerHTML='Gagal memuat target'; });
+  };
+
+  document.getElementById('tgtRefresh').addEventListener('click', window.__loadTargets);
+  window.__loadTargets();
+})();
 </script></body></html>

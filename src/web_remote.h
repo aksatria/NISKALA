@@ -202,6 +202,35 @@ inline void setupWebRemote() {
     server.send(200, "application/json", j);
   });
 
+  // Tambah target tersimpan
+  server.on("/api/targets", HTTP_POST, []() {
+    REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
+    String name = server.arg("name");
+    String macStr = server.arg("mac");
+    uint8_t mac[6];
+    int values[6];
+    int parsed = sscanf(macStr.c_str(), "%x:%x:%x:%x:%x:%x",
+                        &values[0], &values[1], &values[2], &values[3], &values[4], &values[5]);
+    if (name.length() == 0 || parsed != 6) {
+      server.send(400, "text/plain", "Invalid name/mac");
+      return;
+    }
+    for (int i = 0; i < 6; i++) mac[i] = (uint8_t)values[i];
+    uint8_t ch = server.hasArg("ch") ? (uint8_t)server.arg("ch").toInt() : 1;
+    if (targetAdd(name.c_str(), mac, ch)) server.send(200, "text/plain", "Target Added");
+    else server.send(400, "text/plain", "Target full/invalid");
+  });
+
+  // Hapus target tersimpan
+  server.on("/api/targets/delete", HTTP_POST, []() {
+    REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
+    int idx = server.hasArg("idx") ? server.arg("idx").toInt() : -1;
+    if (targetDelete(idx)) server.send(200, "text/plain", "Target Deleted");
+    else server.send(400, "text/plain", "Invalid index");
+  });
+
   // Config attack (read)
   server.on("/api/config", HTTP_GET, []() {
     REQUIRE_WEB_AUTH();
