@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build & publish release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade platformio
+
+      - name: Build TTGO firmware
+        run: pio run -e ttgo-t-display
+
+      - name: Build TTGO filesystem
+        run: pio run -e ttgo-t-display -t buildfs
+
+      - name: Build ESP32 Generic firmware
+        run: pio run -e esp32-generic
+
+      - name: Build ESP32 Generic filesystem
+        run: pio run -e esp32-generic -t buildfs
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            .pio/build/ttgo-t-display/firmware.bin
+            .pio/build/ttgo-t-display/littlefs.bin
+            .pio/build/esp32-generic/firmware.bin
+            .pio/build/esp32-generic/littlefs.bin
