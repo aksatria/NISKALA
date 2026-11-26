@@ -40,7 +40,15 @@ inline bool webAuthOK() {
   }
   return ok;
 }
-#define REQUIRE_WEB_AUTH() if (!webAuthOK()) { server.send(403, "text/plain", "Forbidden"); return; }
+// CSRF/origin check: tolak request lintas-origin bila header Origin/Referer ada.
+inline bool webOriginOK() {
+  String origin = server.hasHeader("Origin") ? server.header("Origin") : "";
+  if (origin.length() == 0) origin = server.hasHeader("Referer") ? server.header("Referer") : "";
+  if (origin.length() == 0) return true; // klien non-browser / tanpa header
+  origin.toLowerCase();
+  return origin.indexOf("192.168.4.1") >= 0 || origin.indexOf("niskala_ctrl") >= 0;
+}
+#define REQUIRE_WEB_AUTH() if (!webAuthOK() || !webOriginOK()) { server.send(403, "text/plain", "Forbidden"); return; }
 #define REQUIRE_WEB_MODE() if (!isWebRemoteRunning) { server.send(404, "text/plain", "Web Remote off"); return; }
 extern State currentState;
 extern void startDeauthEngine();
