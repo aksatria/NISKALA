@@ -28,6 +28,10 @@ static void stopAction(const String& a) {
 bool runAttackScript(const String& script) {
   String s = script;
   s.trim();
+  if (s.length() >= 2 && s[0] == '"' && s[s.length() - 1] == '"') {
+    s = s.substring(1, s.length() - 1);
+    s.trim();
+  }
   if (s.length() == 0) {
     Serial.println("[SCRIPT] Kosong. Contoh: script \"beacon:5000,global:3000\"");
     return false;
