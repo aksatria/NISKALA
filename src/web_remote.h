@@ -138,6 +138,11 @@ inline void serveRemoteUI() {
 }
 
 inline void setupWebRemote() {
+  // Kumpulkan header yang dibaca oleh auth/CSRF check. Tanpa ini,
+  // WebServer::header()/hasHeader() selalu kosong untuk header selain Authorization.
+  static const char* WEB_HEADERS[] = { "Origin", "Referer", "X-NISKALA-TOKEN" };
+  server.collectHeaders(WEB_HEADERS, sizeof(WEB_HEADERS) / sizeof(WEB_HEADERS[0]));
+
   // Halaman utama remote control
   server.on("/rc", []() {
     if (!isWebRemoteRunning) {

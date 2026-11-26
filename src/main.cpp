@@ -522,7 +522,10 @@ void handleAPListNavigation() {
         tft.setCursor(10, 106); tft.println("channel switch sah.");
         drawFooter("ATAS=Batal | BAWAH=CSA");
 
-        while (digitalRead(BTN_TOP) != LOW && digitalRead(BTN_BOTTOM) != LOW) delay(50);
+        while (digitalRead(BTN_TOP) != LOW && digitalRead(BTN_BOTTOM) != LOW) {
+      if (Serial.available()) { while (Serial.available()) Serial.read(); break; } // bypass via serial
+      delay(50);
+    }
         delay(300);
 
         if (btnBottomPressed()) {
@@ -721,13 +724,17 @@ void apScanTick() {
 void showDisclaimerFlow() {
   while (true) {
     drawDisclaimerScreen(tft, "v" FW_VERSION);
-    while (digitalRead(BTN_TOP) != LOW && digitalRead(BTN_BOTTOM) != LOW) delay(50);
+    while (digitalRead(BTN_TOP) != LOW && digitalRead(BTN_BOTTOM) != LOW) {
+      if (Serial.available()) { while (Serial.available()) Serial.read(); break; } // bypass via serial
+      delay(50);
+    }
     delay(300);
     drawConfirmationScreen(tft);
     bool cancelled = false;
     while (true) {
       if (btnTopPressed()) { delay(300); cancelled = true; break; }
       if (btnBottomPressed()) { delay(300); break; }
+      if (Serial.available()) { while (Serial.available()) Serial.read(); break; } // bypass via serial
       delay(50);
     }
     if (!cancelled) return;
