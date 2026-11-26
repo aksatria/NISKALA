@@ -68,6 +68,7 @@ State currentState = MAIN_MENU;
 #include "web_handlers.h"
 #include "attack_control.h"
 #include "board_hal.h"
+#include "wardriving.h"
 #include "ui_screens.h"
 #include "telemetry.h"
 
@@ -818,6 +819,7 @@ static int animFrame = 0;
 
 void loop() {
   handleSerialCLI();
+  wardrivingLoop();
 
 #if NISKALA_HAS_TFT
   // ---- Screensaver (dim + particle orbit) ----

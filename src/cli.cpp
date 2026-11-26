@@ -14,6 +14,7 @@
 #include "client_monitor.h"
 #include "ui_screens.h"
 #include "config_store.h"
+#include "wardriving.h"
 #include "target_store.h"
 #include "script_runner.h"
 extern String g_lang;
@@ -79,6 +80,7 @@ void cliPrintHelp() {
     Serial.println("  script \"<action>:<ms>,<action>:<ms>\"  (beacon|global|probe|karma|blespam|eapol)");
     Serial.println("  pm [clear]   show/clear deauth detection log (packet monitor)");
     Serial.println("  lang id | lang en");
+  Serial.println("  wardriving [stop]   mulai/hentikan Wardriving Web Remote");
     Serial.println("  reboot");
     return;
   }
@@ -95,6 +97,7 @@ void cliPrintHelp() {
   Serial.println("  script \"<aksi>:<ms>,<aksi>:<ms>\"  (beacon|global|probe|karma|blespam|eapol)");
   Serial.println("  pm [clear]   tampilkan/hapus log deteksi deauth (packet monitor)");
   Serial.println("  lang id | lang en");
+  Serial.println("  wardriving [stop]   mulai/hentikan Wardriving Web Remote");
   Serial.println("  reboot");
 }
 
@@ -332,6 +335,20 @@ void processCliCommand(String line) {
       logEvent("preset %s", arg.c_str());
     } else {
       Serial.println("[PRESET] Pilihan tidak dikenal. Gunakan: aggressive | normal | stealth");
+    }
+  }
+  else if (cmd == "wardriving") {
+    arg.trim(); arg.toLowerCase();
+    if (arg == "stop") {
+      wardrivingStop();
+      Serial.println("[WARD] Wardriving berhenti");
+    } else {
+      if (!isWardrivingRunning) {
+        stopAllAttacks();
+        stopWebRemote();
+      }
+      wardrivingStart();
+      Serial.println("[WARD] Wardriving aktif di http://192.168.4.1/");
     }
   }
   else if (cmd == "lang") {

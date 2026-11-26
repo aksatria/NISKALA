@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NISKALA Wardriving</title>
+<style>
+  :root { --bg:#0b0f14; --panel:#111820; --line:rgba(255,255,255,.08); --text:#e8edf4; --muted:#8b98a9; --green:#00e676; --amber:#ffca28; --red:#ff5252; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; min-height:100vh; }
+  .app { max-width:520px; margin:0 auto; padding:16px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:14px; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .stat { background:#0d141c; border-radius:12px; padding:12px; text-align:center; }
+  .stat b { display:block; font-size:22px; margin-bottom:4px; }
+  .stat span { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; background:var(--red); }
+  .dot.ok { background:var(--green); }
+  .dot.gps { background:var(--amber); }
+  button { width:100%; padding:13px; border-radius:12px; border:1px solid rgba(0,230,118,.4); background:rgba(0,230,118,.1); color:var(--green); font-weight:700; cursor:pointer; font-size:15px; }
+  button:active { opacity:.8; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="card">
+    <h2 style="margin:0 0 12px">NISKALA Wardriving</h2>
+    <div class="grid">
+      <div class="stat"><b id="wsStatus" class="dot"></b><span>WebSocket</span></div>
+      <div class="stat"><b id="gpsStatus" class="dot"></b><span>GPS Lock</span></div>
+      <div class="stat"><b id="netCount">0</b><span>Networks</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <button onclick="downloadWigleCSV()">Download WiGLE CSV</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+const networks = new Map();
+let lat = null, lng = null, alt = null, acc = null;
+
+const wsStatus = document.getElementById('wsStatus');
+const gpsStatus = document.getElementById('gpsStatus');
+const netCount = document.getElementById('netCount');
+
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(proto + '//' + location.host + '/ws');
+  ws.onopen = () => { wsStatus.className = 'dot ok'; };
+  ws.onclose = () => { wsStatus.className = 'dot'; setTimeout(connectWS, 2000); };
+  ws.onerror = () => ws.close();
+  ws.onmessage = (ev) => {
+    try {
+      const d = JSON.parse(ev.data);
+      if (!d.mac) return;
+      const mac = d.mac.toLowerCase();
+      if (!networks.has(mac)) {
+        networks.set(mac, {
+          mac: d.mac, ssid: d.ssid || '', enc: d.enc || 'UNKNOWN',
+          ch: d.ch || 0, rssi: d.rssi || 0, firstSeen: new Date(),
+          lat: lat, lng: lng, alt: alt, acc: acc
+        });
+      } else {
+        const n = networks.get(mac);
+        n.rssi = d.rssi ?? n.rssi;
+        n.ch = d.ch ?? n.ch;
+        n.ssid = d.ssid ?? n.ssid;
+      }
+      netCount.textContent = networks.size;
+    } catch (e) {}
+  };
+}
+
+function startGPS() {
+  if (!('geolocation' in navigator)) { gpsStatus.className = 'dot'; return; }
+  navigator.geolocation.watchPosition(
+    (pos) => {
+      lat = pos.coords.latitude; lng = pos.coords.longitude;
+      alt = pos.coords.altitude; acc = pos.coords.accuracy;
+      gpsStatus.className = 'dot gps';
+    },
+    () => { gpsStatus.className = 'dot'; },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  );
+}
+
+function toWigleTime(d) {
+  const p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + ' ' +
+         p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+
+function wigleAuth(enc) {
+  const e = (enc || '').toUpperCase();
+  if (e.includes('WPA3')) return '[WPA3]';
+  if (e.includes('WPA2')) return '[WPA2-PSK-CCMP]';
+  if (e.includes('WPA'))  return '[WPA-PSK-CCMP]';
+  if (e.includes('WEP'))  return '[WEP]';
+  return '[OPEN]';
+}
+
+function downloadWigleCSV() {
+  const meta = 'WigleWifi-1.4,NISKALA,WebRemote,1.0,ESP32,T-Display,Custom,Aksatria';
+  const header = 'MAC,SSID,AuthMode,FirstSeen,Channel,RSSI,CurrentLatitude,CurrentLongitude,AltitudeMeters,AccuracyMeters,Type';
+  const lines = [meta, header];
+  networks.forEach((n) => {
+    lines.push([
+      n.mac,
+      n.ssid ? '"' + n.ssid.replace(/"/g, '""') + '"' : '',
+      wigleAuth(n.enc),
+      toWigleTime(n.firstSeen),
+      n.ch, n.rssi,
+      n.lat != null ? n.lat.toFixed(7) : '',
+      n.lng != null ? n.lng.toFixed(7) : '',
+      n.alt != null ? n.alt.toFixed(2) : '',
+      n.acc != null ? Math.round(n.acc) : '',
+      'WIFI'
+    ].join(','));
+  });
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'niskala_' + Date.now() + '.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+connectWS();
+startGPS();
+</script>
+</body>
+</html>
