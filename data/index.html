@@ -135,7 +135,7 @@ function saveToken(){WEB_TOKEN=$('web_token').value.trim();localStorage.setItem(
 function setMode(m){attackMode=m;['deauth','evil','auth','csa'].forEach(x=>{const b=$('m_'+x);if(b)b.classList.toggle('active',x===m)});$('mode-label').textContent=m.toUpperCase();if($('launchBtn'))$('launchBtn').textContent='Mulai '+m.toUpperCase()}
 function rssiPct(v){return Math.max(4,Math.min(100,((Number(v)+90)/60)*100))}function scanWifi(){
   const list=$('scanResult');
-  $('scan-count').textContent='Memindai...';
+  $('scan-count').textContent=window.__t('Memindai...');
   list.innerHTML='<div class="ap-item"><div><b>Memindai jaringan...</b><small>Tunggu hingga 5 detik</small></div></div>';
   apiFetch('/api/scan').then(r=>{
     if(r.status===403)throw Object.assign(new Error('auth'),{auth:true});
@@ -146,12 +146,12 @@ function rssiPct(v){return Math.max(4,Math.min(100,((Number(v)+90)/60)*100))}fun
     let html='';
     data.forEach(ap=>{const ssid=ap.ssid||'(hidden)';const auth=Number(ap.auth||0);const enc=ap.enc||'?';let cls='other';let label=enc;if(auth===6||auth===7||auth===9){cls='wpa3';label='PMF '+enc;}else if(auth===3||auth===4||auth===5){cls='wpa2';label=enc;}else if(auth===0){cls='open';label='OPEN';}html+='<div class="ap-item'+(selTarget&&selTarget.mac===ap.mac?' sel':'')+'" data-mac="'+esc(ap.mac)+'" data-ch="'+esc(ap.ch)+'" data-ssid="'+esc(ssid)+'" data-auth="'+auth+'" data-enc="'+esc(enc)+'"><div><b>'+esc(ssid)+'</b><small>'+esc(ap.mac)+' | Ch '+esc(ap.ch)+'</small></div><div class="right"><small>'+esc(ap.rssi)+' dBm</small><span class="enc-badge '+cls+'">'+esc(label)+'</span></div><div class="signal"><i style="width:'+rssiPct(ap.rssi)+'%"></i></div></div>'});
     list.innerHTML=html;
-    $('scan-count').textContent=(data.length?data.length+' AP ditemukan':'Tidak ada AP');
+    $('scan-count').textContent=(data.length?data.length+' AP ditemukan':window.__t('Tidak ada AP'));
     if(!data.length)list.innerHTML='<div class="ap-item"><div><b>Tidak ada jaringan ditemukan</b><small>Board hanya 2.4 GHz. Pindah posisi lalu scan ulang.</small></div></div>';
     toast('Scan selesai');
   }).catch(err=>{
-    if(err && err.auth){list.innerHTML='<div class="ap-item"><div><b>Token Web Remote belum sesuai</b><small>Isi token lalu scan ulang.</small></div></div>';$('scan-count').textContent='Perlu token';toast('Token diperlukan');}
-    else{list.innerHTML='<div class="ap-item"><div><b>Scan gagal</b><small>Pastikan terhubung ke NISKALA_CTRL.</small></div></div>';$('scan-count').textContent='Gagal scan';toast('Tidak dapat membaca scan');}
+    if(err && err.auth){list.innerHTML='<div class="ap-item"><div><b>Token Web Remote belum sesuai</b><small>Isi token lalu scan ulang.</small></div></div>';$('scan-count').textContent=window.__t('Perlu token');toast('Token diperlukan');}
+    else{list.innerHTML='<div class="ap-item"><div><b>Scan gagal</b><small>Pastikan terhubung ke NISKALA_CTRL.</small></div></div>';$('scan-count').textContent=window.__t('Gagal scan');toast('Tidak dapat membaca scan');}
   });
 }
 function stopAll(){apiFetch('/api/stop').then(()=>{toast('Semua modul dihentikan');$('hs-mode').textContent='Stopped';}).catch(()=>toast('Stop gagal'))}
@@ -281,9 +281,23 @@ setMode('deauth');loadConfig();loadLog();setInterval(poll,3000);poll();
     'Preset gagal':'Preset failed',
     'Preset diterapkan':'Preset applied',
     'Target dihapus':'Target deleted',
-    'Target gagal':'Target failed'
+    'Target gagal':'Target failed',
+    'Memindai...':'Scanning...',
+    'Memindai jaringan...':'Scanning networks...',
+    'Tunggu hingga 5 detik':'Wait up to 5 seconds',
+    'AP ditemukan':'APs found',
+    'Tidak ada AP':'No APs',
+    'Tidak ada jaringan ditemukan':'No networks found',
+    'Board hanya 2.4 GHz. Pindah posisi lalu scan ulang.':'Board is 2.4 GHz only. Move and rescan.',
+    'Token Web Remote belum sesuai':'Web Remote token mismatch',
+    'Isi token lalu scan ulang.':'Set token then rescan.',
+    'Perlu token':'Token needed',
+    'Pastikan terhubung ke NISKALA_CTRL.':'Connect to NISKALA_CTRL first.',
+    'Gagal scan':'Scan failed',
+    'Tekan Refresh untuk membaca telemetri.':'Press Refresh to read telemetry.'
   };
   function t(s){ var L=localStorage.getItem('niskala_lang')||'id'; return (L==='en' && EN[s]) ? EN[s] : s; }
+  window.__t = t;
   if(window.toast){ var orig=window.toast; window.toast=function(msg){ orig(t(msg)); }; }
 })();
 </script></body></html>
