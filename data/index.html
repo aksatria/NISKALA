@@ -268,4 +268,22 @@ setMode('deauth');loadConfig();loadLog();setInterval(poll,3000);poll();
   document.getElementById('tgtRefresh').addEventListener('click', window.__loadTargets);
   window.__loadTargets();
 })();
+</script><script>
+(function(){
+  var EN={
+    'Token disimpan di browser':'Token saved in browser',
+    'Scan selesai':'Scan complete',
+    'Token diperlukan':'Token required',
+    'Semua modul dihentikan':'All modules stopped',
+    'Stop gagal':'Stop failed',
+    'Scan gagal':'Scan failed',
+    'Tidak dapat membaca scan':'Cannot read scan',
+    'Preset gagal':'Preset failed',
+    'Preset diterapkan':'Preset applied',
+    'Target dihapus':'Target deleted',
+    'Target gagal':'Target failed'
+  };
+  function t(s){ var L=localStorage.getItem('niskala_lang')||'id'; return (L==='en' && EN[s]) ? EN[s] : s; }
+  if(window.toast){ var orig=window.toast; window.toast=function(msg){ orig(t(msg)); }; }
+})();
 </script></body></html>
