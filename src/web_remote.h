@@ -10,6 +10,8 @@
 #include "web_utils.h"
 #include "web_ui.h"
 #include "packet_monitor.h"
+#include "config_store.h"
+#include "target_store.h"
 #include "radio_manager.h"
 #include "wifi_state.h"
 
@@ -167,6 +169,37 @@ inline void setupWebRemote() {
                   ",\"stack\":" + String(attackTaskHandle ? (int)uxTaskGetStackHighWaterMark(attackTaskHandle) : 0) +
                   ",\"target\":\"" + jsonEscape(targetSSID) + "\"}";
     server.send(200, "application/json", json);
+  });
+
+  // Preset serangan
+  server.on("/api/preset", HTTP_POST, []() {
+    REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
+    String name = server.hasArg("name") ? server.arg("name") : "";
+    if (name.length() == 0) name = server.hasArg("plain") ? server.arg("plain") : "";
+    if (applyAttackPreset(name)) {
+      server.send(200, "text/plain", "Preset Applied");
+    } else {
+      server.send(400, "text/plain", "Unknown preset");
+    }
+  });
+
+  // Daftar target tersimpan
+  server.on("/api/targets", []() {
+    REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
+    targetStoreLoad();
+    String j = "{\"targets\":[";
+    for (int i = 0; i < g_savedTargetCount; i++) {
+      if (i) j += ",";
+      char mac[18];
+      snprintf(mac, sizeof(mac), "%02X:%02X:%02X:%02X:%02X:%02X",
+               g_savedTargets[i].mac[0], g_savedTargets[i].mac[1], g_savedTargets[i].mac[2],
+               g_savedTargets[i].mac[3], g_savedTargets[i].mac[4], g_savedTargets[i].mac[5]);
+      j += "{\"name\":\"" + jsonEscape(String(g_savedTargets[i].name)) + "\",\"mac\":\"" + String(mac) + "\",\"ch\":" + String(g_savedTargets[i].channel) + "}";
+    }
+    j += "]}";
+    server.send(200, "application/json", j);
   });
 
   // Config attack (read)
