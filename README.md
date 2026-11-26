@@ -492,6 +492,8 @@ Menu utama NISKALA berisi 20 modul. Berikut pengelompokannya agar mudah dipahami
 | `apwifi del <index>` | Hapus AP tersimpan |
 | `sync` / `cloudsync` | Mulai Cloud Sync |
 | `export` | Cetak data hasil (JSON) |
+| `wardriving [stop]` | Mulai/hentikan Wardriving Web Remote (port 8080) |
+| `wigle <file.csv>` | Upload CSV tersimpan ke WiGLE.net |
 | `reboot` | Restart board |
 
 ### Contoh output `status`
@@ -525,6 +527,35 @@ Artinya: idle, 0 paket, heap 138KB, baterai 100%, suhu 90C, stack 3060 byte, cha
 
 ### Token Web (opsional)
 Jika `NISKALA_WEB_PASS` diisi di `secrets.h`, Web Remote minta token. Kalau kosong, autentikasi dilewati.
+
+### Wardriving via Web Remote (port 8080)
+
+Wardriving adalah fitur pemetaan jaringan WiFi + GPS. ESP32 menjadi "sensor radio"
+yang mengirim data AP (BSSID, SSID, channel, RSSI, auth, vendor) ke browser lewat
+WebSocket. Browser (HP) mengambil lokasi GPS via Geolocation API lalu menggabungkannya
+menjadi CSV standar WiGLE.
+
+1. Wardriving otomatis aktif saat boot — board jadi AP `NISKALA_CTRL` / `niskala123`.
+2. Hubungkan HP ke WiFi `NISKALA_CTRL`.
+3. Buka `http://192.168.4.1:8080/`.
+4. Izinkan akses lokasi (GPS) di browser.
+5. Tunggu jaringan ter-scan, lalu tekan **Download WiGLE CSV**.
+
+Fitur UI:
+- Status WebSocket, GPS lock, jumlah jaringan.
+- Statistik Open / Encrypted / rata-rata RSSI.
+- Tabel 5 jaringan terakhir (real-time) + dedup otomatis (AP hilang > 60 detik dihapus).
+- Auto-reconnect WebSocket (exponential backoff).
+- Simpan CSV ke LittleFS board (`/api/save`), daftar & hapus file di UI.
+
+Upload CSV ke WiGLE.net lewat Serial CLI:
+
+```
+wigle niskala_<timestamp>.csv
+```
+
+Board akan menyambung ke WiFi `NISKALA_WIFI_SSID` lalu upload. Kredensial WiGLE
+diisi di `secrets.h` (`NISKALA_WIGLE_API_NAME` dan `NISKALA_WIGLE_API_TOKEN`).
 
 ---
 
@@ -585,12 +616,17 @@ NISKALA/
 │   ├── templates.h           # Template captive portal
 │   ├── disclaimer.h          # Layar disclaimer
 │   ├── wifi_bypass.c         # Kompatibilitas raw frame
+│   ├── wardriving.cpp/h      # Wardriving backend (WebSocket + scan pasif)
+│   ├── wigle_upload.cpp/h    # Upload CSV ke WiGLE.net
 │   └── secrets.example.h     # Template kredensial
 ├── server/
 │   ├── sync.php              # Endpoint Cloud Sync
 │   ├── view.php              # Dashboard viewer
 │   ├── template.html         # Template portal hosting
 │   └── data/.htaccess        # Proteksi folder data
+├── data/
+│   ├── index.html            # UI Web Remote (LittleFS)
+│   └── wardriving.html       # UI Wardriving (Vanilla JS + GPS)
 ├── platformio.ini
 ├── .gitignore
 ├── LICENSE
@@ -613,7 +649,7 @@ NISKALA/
 ### Kredensial rahasia (JANGAN di-commit ke GitHub)
 | File | Status |
 |---|---|
-| `src/secrets.h` | Tidak di-commit (lokal). Isi: `NISKALA_WIFI_SSID/PASS`, `NISKALA_SYNC_API_KEY`, `NISKALA_WEB_PASS`. |
+| `src/secrets.h` | Tidak di-commit (lokal). Isi: `NISKALA_WIFI_SSID/PASS`, `NISKALA_SYNC_API_KEY`, `NISKALA_WEB_PASS`, `NISKALA_WIGLE_API_NAME/TOKEN`. |
 | `src/secrets.example.h` | Template (di-commit). Salin jadi `secrets.h`. |
 | `server/config.php` | Tidak di-commit. Isi: `API_KEY`. |
 
@@ -702,6 +738,8 @@ NISKALA/
 - [x] Web Remote auth token.
 - [x] Event log ring-buffer (CLI + Web UI).
 - [x] Refactor engine ke `.cpp` + mutex shared state.
+- [x] Wardriving via Web Remote (WebSocket + GPS + CSV WiGLE).
+- [x] Upload CSV ke WiGLE.net (CLI `wigle`).
 
 ---
 

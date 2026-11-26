@@ -111,6 +111,7 @@ void wardrivingSetup() {
       File f = dir.openNextFile();
       while (f) {
         String name = String(f.name());
+        if (name.startsWith("/")) name = name.substring(1);
         if (name.endsWith(".csv")) {
           if (!first) out += ",";
           out += "\"" + name + "\"";
@@ -126,11 +127,12 @@ void wardrivingSetup() {
   // Hapus file CSV berdasarkan nama.
   wardServer.on("/api/files/delete", HTTP_POST, [](AsyncWebServerRequest* request) {
     String name = request->hasParam("name", true) ? request->getParam("name", true)->value() : "";
+    if (name.startsWith("/")) name = name.substring(1);
     if (name.length() == 0) {
       request->send(400, "text/plain", "missing name");
       return;
     }
-    if (name.indexOf('/') >= 0 || name.indexOf('..') >= 0) {
+    if (name.indexOf('/') >= 0 || name.indexOf("..") >= 0) {
       request->send(400, "text/plain", "invalid name");
       return;
     }

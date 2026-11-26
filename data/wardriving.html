@@ -20,11 +20,17 @@
   .note { margin-top:10px; font-size:12px; color:var(--amber); min-height:16px; }
   button { width:100%; padding:13px; border-radius:12px; border:1px solid rgba(0,230,118,.4); background:rgba(0,230,118,.1); color:var(--green); font-weight:700; cursor:pointer; font-size:15px; }
   button:active { opacity:.8; }
+  button.small { width:auto; padding:6px 10px; font-size:12px; border-radius:9px; }
+  button.danger { border-color:rgba(255,82,82,.5); background:rgba(255,82,82,.1); color:var(--red); }
   table { width:100%; border-collapse:collapse; margin-top:8px; font-size:12px; }
   th, td { text-align:left; padding:6px 4px; border-bottom:1px solid var(--line); }
   th { color:var(--muted); font-weight:600; text-transform:uppercase; font-size:10px; }
   .new { animation:flash .6s ease; }
   @keyframes flash { 0% { background:rgba(0,230,118,.22); } 100% { background:transparent; } }
+  ul { list-style:none; margin:8px 0 0; padding:0; }
+  li { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  li:last-child { border-bottom:none; }
+  li .fname { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
   @media (max-width:380px) { .grid { grid-template-columns:1fr; } }
 </style>
 </head>
@@ -47,6 +53,7 @@
       <div class="stat"><b id="statAvg">-</b><span>Avg RSSI</span></div>
     </div>
   </div>
+
   <div class="card">
     <h3 style="margin:0 0 8px">5 Jaringan Terakhir</h3>
     <table>
@@ -56,7 +63,14 @@
   </div>
 
   <div class="card">
-    <button onclick="downloadWigleCSV()">Download WiGLE CSV</button><div id="saveNote" style="margin-top:8px;font-size:12px;color:var(--muted)"></div>
+    <button onclick="downloadWigleCSV()">Download WiGLE CSV</button>
+    <div id="saveNote" style="margin-top:8px;font-size:12px;color:var(--muted)"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 8px">CSV Tersimpan di Board</h3>
+    <button class="small" onclick="loadFiles()" style="margin-bottom:8px">Refresh Daftar</button>
+    <ul id="fileList"></ul>
   </div>
 </div>
 
@@ -67,6 +81,7 @@ const networks = new Map();
 let lat = null, lng = null, alt = null, acc = null;
 let ws = null;
 let reconnectDelay = 1000; // exponential backoff mulai 1 detik
+const STALE_MS = 60000;    // hapus AP yang tak terlihat 60 detik (dedup aging)
 
 const wsStatus = document.getElementById('wsStatus');
 const gpsStatus = document.getElementById('gpsStatus');
@@ -77,6 +92,12 @@ const statEnc = document.getElementById('statEnc');
 const statAvg = document.getElementById('statAvg');
 const recentTable = document.getElementById('recentTable');
 const saveNote = document.getElementById('saveNote');
+const fileList = document.getElementById('fileList');
+
+function stripSlash(name) {
+  name = String(name == null ? '' : name);
+  return name.charAt(0) === '/' ? name.slice(1) : name;
+}
 
 function setGpsMessage(msg, ok) {
   gpsNote.textContent = msg;
@@ -106,11 +127,12 @@ function connectWS() {
       if (!d.mac) return;
       const mac = d.mac.toLowerCase();
       const isNew = !networks.has(mac);
+      const now = new Date();
 
       if (isNew) {
         networks.set(mac, {
           mac: d.mac, ssid: d.ssid || '', enc: d.enc || 'UNKNOWN',
-          ch: d.ch || 0, rssi: d.rssi || 0, firstSeen: new Date(),
+          ch: d.ch || 0, rssi: d.rssi || 0, firstSeen: now, lastSeen: now,
           lat: lat, lng: lng, alt: alt, acc: acc
         });
         addRecentRow(mac, true);
@@ -119,7 +141,7 @@ function connectWS() {
         n.rssi = d.rssi ?? n.rssi;
         n.ch = d.ch ?? n.ch;
         n.ssid = d.ssid ?? n.ssid;
-        n.lastSeen = new Date();
+        n.lastSeen = now;
         updateRecentRow(mac);
       }
       netCount.textContent = networks.size;
@@ -132,6 +154,23 @@ function scheduleReconnect() {
   const delay = reconnectDelay;
   reconnectDelay = Math.min(reconnectDelay * 2, 15000); // maks 15 detik
   setTimeout(connectWS, delay);
+}
+
+function pruneStale() {
+  const now = Date.now();
+  let removed = 0;
+  networks.forEach((n, mac) => {
+    if (n.lastSeen && (now - n.lastSeen.getTime()) > STALE_MS) {
+      const tr = document.getElementById('row-' + mac);
+      if (tr) tr.remove();
+      networks.delete(mac);
+      removed++;
+    }
+  });
+  if (removed) {
+    netCount.textContent = networks.size;
+    updateStats();
+  }
 }
 
 function addRecentRow(mac, animate) {
@@ -161,6 +200,50 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[c]));
+}
+
+function loadFiles() {
+  fetch('/api/files')
+    .then(r => r.json())
+    .then(d => {
+      fileList.innerHTML = '';
+      const files = (d && Array.isArray(d.files)) ? d.files : [];
+      if (files.length === 0) {
+        const li = document.createElement('li');
+        const span = document.createElement('span');
+        span.className = 'fname';
+        span.textContent = 'Belum ada file CSV.';
+        span.style.color = 'var(--muted)';
+        li.appendChild(span);
+        fileList.appendChild(li);
+        return;
+      }
+      files.forEach(rawName => {
+        const name = stripSlash(rawName);
+        const li = document.createElement('li');
+        const span = document.createElement('span');
+        span.className = 'fname';
+        span.textContent = name;
+        const btn = document.createElement('button');
+        btn.className = 'small danger';
+        btn.textContent = 'Hapus';
+        btn.onclick = () => deleteFile(name);
+        li.appendChild(span);
+        li.appendChild(btn);
+        fileList.appendChild(li);
+      });
+    })
+    .catch(() => {});
+}
+
+function deleteFile(name) {
+  fetch('/api/files/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'name=' + encodeURIComponent(name)
+  })
+  .then(r => { if (r.ok) loadFiles(); })
+  .catch(() => {});
 }
 
 function startGPS() {
@@ -248,7 +331,10 @@ function downloadWigleCSV() {
   saveNote.textContent = 'Menyimpan ke board...';
   fetch('/api/save', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: csv })
     .then(r => r.text())
-    .then(fname => { saveNote.textContent = 'Tersimpan di board: ' + fname; })
+    .then(fname => {
+      saveNote.textContent = 'Tersimpan di board: ' + stripSlash(fname);
+      loadFiles();
+    })
     .catch(() => { saveNote.textContent = 'Gagal simpan ke board, download lokal tetap jalan.'; });
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -262,6 +348,8 @@ function downloadWigleCSV() {
 
 connectWS();
 startGPS();
+loadFiles();
+setInterval(pruneStale, 10000);
 </script>
 </body>
 </html>
