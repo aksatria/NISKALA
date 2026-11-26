@@ -208,17 +208,31 @@ setMode('deauth');loadConfig();loadLog();setInterval(poll,3000);poll();
     'Ketuk jaringan untuk memilih target.':'Tap a network to select target.',
     'Mode Serangan':'Attack Mode','Belum ada target':'No target yet','Pilih di tab Scan':'Pick in Scan tab',
     'Mode':'Mode','Paket':'Packets','Heap':'Heap','Baterai':'Battery','Suhu':'Temp',
-    'Uptime':'Uptime','Target aktif':'Active target','ONLINE':'ONLINE'
+    'Uptime':'Uptime','Target aktif':'Active target','ONLINE':'ONLINE',
+    'Memindai...':'Scanning...','Memindai jaringan...':'Scanning networks...',
+    'Tunggu hingga 5 detik':'Wait up to 5 seconds','AP ditemukan':'APs found',
+    'Tidak ada AP':'No APs','Tidak ada jaringan ditemukan':'No networks found',
+    'Scan selesai':'Scan complete','Scan gagal':'Scan failed',
+    'Token disimpan di browser':'Token saved in browser',
+    'Token Web Remote belum sesuai':'Web Remote token mismatch',
+    'Isi token lalu scan ulang.':'Set token then rescan.','Perlu token':'Token needed',
+    'Token diperlukan':'Token required','Pastikan terhubung ke NISKALA_CTRL.':'Connect to NISKALA_CTRL first.',
+    'Tidak dapat membaca scan':'Cannot read scan','Semua modul dihentikan':'All modules stopped',
+    'Stopped':'Stopped','Stop gagal':'Stop failed'
   };
   var ID={}; for(var k in EN){ID[k]=k;}
   var L=localStorage.getItem('niskala_lang')||'id';
+  var applying=false;
   function t(s){return (L==='en'?EN:ID)[s]||s;}
   function apply(){
-    var w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,null,false),n;
-    while(n=w.nextNode()){
-      var v=n.textContent.trim();
-      if(v && ((L==='en'&&EN[v])||(L==='id'&&ID[v]))){ n.textContent=n.textContent.replace(v,t(v)); }
-    }
+    if(applying)return; applying=true;
+    try{
+      var w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,null,false),n;
+      while(n=w.nextNode()){
+        var v=n.textContent.trim();
+        if(v && EN[v]){ n.textContent=n.textContent.replace(v, L==='en'?EN[v]:v); }
+      }
+    }finally{ applying=false; }
   }
   function toggle(){L=(L==='en')?'id':'en';localStorage.setItem('niskala_lang',L);apply();btn.textContent=(L==='en')?'ID':'EN';}
   var btn=document.createElement('button');
@@ -228,5 +242,8 @@ setMode('deauth');loadConfig();loadLog();setInterval(poll,3000);poll();
   btn.addEventListener('click',toggle);
   document.body.appendChild(btn);
   apply();
+  if(window.MutationObserver){
+    new MutationObserver(function(){ if(!applying) apply(); }).observe(document.body,{childList:true,subtree:true,characterData:true});
+  }
 })();
 </script></body></html>
