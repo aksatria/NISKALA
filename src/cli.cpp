@@ -15,6 +15,7 @@
 #include "ui_screens.h"
 #include "config_store.h"
 #include "target_store.h"
+#include "script_runner.h"
 #include "packet_monitor.h"
 
 static String cliBuf = "";
@@ -78,6 +79,7 @@ void cliPrintHelp() {
   Serial.println("  config get | config set <ssid|pass|url|tpl> <nilai>");
   Serial.println("  preset aggressive|normal|stealth");
   Serial.println("  target add <name> <MAC> [ch] | list | del <idx> | deauth <idx|name>");
+  Serial.println("  script \"<aksi>:<ms>,<aksi>:<ms>\"  (beacon|global|probe|karma|blespam|eapol)");
   Serial.println("  apwifi add <SSID> <PASS> | apwifi list | apwifi del <index>");
   Serial.println("  pm [clear]   tampilkan/hapus log deteksi deauth (packet monitor)");
   Serial.println("  reboot");
@@ -318,6 +320,9 @@ void processCliCommand(String line) {
     } else {
       Serial.println("[PRESET] Pilihan tidak dikenal. Gunakan: aggressive | normal | stealth");
     }
+  }
+  else if (cmd == "script") {
+    runAttackScript(arg);
   }
   else if (cmd == "target") {
     arg.trim();
