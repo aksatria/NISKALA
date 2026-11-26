@@ -2,6 +2,7 @@
 /**
  * NISKALA Cloud Sync endpoint
  * Hanya menerima POST dengan header X-API-Key.
+ * Hardening: rate limit sederhana + batas ukuran payload.
  */
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -40,9 +41,44 @@ if (!hash_equals($apiKey, $key)) {
     exit;
 }
 
+// --- Rate limit: max 30 request/menit per IP ---
+$rateDir = __DIR__ . '/data';
+if (!is_dir($rateDir)) { @mkdir($rateDir, 0777, true); }
+$ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown';
+$rateFile = $rateDir . '/.rate_' . md5($ip);
+$now = time();
+$window = 60;
+$maxReq = 30;
+
+$history = @json_decode(@file_get_contents($rateFile), true);
+if (!is_array($history) || ($now - (int)$history['start']) > $window) {
+    $history = ['start' => $now, 'count' => 0];
+}
+if ((int)$history['count'] >= $maxReq) {
+    http_response_code(429);
+    echo json_encode(['ok' => false, 'msg' => 'rate limited']);
+    exit;
+}
+$history['count'] = (int)$history['count'] + 1;
+@file_put_contents($rateFile, json_encode($history), LOCK_EX);
+
+// --- Batas ukuran payload ---
+$maxBytes = 262144; // 256 KB
+$len = isset($_SERVER['CONTENT_LENGTH']) ? (int)$_SERVER['CONTENT_LENGTH'] : 0;
+if ($len > $maxBytes) {
+    http_response_code(413);
+    echo json_encode(['ok' => false, 'msg' => 'payload too large']);
+    exit;
+}
+
 $raw = file_get_contents('php://input');
 if ($raw === false || trim($raw) === '') {
     echo json_encode(['ok' => false, 'msg' => 'no data']);
+    exit;
+}
+if (strlen($raw) > $maxBytes) {
+    http_response_code(413);
+    echo json_encode(['ok' => false, 'msg' => 'payload too large']);
     exit;
 }
 
@@ -52,12 +88,7 @@ if (!is_array($data)) {
     exit;
 }
 
-$dir = __DIR__ . '/data';
-if (!is_dir($dir)) {
-    mkdir($dir, 0777, true);
-}
-
-$file = $dir . '/niskala_' . date('Ymd_His') . '_' . substr(md5($raw), 0, 6) . '.json';
+$file = $rateDir . '/niskala_' . date('Ymd_His') . '_' . substr(md5($raw), 0, 6) . '.json';
 file_put_contents($file, $raw . PHP_EOL, LOCK_EX);
 
 echo json_encode(['ok' => true, 'file' => basename($file), 'bytes' => strlen($raw)]);

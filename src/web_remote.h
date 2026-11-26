@@ -21,10 +21,24 @@ extern WebServer server;
   #define NISKALA_WEB_PASS ""
 #endif
 #define WEB_PASS NISKALA_WEB_PASS
+extern unsigned long g_webAuthFailCount;
+extern unsigned long g_webAuthLockUntil;
 
 inline bool webAuthOK() {
   if (WEB_PASS[0] == '\0') return true;
-  return server.hasHeader("X-NISKALA-TOKEN") && server.header("X-NISKALA-TOKEN") == String(WEB_PASS);
+  if (millis() < g_webAuthLockUntil) return false; // terkunci sementara (brute-force)
+  bool ok = server.hasHeader("X-NISKALA-TOKEN") && server.header("X-NISKALA-TOKEN") == String(WEB_PASS);
+  if (!ok) {
+    g_webAuthFailCount++;
+    if (g_webAuthFailCount >= 10) {
+      g_webAuthLockUntil = millis() + 60000UL; // 60 detik lockout
+      g_webAuthFailCount = 0;
+      Serial.println("[WEB] Too many auth failures, locked 60s");
+    }
+  } else {
+    g_webAuthFailCount = 0;
+  }
+  return ok;
 }
 #define REQUIRE_WEB_AUTH() if (!webAuthOK()) { server.send(403, "text/plain", "Forbidden"); return; }
 #define REQUIRE_WEB_MODE() if (!isWebRemoteRunning) { server.send(404, "text/plain", "Web Remote off"); return; }

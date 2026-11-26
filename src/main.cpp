@@ -251,6 +251,8 @@ unsigned long verifyStart = 0;
 const byte DNS_PORT = 53;
 
 int verifyState = 0;
+unsigned long g_webAuthFailCount = 0;
+unsigned long g_webAuthLockUntil = 0;
 int verifyAttempts = 0;
 unsigned long releaseAfterSuccess = 0;
 
