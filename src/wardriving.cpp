@@ -3,7 +3,7 @@
 #include <LittleFS.h>
 #include <ESPAsyncWebServer.h>
 
-AsyncWebServer wardServer(80);
+AsyncWebServer wardServer(8080);
 AsyncWebSocket wardWS("/ws");
 
 bool isWardrivingRunning = false;
@@ -62,14 +62,16 @@ static void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
   }
 }
 
-void wardrivingStart() {
+void wardrivingSetup() {
   if (isWardrivingRunning) return;
   if (!LittleFS.begin(true)) {
     Serial.println("[WARD] LittleFS mount failed");
   }
 
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
+  // Aktifkan AP agar mudah diakses dari HP: http://192.168.4.1:8080/
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP("NISKALA_CTRL", "niskala123", 1, 0, 4);
+  delay(200);
 
   wardWS.onEvent(onWsEvent);
   wardServer.addHandler(&wardWS);
@@ -86,7 +88,11 @@ void wardrivingStart() {
   lastScan = 0;
   scanRunning = false;
   isWardrivingRunning = true;
-  Serial.println("[WARD] Wardriving aktif di http://192.168.4.1/");
+  Serial.println("[WARD] Wardriving aktif di http://192.168.4.1:8080/");
+}
+
+void wardrivingStart() {
+  wardrivingSetup();
 }
 
 void wardrivingStop() {

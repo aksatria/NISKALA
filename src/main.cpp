@@ -808,6 +808,7 @@ void setup() {
   Serial.println("Setup selesai, heap tersisa: " + String(ESP.getFreeHeap()));
   Serial.println("Ketik 'help' untuk CLI (Serial Monitor 115200).");
   logEvent("BOOT v" FW_VERSION " heap=%u", (unsigned)ESP.getFreeHeap());
+  wardrivingSetup();
   lastActivity = millis();
 }
 

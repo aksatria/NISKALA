@@ -5,7 +5,8 @@
 
 extern bool isWardrivingRunning;
 
-void wardrivingStart();
+void wardrivingSetup();
+void wardrivingStart(); // alias untuk wardrivingSetup (kompatibilitas CLI)
 void wardrivingStop();
 void wardrivingLoop();
 
