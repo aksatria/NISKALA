@@ -28,8 +28,8 @@
 
 // -----------------------------------------------------------------------------
 // ESP32 generic tanpa layar (kendali via Web Remote / Serial CLI)
-// Catatan: belum otomatis menonaktifkan seluruh kode TFT. Gunakan hanya
-// sebagai penanda target portabilitas berikutnya.
+// Seluruh kode TFT otomatis menjadi stub no-op via tft_compat.h,
+// sehingga firmware headless tidak menarik library TFT_eSPI.
 // -----------------------------------------------------------------------------
 #if defined(BOARD_ESP32_GENERIC)
   #define NISKALA_HAS_TFT   0

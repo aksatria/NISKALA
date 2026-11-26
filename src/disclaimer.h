@@ -2,7 +2,7 @@
 #define DISCLAIMER_H
 
 #include <Arduino.h>
-#include <TFT_eSPI.h>
+#include "tft_compat.h"
 
 inline void drawDisclaimerScreen(TFT_eSPI &tft, const char* fwVersion) {
   tft.fillScreen(TFT_BLACK);

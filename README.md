@@ -710,6 +710,7 @@ NISKALA/
 - **ESP32 hanya 2.4 GHz** — tidak bisa melihat/menyerang WiFi 5 GHz.
 - **PMF/WPA3** bisa memblokir management frame (deauth/beacon).
 - **WiFi & BLE berbagi satu radio** — tidak bisa aktif bersamaan.
+- **Headless**: environment `esp32-generic` berjalan tanpa layar; kode TFT otomatis menjadi stub no-op via `tft_compat.h`.
 - Web server, DNS, TFT, radio aktif menambah beban heap.
 - Hasil pengujian bergantung versi ESP32 core, board, dan driver.
 - Jangan simpan kredensial nyata di repository.
@@ -741,6 +742,7 @@ NISKALA/
 - [x] Refactor engine ke `.cpp` + mutex shared state.
 - [x] Wardriving via Web Remote (WebSocket + GPS + CSV WiGLE).
 - [x] Upload CSV ke WiGLE.net (CLI `wigle`).
+- [x] Headless 100% (env `esp32-generic` tanpa library TFT_eSPI via `tft_compat.h`).
 
 ---
 

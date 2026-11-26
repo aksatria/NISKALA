@@ -2,7 +2,7 @@
 #define NISKALA_UI_SCREENS_H
 
 #include <Arduino.h>
-#include <TFT_eSPI.h>
+#include "tft_compat.h"
 
 void drawGlowText(String text, int x, int y, uint16_t mainColor, uint16_t glowColor);
 void drawCornerBrackets(int x, int y, int w, int h, uint16_t color);

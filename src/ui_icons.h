@@ -2,7 +2,7 @@
 #define NISKALA_UI_ICONS_H
 
 #include <Arduino.h>
-#include <TFT_eSPI.h>
+#include "tft_compat.h"
 
 extern TFT_eSPI tft;
 

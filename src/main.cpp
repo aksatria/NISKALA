@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <TFT_eSPI.h>
+#include "tft_compat.h"
 #include <esp_wifi.h>
 #include <ping/ping_sock.h>
 #include <DNSServer.h>
