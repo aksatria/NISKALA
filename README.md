@@ -494,6 +494,7 @@ Menu utama NISKALA berisi 20 modul. Berikut pengelompokannya agar mudah dipahami
 | `export` | Cetak data hasil (JSON) |
 | `wardriving [stop]` | Mulai/hentikan Wardriving Web Remote (port 8080) |
 | `wigle <file.csv>` | Upload CSV tersimpan ke WiGLE.net |
+| `files` | Daftar file CSV tersimpan di LittleFS |
 | `reboot` | Restart board |
 
 ### Contoh output `status`

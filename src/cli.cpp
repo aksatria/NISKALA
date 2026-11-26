@@ -20,6 +20,7 @@
 #include "script_runner.h"
 extern String g_lang;
 #include "packet_monitor.h"
+#include <LittleFS.h>
 
 static String cliBuf = "";
 int hexNibble(char c) {
@@ -83,6 +84,7 @@ void cliPrintHelp() {
     Serial.println("  lang id | lang en");
   Serial.println("  wardriving [stop]   mulai/hentikan Wardriving Web Remote");
   Serial.println("  wigle <file.csv>    upload CSV tersimpan ke WiGLE.net");
+    Serial.println("  files               list saved CSV files");
     Serial.println("  reboot");
     return;
   }
@@ -101,6 +103,7 @@ void cliPrintHelp() {
   Serial.println("  lang id | lang en");
   Serial.println("  wardriving [stop]   mulai/hentikan Wardriving Web Remote");
   Serial.println("  wigle <file.csv>    upload CSV tersimpan ke WiGLE.net");
+  Serial.println("  files               daftar file CSV tersimpan di LittleFS");
   Serial.println("  reboot");
 }
 
@@ -355,6 +358,23 @@ void processCliCommand(String line) {
     }
     bool ok = wigleUploadFile(path);
     Serial.println(ok ? "[WIGLE] Upload sukses" : "[WIGLE] Upload gagal");
+  }
+  else if (cmd == "files" || cmd == "ls") {
+    auto dir = LittleFS.open("/");
+    int count = 0;
+    if (dir) {
+      auto f = dir.openNextFile();
+      while (f) {
+        String name = String(f.name());
+        if (name.startsWith("/")) name = name.substring(1);
+        if (name.endsWith(".csv")) {
+          Serial.printf("  %s  (%u bytes)\n", name.c_str(), (unsigned)f.size());
+          count++;
+        }
+        f = dir.openNextFile();
+      }
+    }
+    if (count == 0) Serial.println("[FILES] Tidak ada file CSV.");
   }
   else if (cmd == "wardriving") {
     arg.trim(); arg.toLowerCase();
