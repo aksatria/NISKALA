@@ -16,6 +16,7 @@
 #include "config_store.h"
 #include "target_store.h"
 #include "script_runner.h"
+extern String g_lang;
 #include "packet_monitor.h"
 
 static String cliBuf = "";
@@ -64,24 +65,36 @@ void apWifiList();
 bool apWifiDelete(int idx);
 
 void cliPrintHelp() {
+  if (g_lang == "en") {
+    Serial.println("NISKALA CLI");
+    Serial.println("  help | status | log | scan | stop");
+    Serial.println("  web [stop]   start/stop Web Remote");
+    Serial.println("  beacon | probe | karma | global | blespam | blescan");
+    Serial.println("  deauth <AA:BB:CC:DD:EE:FF>");
+    Serial.println("  ble-raw <hex> | ble-ibeacon [m n] | ble-eddy");
+    Serial.println("  config get | config set <ssid|pass|url|tpl> <value>");
+    Serial.println("  apwifi add <SSID> <PASS> | list | del <idx>");
+    Serial.println("  preset aggressive|normal|stealth");
+    Serial.println("  target add <name> <MAC> [ch] | list | del <idx> | deauth <idx|name>");
+    Serial.println("  script \"<action>:<ms>,<action>:<ms>\"  (beacon|global|probe|karma|blespam|eapol)");
+    Serial.println("  pm [clear]   show/clear deauth detection log (packet monitor)");
+    Serial.println("  lang id | lang en");
+    Serial.println("  reboot");
+    return;
+  }
   Serial.println("NISKALA CLI");
-  Serial.println("  help");
-  Serial.println("  status");
-  Serial.println("  log");
-  Serial.println("  scan");
-  Serial.println("  stop");
+  Serial.println("  help | status | log | scan | stop");
   Serial.println("  web [stop]   mulai atau hentikan Web Remote");
   Serial.println("  beacon | probe | karma | global | blespam | blescan");
   Serial.println("  deauth <AA:BB:CC:DD:EE:FF>");
-  Serial.println("  ble-raw <hex>");
-  Serial.println("  ble-ibeacon [major minor]");
-  Serial.println("  ble-eddy");
+  Serial.println("  ble-raw <hex> | ble-ibeacon [m n] | ble-eddy");
   Serial.println("  config get | config set <ssid|pass|url|tpl> <nilai>");
+  Serial.println("  apwifi add <SSID> <PASS> | list | del <idx>");
   Serial.println("  preset aggressive|normal|stealth");
   Serial.println("  target add <name> <MAC> [ch] | list | del <idx> | deauth <idx|name>");
   Serial.println("  script \"<aksi>:<ms>,<aksi>:<ms>\"  (beacon|global|probe|karma|blespam|eapol)");
-  Serial.println("  apwifi add <SSID> <PASS> | apwifi list | apwifi del <index>");
   Serial.println("  pm [clear]   tampilkan/hapus log deteksi deauth (packet monitor)");
+  Serial.println("  lang id | lang en");
   Serial.println("  reboot");
 }
 
@@ -319,6 +332,16 @@ void processCliCommand(String line) {
       logEvent("preset %s", arg.c_str());
     } else {
       Serial.println("[PRESET] Pilihan tidak dikenal. Gunakan: aggressive | normal | stealth");
+    }
+  }
+  else if (cmd == "lang") {
+    arg.trim();
+    arg.toLowerCase();
+    if (arg == "id" || arg == "en") {
+      g_lang = arg;
+      Serial.printf("[LANG] Bahasa: %s\n", g_lang.c_str());
+    } else {
+      Serial.println("[LANG] Gunakan: lang id | lang en");
     }
   }
   else if (cmd == "script") {
