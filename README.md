@@ -13,6 +13,8 @@
 
 </div>
 
+> English documentation: [README.en.md](README.en.md)
+
 > [!CAUTION]
 > **Gunakan hanya pada perangkat dan jaringan milik sendiri atau dengan izin tertulis.**
 > Jangan mengganggu jaringan publik, mencuri data, atau menguji target tanpa izin. Pengguna bertanggung jawab penuh atas penggunaannya.
