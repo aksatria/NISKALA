@@ -56,7 +56,7 @@
   </div>
 
   <div class="card">
-    <button onclick="downloadWigleCSV()">Download WiGLE CSV</button>
+    <button onclick="downloadWigleCSV()">Download WiGLE CSV</button><div id="saveNote" style="margin-top:8px;font-size:12px;color:var(--muted)"></div>
   </div>
 </div>
 
@@ -76,6 +76,7 @@ const statOpen = document.getElementById('statOpen');
 const statEnc = document.getElementById('statEnc');
 const statAvg = document.getElementById('statAvg');
 const recentTable = document.getElementById('recentTable');
+const saveNote = document.getElementById('saveNote');
 
 function setGpsMessage(msg, ok) {
   gpsNote.textContent = msg;
@@ -241,7 +242,16 @@ function downloadWigleCSV() {
     ].join(','));
   });
 
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const csv = lines.join('\n');
+
+  // Simpan juga ke LittleFS ESP32 (backup di board).
+  saveNote.textContent = 'Menyimpan ke board...';
+  fetch('/api/save', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: csv })
+    .then(r => r.text())
+    .then(fname => { saveNote.textContent = 'Tersimpan di board: ' + fname; })
+    .catch(() => { saveNote.textContent = 'Gagal simpan ke board, download lokal tetap jalan.'; });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'niskala_' + Date.now() + '.csv';

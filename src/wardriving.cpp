@@ -13,6 +13,7 @@ static bool scanRunning = false;
 static unsigned long lastHeartbeat = 0;
 static const unsigned long SCAN_INTERVAL_MS = 5000;
 static const unsigned long HEARTBEAT_MS = 10000;
+static String saveBuffer; // buffer untuk simpan CSV dari browser
 
 // Escape string untuk JSON. reserve() di luar fungsi caller untuk hindari fragmentasi.
 static void jsonEscapeTo(String& out, const String& s) {
@@ -97,6 +98,28 @@ void wardrivingSetup() {
   wardWS.onEvent(onWsEvent);
   wardServer.addHandler(&wardWS);
   wardServer.serveStatic("/", LittleFS, "/").setDefaultFile("wardriving.html");
+
+  // Simpan CSV (dikirim browser) ke LittleFS agar backup di board.
+  wardServer.on("/api/save", HTTP_POST,
+    [](AsyncWebServerRequest* request) {
+      String fname = "/niskala_" + String(millis()) + ".csv";
+      File f = LittleFS.open(fname, "w");
+      if (f) {
+        f.print(saveBuffer);
+        f.close();
+        request->send(200, "text/plain", fname);
+      } else {
+        request->send(500, "text/plain", "write failed");
+      }
+    },
+    NULL,
+    [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+      (void)request; (void)total;
+      if (index == 0) saveBuffer = "";
+      if (saveBuffer.length() + len <= 200000) {
+        saveBuffer.concat((char*)data, len);
+      }
+    });
   wardServer.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
     if (LittleFS.exists("/wardriving.html")) {
       request->send(LittleFS, "/wardriving.html", "text/html");
