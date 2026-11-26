@@ -84,8 +84,8 @@ void startEapolCapture() {
     drawHeader("EAPOL CAPTURE", TFT_ORANGE);
     tft.setTextFont(2);
     tft.setTextColor(TFT_RED, TFT_BLACK);
-    tft.setCursor(10, 40); tft.println("Target belum dipilih.");
-    tft.setCursor(10, 60); tft.println("Pilih AP dulu lewat");
+    tft.setCursor(10, 40); tft.println("Target not selected.");
+    tft.setCursor(10, 60); tft.println("Select an AP first");
     tft.setCursor(10, 80); tft.println("menu EAPOL CAPTURE.");
     delay(300);
     currentState = MAIN_MENU;

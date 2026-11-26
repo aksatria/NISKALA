@@ -106,7 +106,7 @@ void drawNetworkRecon() {
 
     if (g_reconOpenPortCount == 0) {
       tft.setCursor(10, 50);
-      tft.println("Tidak ada port terbuka.");
+      tft.println("No open ports.");
     } else {
       int rows = 5;
       for (int i = 0; i < g_reconOpenPortCount && i < rows; i++) {
@@ -129,15 +129,15 @@ void drawNetworkRecon() {}
 #if NISKALA_HAS_TFT
 void drawApWifiView() {
   tft.fillScreen(TFT_BLACK);
-  drawHeader("AP WIFI TERSIMPAN", TFT_DARKCYAN);
+  drawHeader("SAVED AP WIFI", TFT_DARKCYAN);
   tft.setTextFont(1);
 
   int count = apPrefs.getInt("count", 0);
   if (count == 0) {
     tft.setTextColor(TFT_RED, TFT_BLACK);
     tft.setCursor(10, 50);
-    tft.println("Belum ada kredensial.");
-    tft.println("Tambah via CLI:");
+    tft.println("No credentials yet.");
+    tft.println("Add via CLI:");
     tft.println("apwifi add <SSID> <PASS>");
     drawFooter("TOMBOL: Kembali");
     return;
@@ -206,7 +206,7 @@ void reconPortScan(int hostIdx) {
   tft.setCursor(10, 40);
   tft.print(g_reconSelectedIP.toString());
   tft.setCursor(10, 60);
-  tft.print("Mulai scan...");
+  tft.print("Scanning...");
 }
 
 void reconTick() {
@@ -240,8 +240,8 @@ void reconTick() {
     } else if (millis() - g_reconConnectStart > 12000) {
       tft.setTextColor(TFT_RED, TFT_BLACK);
       tft.setCursor(10, 60);
-      tft.println("Gagal konek WiFi.");
-      tft.println("Periksa password target.");
+      tft.println("WiFi connect failed.");
+      tft.println("Check target password.");
       stopNetworkRecon();
       currentState = MAIN_MENU;
       drawMainMenu();
@@ -285,7 +285,7 @@ void reconTick() {
       g_reconPhase = RECON_PHASE_BANNER;
       tft.fillRect(0, 60, 240, 12, TFT_BLACK);
       tft.setCursor(10, 60);
-      tft.print("Ambil banner...");
+      tft.print("Fetching banner...");
     }
   } else if (g_reconPhase == RECON_PHASE_BANNER) {
     if (g_reconBannerIndex < g_reconOpenPortCount) {
@@ -410,8 +410,8 @@ void startNetworkRecon() {
   tft.setCursor(10, 40);
 
   if (ssid.length() == 0) {
-    tft.println("SSID hidden/tidak valid.");
-    tft.println("Tidak bisa recon.");
+    tft.println("SSID hidden/invalid.");
+    tft.println("Cannot recon.");
     isReconRunning = false;
     currentState = MAIN_MENU;
     drawMainMenu();

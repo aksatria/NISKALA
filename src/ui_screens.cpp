@@ -448,7 +448,7 @@ void drawProbeSniff(int frame) {
   }
   if (count == 0) {
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    tft.setCursor(4, 45); tft.print("Menunggu probe");
+    tft.setCursor(4, 45); tft.print("Waiting for probes");
     for (int i = 0; i < (frame % 4); i++) tft.print(".");
   }
   tft.setTextColor(TFT_GREEN, TFT_BLACK);
@@ -747,7 +747,7 @@ void drawKarmaScan(int frame) {
   if (g_karmaSSIDCount == 0) {
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
     tft.setCursor(4, 90);
-    tft.print("Menunggu probe");
+    tft.print("Waiting for probes");
     for (int i = 0; i < (frame % 4); i++) tft.print(".");
   }
   drawFooter("TUNGGU / TOMBOL = BATAL");
@@ -971,7 +971,7 @@ void drawPacketMonitor() {
   if (count == 0) {
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
     tft.setCursor(4, 48);
-    tft.print("Belum ada deauth terdeteksi");
+    tft.print("No deauth detected yet");
   }
 
   tft.setTextColor(TFT_GREEN, TFT_BLACK);

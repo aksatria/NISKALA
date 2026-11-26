@@ -33,7 +33,7 @@ void drawClientMonitor() {
   if (g_clientCount == 0) {
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
     tft.setCursor(4, 48);
-    tft.print("Menunggu client terhubung...");
+    tft.print("Waiting for clients...");
   }
 
   int by = 40 + shown * 18 + 2;

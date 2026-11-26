@@ -13,7 +13,7 @@ void startCloudSync() {
 
   if (cfg_wifi_ssid.length() == 0 || cfg_server_url.length() == 0) {
     tft.setTextColor(TFT_RED, TFT_BLACK);
-    tft.setCursor(10, 40); tft.println("Belum dikonfigurasi.");
+    tft.setCursor(10, 40); tft.println("Not configured yet.");
     tft.setCursor(10, 60); tft.println("Isi WiFi & URL di");
     tft.setCursor(10, 80); tft.println("Web Remote > Config.");
     g_cloudPhase = CLOUD_PHASE_DONE;
@@ -43,9 +43,9 @@ void cloudSyncTick() {
       tft.setCursor(10, 105); tft.print("Connected. Mengirim...");
       Serial.println("[SYNC] Connected");
     } else if (millis() - g_cloudTimer > 12000) {
-      Serial.println("[SYNC] GAGAL konek WiFi");
+      Serial.println("[SYNC] WIFI CONNECT FAILED");
       tft.setTextColor(TFT_RED, TFT_BLACK);
-      tft.setCursor(10, 105); tft.println("GAGAL konek WiFi");
+      tft.setCursor(10, 105); tft.println("WIFI CONNECT FAILED");
       WiFi.disconnect();
       radioSetMode(RADIO_STA);
       g_cloudPhase = CLOUD_PHASE_DONE;
@@ -66,7 +66,7 @@ void cloudSyncTick() {
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.fillRect(0, 105, 240, 12, TFT_BLACK);
     tft.setCursor(10, 105);
-    if (code == 200) { tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println("SUKSES kirim data"); }
+    if (code == 200) { tft.setTextColor(TFT_GREEN, TFT_BLACK); tft.println("SEND OK"); }
     else { tft.setTextColor(TFT_RED, TFT_BLACK); tft.println("FAIL HTTP " + String(code)); }
 
     WiFi.disconnect();
@@ -97,7 +97,7 @@ void startFetchCustomTemplate() {
   }
 
   tft.fillScreen(TFT_BLACK);
-  drawHeader("AMBIL TEMPLATE", TFT_DARKCYAN);
+  drawHeader("FETCH TEMPLATE", TFT_DARKCYAN);
   tft.setTextFont(2);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.setCursor(10, 40); tft.println("Mengambil template");

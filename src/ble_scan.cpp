@@ -89,7 +89,7 @@ void drawBleScan() {
   if (g_bleScanSnapCount == 0) {
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
     tft.setCursor(4, 50);
-    tft.print("Menunggu perangkat BLE...");
+    tft.print("Waiting for BLE devices...");
   }
   tft.setTextColor(TFT_GREEN, TFT_BLACK);
   tft.setCursor(4, 108);
