@@ -17,8 +17,15 @@
   .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; background:var(--red); }
   .dot.ok { background:var(--green); }
   .dot.gps { background:var(--amber); }
+  .note { margin-top:10px; font-size:12px; color:var(--amber); min-height:16px; }
   button { width:100%; padding:13px; border-radius:12px; border:1px solid rgba(0,230,118,.4); background:rgba(0,230,118,.1); color:var(--green); font-weight:700; cursor:pointer; font-size:15px; }
   button:active { opacity:.8; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:12px; }
+  th, td { text-align:left; padding:6px 4px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; text-transform:uppercase; font-size:10px; }
+  .new { animation:flash .6s ease; }
+  @keyframes flash { 0% { background:rgba(0,230,118,.22); } 100% { background:transparent; } }
+  @media (max-width:380px) { .grid { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -30,7 +37,17 @@
       <div class="stat"><b id="gpsStatus" class="dot"></b><span>GPS Lock</span></div>
       <div class="stat"><b id="netCount">0</b><span>Networks</span></div>
     </div>
+    <div id="gpsNote" class="note"></div>
   </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 8px">5 Jaringan Terakhir</h3>
+    <table>
+      <thead><tr><th>SSID</th><th>Ch</th><th>RSSI</th><th>Auth</th></tr></thead>
+      <tbody id="recentTable"></tbody>
+    </table>
+  </div>
+
   <div class="card">
     <button onclick="downloadWigleCSV()">Download WiGLE CSV</button>
   </div>
@@ -38,50 +55,126 @@
 
 <script>
 'use strict';
+
 const networks = new Map();
 let lat = null, lng = null, alt = null, acc = null;
+let ws = null;
+let reconnectDelay = 1000; // exponential backoff mulai 1 detik
 
 const wsStatus = document.getElementById('wsStatus');
 const gpsStatus = document.getElementById('gpsStatus');
+const gpsNote = document.getElementById('gpsNote');
 const netCount = document.getElementById('netCount');
+const recentTable = document.getElementById('recentTable');
+
+function setGpsMessage(msg, ok) {
+  gpsNote.textContent = msg;
+  gpsNote.style.color = ok ? 'var(--green)' : 'var(--amber)';
+  gpsStatus.className = ok ? 'dot gps' : 'dot';
+}
 
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(proto + '//' + location.host + '/ws');
-  ws.onopen = () => { wsStatus.className = 'dot ok'; };
-  ws.onclose = () => { wsStatus.className = 'dot'; setTimeout(connectWS, 2000); };
+  ws = new WebSocket(proto + '//' + location.host + '/ws');
+
+  ws.onopen = () => {
+    wsStatus.className = 'dot ok';
+    reconnectDelay = 1000; // reset backoff saat berhasil
+  };
+
+  ws.onclose = () => {
+    wsStatus.className = 'dot';
+    scheduleReconnect();
+  };
+
   ws.onerror = () => ws.close();
+
   ws.onmessage = (ev) => {
     try {
       const d = JSON.parse(ev.data);
       if (!d.mac) return;
       const mac = d.mac.toLowerCase();
-      if (!networks.has(mac)) {
+      const isNew = !networks.has(mac);
+
+      if (isNew) {
         networks.set(mac, {
           mac: d.mac, ssid: d.ssid || '', enc: d.enc || 'UNKNOWN',
           ch: d.ch || 0, rssi: d.rssi || 0, firstSeen: new Date(),
           lat: lat, lng: lng, alt: alt, acc: acc
         });
+        addRecentRow(mac, true);
       } else {
         const n = networks.get(mac);
         n.rssi = d.rssi ?? n.rssi;
         n.ch = d.ch ?? n.ch;
         n.ssid = d.ssid ?? n.ssid;
+        updateRecentRow(mac);
       }
       netCount.textContent = networks.size;
     } catch (e) {}
   };
 }
 
+function scheduleReconnect() {
+  const delay = reconnectDelay;
+  reconnectDelay = Math.min(reconnectDelay * 2, 15000); // maks 15 detik
+  setTimeout(connectWS, delay);
+}
+
+function addRecentRow(mac, animate) {
+  const n = networks.get(mac);
+  const tr = document.createElement('tr');
+  tr.id = 'row-' + mac;
+  if (animate) tr.className = 'new';
+  tr.innerHTML = '<td>' + esc(n.ssid || '(hidden)') + '</td>' +
+                 '<td>' + esc(String(n.ch)) + '</td>' +
+                 '<td>' + esc(String(n.rssi)) + '</td>' +
+                 '<td>' + esc(n.enc) + '</td>';
+  recentTable.prepend(tr);
+  while (recentTable.rows.length > 5) recentTable.deleteRow(-1);
+}
+
+function updateRecentRow(mac) {
+  const tr = document.getElementById('row-' + mac);
+  if (!tr) return;
+  const n = networks.get(mac);
+  tr.cells[0].textContent = n.ssid || '(hidden)';
+  tr.cells[1].textContent = n.ch;
+  tr.cells[2].textContent = n.rssi;
+  tr.cells[3].textContent = n.enc;
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
 function startGPS() {
-  if (!('geolocation' in navigator)) { gpsStatus.className = 'dot'; return; }
+  if (!('geolocation' in navigator)) {
+    setGpsMessage('Geolocation tidak didukung browser ini. CSV akan tanpa GPS.', false);
+    return;
+  }
   navigator.geolocation.watchPosition(
     (pos) => {
-      lat = pos.coords.latitude; lng = pos.coords.longitude;
-      alt = pos.coords.altitude; acc = pos.coords.accuracy;
-      gpsStatus.className = 'dot gps';
+      lat = pos.coords.latitude;
+      lng = pos.coords.longitude;
+      alt = pos.coords.altitude;
+      acc = pos.coords.accuracy;
+      setGpsMessage('GPS terkunci: ' + lat.toFixed(6) + ', ' + lng.toFixed(6) + ' (±' + Math.round(acc) + 'm)', true);
     },
-    () => { gpsStatus.className = 'dot'; },
+    (err) => {
+      gpsStatus.className = 'dot';
+      if (err.code === err.PERMISSION_DENIED) {
+        setGpsMessage('Izin lokasi ditolak. Izinkan lokasi di browser, lalu muat ulang halaman.', false);
+      } else if (err.code === err.POSITION_UNAVAILABLE) {
+        setGpsMessage('Sinyal GPS tidak tersedia. CSV akan tanpa GPS.', false);
+      } else if (err.code === err.TIMEOUT) {
+        setGpsMessage('Timeout GPS. Masih mencoba...', false);
+      } else {
+        setGpsMessage('GPS error: ' + err.message, false);
+      }
+    },
     { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
   );
 }
@@ -93,7 +186,7 @@ function toWigleTime(d) {
 }
 
 function wigleAuth(enc) {
-  const e = (enc || '').toUpperCase();
+  const e = String(enc || '').toUpperCase();
   if (e.includes('WPA3')) return '[WPA3]';
   if (e.includes('WPA2')) return '[WPA2-PSK-CCMP]';
   if (e.includes('WPA'))  return '[WPA-PSK-CCMP]';
@@ -105,25 +198,31 @@ function downloadWigleCSV() {
   const meta = 'WigleWifi-1.4,NISKALA,WebRemote,1.0,ESP32,T-Display,Custom,Aksatria';
   const header = 'MAC,SSID,AuthMode,FirstSeen,Channel,RSSI,CurrentLatitude,CurrentLongitude,AltitudeMeters,AccuracyMeters,Type';
   const lines = [meta, header];
+
   networks.forEach((n) => {
+    const ssid = (n.ssid != null && n.ssid !== '') ? '"' + String(n.ssid).replace(/"/g, '""') + '"' : '';
+    const num = (v, dec) => (v == null || isNaN(v)) ? '' : Number(v).toFixed(dec);
     lines.push([
-      n.mac,
-      n.ssid ? '"' + n.ssid.replace(/"/g, '""') + '"' : '',
+      n.mac || '',
+      ssid,
       wigleAuth(n.enc),
-      toWigleTime(n.firstSeen),
-      n.ch, n.rssi,
-      n.lat != null ? n.lat.toFixed(7) : '',
-      n.lng != null ? n.lng.toFixed(7) : '',
-      n.alt != null ? n.alt.toFixed(2) : '',
-      n.acc != null ? Math.round(n.acc) : '',
+      toWigleTime(n.firstSeen || new Date()),
+      (n.ch != null ? n.ch : ''),
+      (n.rssi != null ? n.rssi : ''),
+      num(n.lat, 7),
+      num(n.lng, 7),
+      num(n.alt, 2),
+      (n.acc != null && !isNaN(n.acc)) ? Math.round(n.acc) : '',
       'WIFI'
     ].join(','));
   });
+
   const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'niskala_' + Date.now() + '.csv';
-  document.body.appendChild(a); a.click();
+  document.body.appendChild(a);
+  a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 
