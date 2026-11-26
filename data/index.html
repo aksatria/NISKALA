@@ -198,4 +198,35 @@ function start(m){if(!confirm('Jalankan modul '+m.toUpperCase()+'?\n\nWeb Remote
 function loadConfig(){apiFetch('/api/config').then(r=>r.json()).then(c=>{['deauth','auth','hop','beacon','reason','autosync'].forEach(k=>{if($('cfg_'+k))$('cfg_'+k).value=c[k]??0});$('cfg_wifi').value=c.wifi||'';$('cfg_wifipass').value=c.wifipass||'';$('cfg_url').value=c.url||'';$('cfg_tpl').value=c.tpl||''}).catch(()=>{})}
 function saveConfig(){const p=new URLSearchParams();[['deauth','cfg_deauth'],['auth','cfg_auth'],['hop','cfg_hop'],['beacon','cfg_beacon'],['reason','cfg_reason'],['wifi','cfg_wifi'],['wifipass','cfg_wifipass'],['url','cfg_url'],['tpl','cfg_tpl'],['autosync','cfg_autosync']].forEach(([k,id])=>p.set(k,$(id).value));apiFetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()}).then(()=>toast('Konfigurasi tersimpan')).catch(()=>toast('Gagal menyimpan konfigurasi'))}
 setMode('deauth');loadConfig();loadLog();setInterval(poll,3000);poll();
+</script><script>
+(function(){
+  var EN={
+    'Menu Cepat':'Quick Menu','Ketuk ikon':'Tap an icon','WiFi Scan':'WiFi Scan',
+    'Serangan':'Attacks','Modul':'Modules','Telemetry':'Telemetry','EAPOL':'EAPOL',
+    'Konfigurasi':'Config','Event Log':'Event Log','Terbaru':'Latest',
+    'Log masih kosong.':'Log is empty.','Scan WiFi':'Scan WiFi','Pasif':'Idle',
+    'Ketuk jaringan untuk memilih target.':'Tap a network to select target.',
+    'Mode Serangan':'Attack Mode','Belum ada target':'No target yet','Pilih di tab Scan':'Pick in Scan tab',
+    'Mode':'Mode','Paket':'Packets','Heap':'Heap','Baterai':'Battery','Suhu':'Temp',
+    'Uptime':'Uptime','Target aktif':'Active target','ONLINE':'ONLINE'
+  };
+  var ID={}; for(var k in EN){ID[k]=k;}
+  var L=localStorage.getItem('niskala_lang')||'id';
+  function t(s){return (L==='en'?EN:ID)[s]||s;}
+  function apply(){
+    var w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,null,false),n;
+    while(n=w.nextNode()){
+      var v=n.textContent.trim();
+      if(v && ((L==='en'&&EN[v])||(L==='id'&&ID[v]))){ n.textContent=n.textContent.replace(v,t(v)); }
+    }
+  }
+  function toggle(){L=(L==='en')?'id':'en';localStorage.setItem('niskala_lang',L);apply();btn.textContent=(L==='en')?'ID':'EN';}
+  var btn=document.createElement('button');
+  btn.textContent=(L==='en')?'ID':'EN';
+  btn.style.cssText='position:fixed;bottom:12px;right:12px;z-index:9999;background:rgba(0,230,118,.12);color:#00e676;border:1px solid rgba(0,230,118,.4);border-radius:12px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer';
+  btn.setAttribute('aria-label','Toggle language');
+  btn.addEventListener('click',toggle);
+  document.body.appendChild(btn);
+  apply();
+})();
 </script></body></html>
