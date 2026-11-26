@@ -779,9 +779,11 @@ void setup() {
   server.onNotFound(handleNotFound);
   setupWebRemote();
 
+#if NISKALA_HAS_TFT
   tft.init();
   tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
+#endif
 
   Serial.println("[1/4] Splash...");
 #if NISKALA_HAS_TFT
