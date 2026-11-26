@@ -5,6 +5,7 @@
 #include "wifi_state.h"
 
 bool isOtaRunning = false;
+#if NISKALA_HAS_TFT
 void drawOtaScreen() {
   tft.fillScreen(TFT_BLACK);
   drawHeader("OTA UPDATE", TFT_DARKCYAN);
@@ -22,6 +23,10 @@ void drawOtaScreen() {
   tft.setCursor(10, 96); tft.print("pio run -e ota -t upload");
   drawFooter("TOMBOL = KELUAR");
 }
+#else
+void drawOtaScreen() {}
+
+#endif
 
 void startOTA() {
   radioSetMode(RADIO_AP);

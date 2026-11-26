@@ -502,6 +502,11 @@ Artinya: idle, 0 paket, heap 138KB, baterai 100%, suhu 90C, stack 3060 byte, cha
 
 # 10. Web Remote (Lengkap)
 
+> [!NOTE]
+> Sejak v3.2, UI Web Remote disimpan di filesystem LittleFS (`data/index.html`).
+> Setelah upload firmware, jalankan juga `pio run -e ttgo-t-display -t uploadfs`
+> agar antarmuka web tersedia. Tanpa itu, halaman akan menampilkan fallback.
+
 1. Pilih menu `WEB REMOTE`.
 2. Hubungkan HP/laptop ke WiFi **`NISKALA_CTRL`** (password `niskala123`).
 3. Buka browser ke **`http://192.168.4.1/rc`**.

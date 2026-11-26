@@ -13,6 +13,8 @@
 #include "ui_icons.h"
 #include "templates.h"
 #include "pins.h"
+#include "packet_monitor.h"
+#include "oui.h"
 
 #define MAX_VERIFY_ATTEMPTS 5
 
@@ -41,6 +43,29 @@ extern unsigned long karmaScanStart;
 extern int karmaScrollPos;
 extern int karmaSelection;
 
+const char* vendorFromMacBytes(const uint8_t* m) {
+  return ouiVendorFromMac(m);
+}
+const char* vendorFromMacStr(const char* macStr) {
+  int a[6] = {0};
+  sscanf(macStr, "%x:%x:%x:%x:%x:%x", &a[0], &a[1], &a[2], &a[3], &a[4], &a[5]);
+  uint8_t m[6] = {(uint8_t)a[0], (uint8_t)a[1], (uint8_t)a[2], (uint8_t)a[3], (uint8_t)a[4], (uint8_t)a[5]};
+  return vendorFromMacBytes(m);
+}
+
+void sortKarmaSSIDs() {
+  for (int i = 0; i < g_karmaSSIDCount - 1; i++) {
+    for (int j = i + 1; j < g_karmaSSIDCount; j++) {
+      if (g_karmaSSIDs[j].probeCount > g_karmaSSIDs[i].probeCount) {
+        KarmaSSIDEntry tmp = g_karmaSSIDs[i];
+        g_karmaSSIDs[i] = g_karmaSSIDs[j];
+        g_karmaSSIDs[j] = tmp;
+      }
+    }
+  }
+}
+
+#if NISKALA_HAS_TFT
 void drawGlowText(String text, int x, int y, uint16_t mainColor, uint16_t glowColor) {
   tft.setTextColor(glowColor);
   tft.drawString(text, x+1, y); tft.drawString(text, x-1, y);
@@ -194,41 +219,57 @@ void drawAPList() {
   drawHeader("PILIH TARGET AP", TFT_NAVY);
 
   int idx = selectedIdx;
-  tft.setTextDatum(MC_DATUM);
+  tft.setTextDatum(TL_DATUM);
 
   if (idx < apCount) {
     int rssi = WiFi.RSSI(idx);
-    drawSignalBars(120, 30, rssi, TFT_CYAN);
+    drawSignalBars(120, 18, rssi, TFT_CYAN);
 
     String ssid = WiFi.SSID(idx);
     bool hidden = (ssid.length() == 0);
-    if (hidden) {
-      ssid = "(HIDDEN)";
-    } else if (ssid.length() > 12) {
-      ssid = ssid.substring(0, 12);
+    if (hidden) ssid = "(HIDDEN)";
+
+    // Nama SSID dengan font besar (26px), pecah max 2 baris biar
+    // akhiran nama tetap terbaca tanpa terpotong.
+    tft.setTextFont(4);
+    String l1 = ssid, l2 = "";
+    if (tft.textWidth(ssid) > 220) {
+      int cut = ssid.length();
+      while (cut > 1 && tft.textWidth(ssid.substring(0, cut)) > 220) cut--;
+      int sp = ssid.lastIndexOf(' ', cut);
+      if (sp > 4) cut = sp;
+      l1 = ssid.substring(0, cut);
+      l2 = ssid.substring(cut);
+      while (l2.length() > 0 && tft.textWidth(l2) > 220) l2 = l2.substring(0, l2.length() - 1);
     }
 
-    tft.setTextFont(4);
-    tft.setTextColor(hidden ? TFT_ORANGE : TFT_CYAN, TFT_BLACK);
-    tft.drawString(ssid, 120, 58);
+    uint16_t col = hidden ? TFT_ORANGE : TFT_CYAN;
+    tft.setTextColor(col, TFT_BLACK);
+    if (l2.length() == 0) {
+      tft.setTextDatum(MC_DATUM);
+      tft.drawString(l1, 120, 62);
+      tft.setTextDatum(TL_DATUM);
+    } else {
+      tft.drawString(l1, 10, 44);
+      tft.drawString(l2, 10, 70);
+    }
+
+    tft.setTextFont(1);
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    tft.drawString("CH " + String(WiFi.channel(idx)) + "  " + String(rssi) + " dBm", 10, 98);
+
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.drawString(WiFi.BSSIDstr(idx), 10, 110);
+  } else {
+    drawBackIcon(28, 46, TFT_GREEN);
 
     tft.setTextFont(2);
-    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-    tft.drawString("CH " + String(WiFi.channel(idx)) + "  |  " + String(rssi) + " dBm", 120, 84);
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.drawString("KEMBALI", 44, 42);
 
     tft.setTextFont(1);
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    tft.drawString(WiFi.BSSIDstr(idx), 120, 104);
-  } else {
-    drawBackIcon(110, 46, TFT_GREEN);
-
-    tft.setTextFont(4);
-    tft.setTextColor(TFT_GREEN, TFT_BLACK);
-    tft.drawString("KEMBALI", 120, 68);
-
-    tft.setTextFont(2);
-    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    tft.drawString("ke menu utama", 120, 100);
+    tft.drawString("ke menu utama", 44, 60);
   }
 
   tft.setTextDatum(TL_DATUM);
@@ -376,49 +417,6 @@ void drawBeaconSpam(int frame) {
 }
 
 // [FIX] snapshot probe log dengan critical section
-const char* vendorFromMacBytes(const uint8_t* m) {
-  uint32_t oui = ((uint32_t)m[0] << 16) | ((uint32_t)m[1] << 8) | m[2];
-  switch (oui) {
-    case 0xACBC32: case 0x8C8590: case 0xF01898: case 0x308D99: case 0x3C22FB:
-      return "Apple";
-    case 0x8C0D76: case 0xCC07AB: case 0x3C64EA:
-      return "Samsung";
-    case 0x640980: case 0x7811DC: case 0xF0B429: case 0x8C4B14:
-      return "Xiaomi";
-    case 0x00E0FC: case 0x286ED4: case 0xD80BCB:
-      return "Huawei";
-    case 0x546009: case 0x3C5AB4:
-      return "Google";
-    case 0x0050F2: case 0x2816A8:
-      return "Microsoft";
-    case 0x001302: case 0x340286:
-      return "Intel";
-    case 0x50C7BF: case 0xA42BB0:
-      return "TP-Link";
-    case 0x502B98: case 0x086438:
-      return "Realme";
-    case 0x08D46A: case 0x702C1F:
-      return "Oppo";
-    case 0x241177: case 0x7802F8:
-      return "Vivo";
-    case 0x0024BE: case 0x405BAD:
-      return "Sony";
-    case 0x0C8BFD: case 0xE05B70:
-      return "OnePlus";
-    case 0x0015EB: case 0x286C07:
-      return "ZTE";
-    default:
-      return "Unknown";
-  }
-}
-
-const char* vendorFromMacStr(const char* macStr) {
-  int a[6] = {0};
-  sscanf(macStr, "%x:%x:%x:%x:%x:%x", &a[0], &a[1], &a[2], &a[3], &a[4], &a[5]);
-  uint8_t m[6] = {(uint8_t)a[0], (uint8_t)a[1], (uint8_t)a[2], (uint8_t)a[3], (uint8_t)a[4], (uint8_t)a[5]};
-  return vendorFromMacBytes(m);
-}
-
 void drawProbeSniff(int frame) {
   tft.fillScreen(TFT_BLACK);
   drawHeader("PROBE SNIFFER", TFT_DARKCYAN);
@@ -698,18 +696,6 @@ void drawViewPasswords() {
 // ═══════════════════════════════════════════════
 // Karma UI
 // ═══════════════════════════════════════════════
-void sortKarmaSSIDs() {
-  for (int i = 0; i < g_karmaSSIDCount - 1; i++) {
-    for (int j = i + 1; j < g_karmaSSIDCount; j++) {
-      if (g_karmaSSIDs[j].probeCount > g_karmaSSIDs[i].probeCount) {
-        KarmaSSIDEntry tmp = g_karmaSSIDs[i];
-        g_karmaSSIDs[i] = g_karmaSSIDs[j];
-        g_karmaSSIDs[j] = tmp;
-      }
-    }
-  }
-}
-
 void drawKarmaScan(int frame) {
   tft.fillScreen(TFT_BLACK);
   drawHeader("KARMA SCAN", TFT_MAGENTA);
@@ -894,48 +880,53 @@ void drawTiltedOrbit(int cx, int cy, int rx, int ry, float angle, uint16_t color
 }
 
 void drawButterflyScreensaver(int frame) {
-  static const uint16_t BF_COLORS[] = { TFT_RED, TFT_GREEN, TFT_CYAN, TFT_MAGENTA, TFT_YELLOW, TFT_ORANGE, TFT_WHITE, TFT_BLUE };
-  static const int BF_COUNT = 10;
-  struct Bfly { float x; float y; float vx; float vy; float phase; uint16_t color; };
-  static Bfly b[BF_COUNT];
-  static bool bInit = false;
-  if (!bInit) {
-    for (int i = 0; i < BF_COUNT; i++) {
-      b[i].x = random(20, 220);
-      b[i].y = random(20, 110);
-      b[i].vx = ((random(100) - 50) / 18.0f);
-      b[i].vy = ((random(100) - 50) / 18.0f);
-      if (b[i].vx == 0) b[i].vx = 0.6f;
-      if (b[i].vy == 0) b[i].vy = 0.4f;
-      b[i].phase = random(628) / 100.0f;
-      b[i].color = BF_COLORS[i % 8];
+  // Matrix digital rain — nuansa hacker, cocok dengan tema NISKALA.
+  const int COLS = 40;                 // 240px / 6px per char
+  const int ROWS = 16;                 // ~135px / 8px per char
+  static int head[COLS];               // baris kepala tetesan saat ini
+  static float speed[COLS];            // kecepatan jatuh per kolom
+  static int len[COLS];                // panjang ekor per kolom
+  static bool init = false;
+
+  if (!init) {
+    for (int c = 0; c < COLS; c++) {
+      head[c] = random(-ROWS, 0);
+      speed[c] = 0.25f + (random(100) / 100.0f) * 0.85f;
+      len[c] = 3 + random(7);
     }
-    bInit = true;
+    init = true;
   }
 
   tft.fillScreen(TFT_BLACK);
-  for (int i = 0; i < BF_COUNT; i++) {
-    b[i].x += b[i].vx;
-    b[i].y += b[i].vy;
-    if (b[i].x < 8) { b[i].x = 8; b[i].vx = -b[i].vx; }
-    if (b[i].x > 232) { b[i].x = 232; b[i].vx = -b[i].vx; }
-    if (b[i].y < 8) { b[i].y = 8; b[i].vy = -b[i].vy; }
-    if (b[i].y > 110) { b[i].y = 110; b[i].vy = -b[i].vy; }
+  tft.setTextFont(1);
 
-    int x = (int)b[i].x;
-    int y = (int)b[i].y;
-    float flap = sin((float)frame * 0.35f + b[i].phase) * 4.0f;
-    int w = (int)flap + 3;
-    uint16_t col = b[i].color;
+  for (int c = 0; c < COLS; c++) {
+    // majukan kepala tetesan
+    head[c] += 1;
+    if ((int)(head[c] - speed[c] * ROWS) > ROWS + len[c]) {
+      head[c] = random(-ROWS, 0);
+      speed[c] = 0.25f + (random(100) / 100.0f) * 0.85f;
+      len[c] = 3 + random(7);
+    }
 
-    tft.drawLine(x - 2, y, x + 2, y, col);
-    tft.fillTriangle(x - 1, y, x - 5, y - w, x - 9, y, col);
-    tft.fillTriangle(x + 1, y, x + 5, y - w, x + 9, y, col);
-    tft.fillTriangle(x - 1, y, x - 4, y + w, x - 8, y, col);
-    tft.fillTriangle(x + 1, y, x + 4, y + w, x + 8, y, col);
+    int x = c * 6;
+    for (int k = 0; k < len[c]; k++) {
+      int row = head[c] - k;
+      if (row < 0 || row >= ROWS) continue;
+      int y = row * 8 + 16;
+      uint16_t col;
+      if (k == 0) col = TFT_GREEN;                       // kepala terang
+      else if (k == 1) col = TFT_DARKGREEN;              // ekor dekat
+      else col = 0x0400;                                 // ekor jauh (hijau redup)
+      char ch = (random(100) < 20) ? (char)('0' + random(10))
+                                    : (char)('A' + random(26));
+      tft.setTextColor(col, TFT_BLACK);
+      tft.setCursor(x, y);
+      tft.print(ch);
+    }
   }
 
-  tft.setTextFont(1);
+  // Footer status (tetap informatif)
   tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
   tft.setCursor(4, 122);
   tft.print("IDLE  BAT:");
@@ -943,3 +934,82 @@ void drawButterflyScreensaver(int frame) {
   tft.print("%  H:");
   tft.print(ESP.getFreeHeap());
 }
+
+void drawPacketMonitor() {
+  tft.fillScreen(TFT_BLACK);
+  drawHeader("PACKET MONITOR", TFT_RED);
+  tft.setTextFont(1); tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+  tft.setCursor(4, 28); tft.print("SRC->DST        RSN  CH  RSSI");
+
+  PmEvent snapshot[4];
+  int count = 0;
+  int show = 0;
+  portENTER_CRITICAL(&g_pmMux);
+  count = g_pmCount;
+  int head = g_pmHead;
+  show = (count < 4) ? count : 4;
+  for (int i = 0; i < show; i++) {
+    int idx = (head - show + i + PM_LOG_SIZE) % PM_LOG_SIZE;
+    snapshot[i] = g_pmLog[idx];
+  }
+  portEXIT_CRITICAL(&g_pmMux);
+
+  for (int i = 0; i < show; i++) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%02X:%02X..%02X:%02X  %c%2d  %2d %4d",
+             snapshot[i].src[0], snapshot[i].src[1],
+             snapshot[i].dst[4], snapshot[i].dst[5],
+             snapshot[i].isDisassoc ? 'D' : 'A',
+             snapshot[i].reason,
+             snapshot[i].channel,
+             snapshot[i].rssi);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setCursor(4, 42 + (i * 18));
+    tft.print(buf);
+  }
+
+  if (count == 0) {
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setCursor(4, 48);
+    tft.print("Belum ada deauth terdeteksi");
+  }
+
+  tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  tft.setCursor(4, 108);
+  tft.print("Total: " + String(count));
+  drawFooter("TOMBOL = KEMBALI");
+}
+#else // !NISKALA_HAS_TFT
+
+// Stub headless: tidak ada layar TFT, fungsi UI menjadi no-op.
+void drawGlowText(String, int, int, uint16_t, uint16_t) {}
+void drawCornerBrackets(int, int, int, int, uint16_t) {}
+void drawElegantSplash() {}
+void drawScanAnimation(int) {}
+void drawMainMenu() {}
+void drawSignalBars(int, int, int, uint16_t) {}
+void drawBackIcon(int, int, uint16_t) {}
+void drawTemplateIconBig(int, int, int, uint16_t) {}
+void drawAPList() {}
+void drawTemplateSelect() {}
+void drawEvilTwinModeSelect() {}
+void drawDeauthMenu() {}
+void drawAuthFlood(int) {}
+void drawGlobalDeauth(int) {}
+void drawBeaconSpam(int) {}
+void drawProbeSniff(int) {}
+void drawBTSpam(int) {}
+void drawCSARunning(int) {}
+int drawWrapped(String, int, int, int, uint16_t, int) { return 0; }
+void drawEvilTwinRunning(int) {}
+void drawViewPasswords() {}
+void drawKarmaScan(int) {}
+void drawKarmaResults() {}
+void drawWebRemoteScreen() {}
+void drawPmfResultScreen(bool, bool) {}
+void setBacklight(uint8_t) {}
+void drawTiltedOrbit(int, int, int, int, float, uint16_t) {}
+void drawButterflyScreensaver(int) {}
+void drawPacketMonitor() {}
+
+#endif // !NISKALA_HAS_TFT

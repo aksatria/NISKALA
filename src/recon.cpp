@@ -60,6 +60,7 @@ bool pingHost(IPAddress ip, uint32_t timeout_ms) {
   return g_pingOK;
 }
 
+#if NISKALA_HAS_TFT
 void drawNetworkRecon() {
   tft.fillScreen(TFT_BLACK);
   drawHeader("NETWORK RECON", TFT_NAVY);
@@ -120,7 +121,13 @@ void drawNetworkRecon() {
     }
     drawFooter("TOMBOL: Kembali");
   }
-}void drawApWifiView() {
+}
+#else
+void drawNetworkRecon() {}
+
+#endif
+#if NISKALA_HAS_TFT
+void drawApWifiView() {
   tft.fillScreen(TFT_BLACK);
   drawHeader("AP WIFI TERSIMPAN", TFT_DARKCYAN);
   tft.setTextFont(1);
@@ -180,6 +187,10 @@ void drawNetworkRecon() {
     drawFooter("ATAS:Pilih | BAWAH:Hapus/Kembali");
   }
 }
+#else
+void drawApWifiView() {}
+
+#endif
 
 void reconPortScan(int hostIdx) {
   if (hostIdx < 0 || hostIdx >= g_reconHostCount) return;

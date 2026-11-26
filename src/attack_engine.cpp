@@ -1,4 +1,5 @@
 #include "attack_engine.h"
+#include "packet_monitor.h"
 #include "freertos/FreeRTOS.h"
 
 const char* SPAM_SSIDS[] = {
@@ -287,6 +288,15 @@ void packetSniffer_cb(void* buf, wifi_promiscuous_pkt_type_t type) {
 
   if (type == WIFI_PKT_MGMT) {
     uint8_t subtype = (p[0] >> 4) & 0x0F;
+
+    // Deteksi deauthentication/disassociation frame di sekitar (passive monitor).
+    if (subtype == 0x0C || subtype == 0x0A) {
+      if (sig_len >= 26) {
+        uint16_t reason = (uint16_t)p[24] | ((uint16_t)p[25] << 8);
+        packetMonitorLog(subtype == 0x0A, &p[10], &p[4],
+                         (uint8_t)reason, pkt->rx_ctrl.channel, pkt->rx_ctrl.rssi);
+      }
+    }
 
     if (getAttackMode() == ATK_PROBE) {
       if (subtype != 4) return;

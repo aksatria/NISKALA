@@ -37,5 +37,6 @@ void drawPmfResultScreen(bool pmf, bool found);
 void setBacklight(uint8_t duty);
 void drawTiltedOrbit(int cx, int cy, int rx, int ry, float angle, uint16_t color);
 void drawButterflyScreensaver(int frame);
+void drawPacketMonitor();
 
 #endif

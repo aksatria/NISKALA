@@ -3,6 +3,7 @@
 #include "state_machine.h"
 #include "attack_engine.h"
 #include "web_remote.h"
+#if NISKALA_HAS_TFT
 void drawMacroMenu() {
   tft.fillScreen(TFT_BLACK);
   drawHeader("MACRO", TFT_PURPLE);
@@ -23,6 +24,10 @@ void drawMacroMenu() {
   }
   drawFooter("ATAS: Pilih | BAWAH: Jalankan");
 }
+#else
+void drawMacroMenu() {}
+
+#endif
 
 const char* macroStepName(uint8_t a) {
   switch (a) {
@@ -36,6 +41,7 @@ const char* macroStepName(uint8_t a) {
   }
 }
 
+#if NISKALA_HAS_TFT
 void drawMacroRunning(int frame) {
   (void)frame;
   const MacroStep* steps = (macroIndex == 0) ? MACRO_RECON : (macroIndex == 1 ? MACRO_ASSAULT : MACRO_HANDSHAKE);
@@ -65,6 +71,10 @@ void drawMacroRunning(int frame) {
   tft.print("  H:"); tft.print(ESP.getFreeHeap());
   drawFooter("TOMBOL = HENTIKAN MACRO");
 }
+#else
+void drawMacroRunning(int) {}
+
+#endif
 
 void macroStartStep(uint8_t a) {
   switch (a) {

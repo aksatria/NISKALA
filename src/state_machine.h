@@ -36,7 +36,8 @@ enum State {
   RECON,
   EAPOL_CAPTURE_RUNNING,
   SMART_PROFILE,
-  APWIFI_VIEW
+  APWIFI_VIEW,
+  PM_MONITOR
 };
 
 extern State currentState;

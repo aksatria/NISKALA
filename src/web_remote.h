@@ -2,11 +2,14 @@
 #define WEB_REMOTE_H
 
 #include <WebServer.h>
+#include <FS.h>
+#include <LittleFS.h>
 #include <WiFi.h>
 #include <Preferences.h>
 #include "attack_engine.h"
 #include "web_utils.h"
 #include "web_ui.h"
+#include "packet_monitor.h"
 #include "radio_manager.h"
 #include "wifi_state.h"
 
@@ -97,6 +100,21 @@ inline String wifiAuthName(int auth) {
 // HTML UI
 
 
+// Sajikan UI utama dari LittleFS; fallback ke string firmware jika file belum ada.
+inline void serveRemoteUI() {
+  if (LittleFS.begin(false) || LittleFS.begin(true)) {
+    if (LittleFS.exists("/index.html")) {
+      fs::File f = LittleFS.open("/index.html", "r");
+      if (f) {
+        server.streamFile(f, "text/html");
+        f.close();
+        return;
+      }
+    }
+  }
+  server.send_P(200, "text/html", HTML_REMOTE_FALLBACK);
+}
+
 inline void setupWebRemote() {
   // Halaman utama remote control
   server.on("/rc", []() {
@@ -105,7 +123,7 @@ inline void setupWebRemote() {
       server.send(302, "text/plain", "");
       return;
     }
-    server.send_P(200, "text/html", HTML_REMOTE);
+    serveRemoteUI();
   });
 
   // Status live untuk UI
@@ -372,6 +390,13 @@ inline void setupWebRemote() {
     REQUIRE_WEB_AUTH();
     REQUIRE_WEB_MODE();
     server.send(200, "text/plain", dumpEventLog());
+  });
+
+  // Packet monitor: deteksi deauth/disassoc di sekitar
+  server.on("/api/pm", []() {
+    REQUIRE_WEB_AUTH();
+    REQUIRE_WEB_MODE();
+    server.send(200, "application/json", packetMonitorJson());
   });
 
   // EAPOL status/export

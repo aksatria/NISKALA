@@ -2,6 +2,7 @@
 #include "ui_helpers.h"
 #include "state_machine.h"
 #include "ui_screens.h"
+#include "board_hal.h"
 #include "attack_engine.h"
 #include "wifi_state.h"
 #include "recon.h"
@@ -30,6 +31,7 @@ static const char* authName(wifi_auth_mode_t m) {
   }
 }
 
+#if NISKALA_HAS_TFT
 void drawSmartProfile() {
   tft.fillScreen(TFT_BLACK);
   drawHeader("SMART PROFILE", TFT_PURPLE);
@@ -64,6 +66,10 @@ void drawSmartProfile() {
 
   drawFooter("ATAS=Batal | BAWAH=Jalankan");
 }
+#else
+void drawSmartProfile() {}
+
+#endif
 
 void startSmartRecommendedAttack() {
   stopAllAttacks();
@@ -149,7 +155,7 @@ static bool detectPMFExact(const uint8_t* bssid, uint8_t channel) {
 
   unsigned long start = millis();
   while (!g_pmfFound && (millis() - start) < 1200) {
-    if (digitalRead(BTN_TOP) == LOW || digitalRead(BTN_BOTTOM) == LOW) break;
+    if (btnTopPressed() || btnBottomPressed()) break;
     delay(10);
   }
 

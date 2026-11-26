@@ -4,6 +4,7 @@
 #include "attack_engine.h"
 #include "state_machine.h"
 #include "web_remote.h"
+#if NISKALA_HAS_TFT
 void drawClientMonitor() {
   tft.fillScreen(TFT_BLACK);
   drawHeader("CLIENT MONITOR", TFT_MAGENTA);
@@ -47,6 +48,10 @@ void drawClientMonitor() {
 
   drawFooter("ATAS: Pilih | BAWAH: Deauth/Kembali");
 }
+#else
+void drawClientMonitor() {}
+
+#endif
 
 void startClientMonitor() {
   if (isWebRemoteRunning) {

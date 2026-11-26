@@ -13,6 +13,7 @@
 #include "allowlist.h"
 #include "client_monitor.h"
 #include "ui_screens.h"
+#include "packet_monitor.h"
 
 static String cliBuf = "";
 int hexNibble(char c) {
@@ -74,6 +75,7 @@ void cliPrintHelp() {
   Serial.println("  ble-eddy");
   Serial.println("  config get | config set <ssid|pass|url|tpl> <nilai>");
   Serial.println("  apwifi add <SSID> <PASS> | apwifi list | apwifi del <index>");
+  Serial.println("  pm [clear]   tampilkan/hapus log deteksi deauth (packet monitor)");
   Serial.println("  reboot");
 }
 
@@ -357,6 +359,16 @@ void processCliCommand(String line) {
   else if (cmd == "sync" || cmd == "cloudsync") {
     Serial.println("[CLI] Mulai Cloud Sync...");
     startCloudSync();
+  }
+  else if (cmd == "pm" || cmd == "packetmonitor") {
+    arg.trim();
+    arg.toLowerCase();
+    if (arg == "clear") {
+      packetMonitorClear();
+      Serial.println("[PM] Log deauth/disassoc dibersihkan");
+    } else {
+      Serial.println(packetMonitorJson());
+    }
   }
   else if (cmd == "export") {
     Serial.println(buildSyncJson());

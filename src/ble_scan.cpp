@@ -65,6 +65,7 @@ static BleScanCallbacks g_bleScanCB;
 
 BLEScan* g_bleScan = nullptr;
 
+#if NISKALA_HAS_TFT
 void drawBleScan() {
   snapshotBleScan();
   tft.fillScreen(TFT_BLACK);
@@ -95,6 +96,10 @@ void drawBleScan() {
   tft.print("Total: " + String(g_bleScanSnapCount));
   drawFooter("TOMBOL = STOP");
 }
+#else
+void drawBleScan() {}
+
+#endif
 
 void startBLEScan() {
   radioSetMode(RADIO_OFF);

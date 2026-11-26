@@ -132,6 +132,7 @@ void eapolCaptureTick() {
   }
 }
 
+#if NISKALA_HAS_TFT
 void drawEapolCapture(int frame) {
   (void)frame;
   tft.fillScreen(TFT_BLACK);
@@ -164,6 +165,10 @@ void drawEapolCapture(int frame) {
 
   drawFooter("TOMBOL = STOP");
 }
+#else
+void drawEapolCapture(int) {}
+
+#endif
 
 String buildEapolJson() {
   String j = "{\"target\":\"" + String(targetSSID) + "\",";
