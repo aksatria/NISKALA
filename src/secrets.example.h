@@ -8,5 +8,7 @@
 #define NISKALA_WIFI_PASS    ""
 #define NISKALA_SYNC_API_KEY ""
 #define NISKALA_WEB_PASS    ""
+#define NISKALA_WIGLE_API_NAME  ""
+#define NISKALA_WIGLE_API_TOKEN ""
 
 #endif

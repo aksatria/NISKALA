@@ -15,6 +15,7 @@
 #include "ui_screens.h"
 #include "config_store.h"
 #include "wardriving.h"
+#include "wigle_upload.h"
 #include "target_store.h"
 #include "script_runner.h"
 extern String g_lang;
@@ -81,6 +82,7 @@ void cliPrintHelp() {
     Serial.println("  pm [clear]   show/clear deauth detection log (packet monitor)");
     Serial.println("  lang id | lang en");
   Serial.println("  wardriving [stop]   mulai/hentikan Wardriving Web Remote");
+  Serial.println("  wigle <file.csv>    upload CSV tersimpan ke WiGLE.net");
     Serial.println("  reboot");
     return;
   }
@@ -98,6 +100,7 @@ void cliPrintHelp() {
   Serial.println("  pm [clear]   tampilkan/hapus log deteksi deauth (packet monitor)");
   Serial.println("  lang id | lang en");
   Serial.println("  wardriving [stop]   mulai/hentikan Wardriving Web Remote");
+  Serial.println("  wigle <file.csv>    upload CSV tersimpan ke WiGLE.net");
   Serial.println("  reboot");
 }
 
@@ -336,6 +339,22 @@ void processCliCommand(String line) {
     } else {
       Serial.println("[PRESET] Pilihan tidak dikenal. Gunakan: aggressive | normal | stealth");
     }
+  }
+  else if (cmd == "wigle") {
+    arg.trim();
+    if (arg.length() == 0) { Serial.println("[WIGLE] Gunakan: wigle <file.csv>"); return; }
+    String path = (arg[0] == '/') ? arg : "/" + arg;
+    Serial.printf("[WIGLE] Menghubungkan WiFi %s...\n", cfg_wifi_ssid.c_str());
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.begin(cfg_wifi_ssid.c_str(), cfg_wifi_pass.c_str());
+    unsigned long t = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - t < 15000) delay(100);
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("[WIGLE] Gagal konek WiFi (periksa config ssid/pass)");
+      return;
+    }
+    bool ok = wigleUploadFile(path);
+    Serial.println(ok ? "[WIGLE] Upload sukses" : "[WIGLE] Upload gagal");
   }
   else if (cmd == "wardriving") {
     arg.trim(); arg.toLowerCase();
